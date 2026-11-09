@@ -32,13 +32,15 @@ elseif(APPLE)
     target_sources(mydear PRIVATE
         src/macos/app.mm
         src/macos/metal_backend.mm
+        src/macos/native_button.mm
         src/apple/native_view.mm
         src/native_view.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm
     )
     # arc for both: they share MetalBackend, whose id members must be owned one way
-    set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm src/apple/native_view.mm
+    set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm src/macos/native_button.mm
+                                src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(mydear PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
