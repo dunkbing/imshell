@@ -286,4 +286,10 @@ namespace mydear {
     void* App::nativeWindow() const {
         return impl_->window ? (__bridge void*)glfwGetCocoaWindow(impl_->window) : nullptr;
     }
+
+    void* App::nativeView() const {
+        return impl_->window
+                   ? (__bridge void*)((NSWindow*)glfwGetCocoaWindow(impl_->window)).contentView
+                   : nullptr;
+    }
 } // namespace mydear

@@ -45,7 +45,8 @@ namespace mydear {
     };
 
     // one window per app. run() is the whole loop; a host that drives frames itself
-    // (a test engine) calls pollEvents() and renderFrame() instead
+    // (a test engine) calls pollEvents() and renderFrame() instead. on ios uikit runs the
+    // loop: start with RunUIKit (mydear/ios.h) and create() from the root controller
     class App {
     public:
         App();
@@ -67,8 +68,10 @@ namespace mydear {
         ImTextureID createTexture(const uint8_t* rgba, int width, int height);
 
         GLFWwindow* glfwWindow() const;
-        // NSWindow* on macos
+        // NSWindow* on macos, UIWindow* on ios
         void* nativeWindow() const;
+        // the view imgui draws into: NSView* (the window's content view) on macos, MTKView* on ios
+        void* nativeView() const;
 
     private:
         struct Impl;

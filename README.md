@@ -4,7 +4,7 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 
 ## What it has
 
-- **Platform shell** (`mydear/app.hpp`): `mydear::App` opens the native window, sets up the graphics backend and the Dear ImGui platform and renderer backends, and runs a frame loop that idles when nothing happens; the app implements `mydear::Delegate` (`frame()`, plus `setup()`, `openFile()` for dropped or opened files, `wantsFrames()`, `shouldQuit()`). A test engine can drive frames itself with `pollEvents()` / `renderFrame()`. macOS (GLFW + Metal) is done, with offscreen frame capture and video recording; iOS, Windows and Linux are next.
+- **Platform shell** (`mydear/app.hpp`): `mydear::App` opens the native window, sets up the graphics backend and the Dear ImGui platform and renderer backends, and runs a frame loop that idles when nothing happens; the app implements `mydear::Delegate` (`frame()`, plus `setup()`, `openFile()` for dropped or opened files, `wantsFrames()`, `shouldQuit()`). A test engine can drive frames itself with `pollEvents()` / `renderFrame()`. macOS (GLFW + Metal) is done, with offscreen frame capture and video recording. On iOS UIKit runs the loop: `main()` calls `mydear::RunUIKit(argc, argv, rootClass)` (`mydear/ios.h`), the root controller (`MydearViewController` or a subclass that adds native chrome) owns the Metal view, and the app calls `create()` from its `loadView`; touch (tap, long press as right click or edit menu, drag to scroll with momentum, pointer hover), the hardware and soft keyboard through `UITextInput` (IME, space-bar cursor) and the clipboard come with it. Windows and Linux are next.
 - **Title bar** (`mydear/title_bar.hpp`, with `Config::titleBar`): the app draws its own bar with ImGui between `BeginTitleBar()` and `EndTitleBar()`, and lays the rest out below `TitleBarHeight()`. mydear keeps the OS buttons in place (`leftInset` / `rightInset` say where they are), makes empty bar space drag the window, and makes a double-click zoom or minimize it as the OS setting says. macOS so far (28 pt, native traffic lights); Windows (own caption buttons, snap layouts) and Linux come with their shells.
 - **Themes** (`mydear/themes.hpp`): eighteen palettes (One Dark/Light, Ayu, Gruvbox, VS Code, Catppuccin, Tokyo Night, Nord, Dracula, Solarized, GitHub), `ApplyTheme(colors)` for the ImGui style, spacing and corner radius constants, and `Theme::Current()`, the theme the widgets below draw with.
 - **Widgets**: `Button` / `SmallButton` / `IconButton` / `IconLabelButton` with variants (`button.hpp`), `Select` (`select.hpp`), `ToggleButton` (`toggle_button.hpp`), `Splitter` and `SegmentedTabs` (`splitter.hpp`), `Spinner` and `SpinnerOverlay` (`spinner.hpp`).
@@ -40,7 +40,7 @@ The host compiles the Dear ImGui core itself and passes the folder as `MYDEAR_IM
 
 ## Status
 
-Extracted from DearSQL's app code. Done: the macOS shell. Done: the macOS title bar. Next: the iOS shell and touch layer (tap and long press, pan to scroll with momentum, `UITextInput` keyboard with IME and the space-bar cursor, edit menu, document picker); then Windows (GLFW + DX11) and Linux (GTK4 + OpenGL); native alerts, input and file dialogs; font loading with icon merging.
+Extracted from DearSQL's app code. Done: the macOS shell and title bar, the iOS shell and touch layer. Next: Windows (GLFW + DX11) and Linux (GTK4 + OpenGL); native alerts, input and file dialogs; font loading with icon merging.
 
 ## License
 

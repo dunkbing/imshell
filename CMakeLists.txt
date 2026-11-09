@@ -20,7 +20,12 @@ add_library(mydear STATIC
 add_library(mydear::mydear ALIAS mydear)
 
 # the platform shell. imgui core stays the host's; its platform backends are ours
-if(APPLE AND NOT IOS)
+if(IOS)
+    target_sources(mydear PRIVATE src/ios/app.mm ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm)
+    set_source_files_properties(src/ios/app.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    target_link_libraries(mydear PUBLIC "-framework UIKit" "-framework Metal" "-framework MetalKit"
+        "-framework QuartzCore" "-framework Foundation")
+elseif(APPLE)
     find_package(glfw3 CONFIG REQUIRED)
     target_sources(mydear PRIVATE
         src/macos/app.mm
