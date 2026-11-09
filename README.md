@@ -4,6 +4,7 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 
 ## What it has
 
+- **Platform shell** (`mydear/app.hpp`): `mydear::App` opens the native window, sets up the graphics backend and the Dear ImGui platform and renderer backends, and runs a frame loop that idles when nothing happens; the app implements `mydear::Delegate` (`frame()`, plus `setup()`, `openFile()` for dropped or opened files, `wantsFrames()`, `shouldQuit()`). A test engine can drive frames itself with `pollEvents()` / `renderFrame()`. macOS (GLFW + Metal) is done, with offscreen frame capture and video recording; iOS, Windows and Linux are next.
 - **Themes** (`mydear/themes.hpp`): eighteen palettes (One Dark/Light, Ayu, Gruvbox, VS Code, Catppuccin, Tokyo Night, Nord, Dracula, Solarized, GitHub), `ApplyTheme(colors)` for the ImGui style, spacing and corner radius constants, and `Theme::Current()`, the theme the widgets below draw with.
 - **Widgets**: `Button` / `SmallButton` / `IconButton` / `IconLabelButton` with variants (`button.hpp`), `Select` (`select.hpp`), `ToggleButton` (`toggle_button.hpp`), `Splitter` and `SegmentedTabs` (`splitter.hpp`), `Spinner` and `SpinnerOverlay` (`spinner.hpp`).
 - **Menus and dialogs** (`menu.hpp`): `BeginMenuPopup`, `BeginContextMenu`, `BeginSubMenu`, `BeginSelect`/`EndSelect` with one padding for every menu; `FitScreen` / `CapToScreen` keep dialogs inside small screens.
@@ -12,6 +13,8 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 - **Embedded files** (`cmake/MydearEmbed.cmake`, `embedded.hpp`): `mydear_embed_fonts(<dir>)` and `mydear_embed_images(<dir>)` bake every font or image in a folder into the binary; `findEmbeddedFont(name)` / `findEmbeddedImage(name)` find them by file name.
 
 ## Use
+
+The smallest app is `examples/hello/main.cpp` (configure with `-DMYDEAR_BUILD_EXAMPLES=ON`): a delegate with a `frame()`, `mydear::App::create`, `run`.
 
 ```cmake
 set(MYDEAR_IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui)
@@ -32,11 +35,11 @@ if (mydear::Button("Save", mydear::ButtonVariant::Primary))
     save();
 ```
 
-The host compiles Dear ImGui (and its platform backends) itself and passes the folder as `MYDEAR_IMGUI_DIR`; mydear never compiles a second copy. If you embed anything, call both embed functions: the generated files define the lookups' data, and an empty folder still generates empty tables.
+The host compiles the Dear ImGui core itself and passes the folder as `MYDEAR_IMGUI_DIR`; mydear compiles only the platform and renderer backends it uses, never a second copy of the core. If you embed anything, call both embed functions: the generated files define the lookups' data, and an empty folder still generates empty tables.
 
 ## Status
 
-Extracted from DearSQL's app code. Not yet here, planned: the per-platform shells (window, graphics backend for Metal/DX11/OpenGL, title bars), the iOS touch layer (tap and long press, pan to scroll with momentum, `UITextInput` keyboard with IME and the space-bar cursor, edit menu, document picker), native alerts and input dialogs, font loading with icon merging.
+Extracted from DearSQL's app code. Done: the macOS shell. Next: the iOS shell and touch layer (tap and long press, pan to scroll with momentum, `UITextInput` keyboard with IME and the space-bar cursor, edit menu, document picker); then Windows (GLFW + DX11) and Linux (GTK4 + OpenGL); native alerts, input and file dialogs; font loading with icon merging; native title bars or toolbars.
 
 ## License
 
