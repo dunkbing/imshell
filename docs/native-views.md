@@ -22,6 +22,17 @@ Call it from Objective-C++ (`.mm`), since you create Cocoa objects.
 - **Always on top:** native views sit above everything ImGui draws, because ImGui draws the whole UI into one surface. While an ImGui window, popup or tooltip overlaps the view, mydear hides the view, so menus never end up behind it.
 - **Lifetime:** a view not drawn in a frame (its tab closed, scrolled away, collapsed) is hidden. After 3 seconds unused it is removed and released.
 
+## Native buttons (macOS)
+
+`mydear::NativeButton(id, symbol, tooltip, title)` is a ready-made native view: an `NSButton` with an SF Symbol, in the accessory-bar style that shows its border only on hover, the way toolbar buttons look. It is tinted with ImGui's text colour, so it follows the theme, and with a `title` the text comes before the symbol. It reserves the width the button wanted last frame, so a changing title resizes it a frame later.
+
+```cpp
+if (mydear::NativeButton("###sidebar", "sidebar.left", "Toggle Sidebar"))
+    toggleSidebar();
+```
+
+It returns true on a real click (the `NSButton`'s action, which also wakes an idle loop) and on a click on the ImGui item underneath, which is what Dear ImGui's test engine produces. Windows, Linux and iOS have no equivalent: draw an ImGui button there.
+
 ## Windows
 
 `create` returns an `HWND` (any window: a Win32 control, a WebView2 host window). mydear makes it a child of a clipping window it creates inside the main window, so the main window's `WS_CLIPCHILDREN` keeps Direct3D from drawing over it.
