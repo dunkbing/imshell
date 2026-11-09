@@ -3,6 +3,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_internal.h"
 #include "metal_backend.hpp"
+#include "../native_view.hpp"
 #include "mydear/themes.hpp"
 #include "mydear/title_bar.hpp"
 
@@ -29,7 +30,29 @@ namespace mydear {
         NSEvent* gLastMouseDown = nil; // what a window drag starts from
         enum class BarAction { None, Drag, DoubleClick } gBarAction = BarAction::None;
         ImGuiWindow* gFocusBeforeBar = nullptr; // a click on the bar hands focus back to it
-        constexpr float kTitleBarHeight = 28; // the native one: traffic lights stay centred
+        float gBarHeight = 28;
+
+        // macos pins the traffic lights to its 28 pt bar: grow their container and centre them
+        // (as electron's trafficLightPosition does). appkit lays them out again on resize and
+        // fullscreen, so this runs every frame and only writes when something moved
+        void centreTrafficLights() {
+            NSButton* close = [gWindow standardWindowButton:NSWindowCloseButton];
+            NSView* container = close.superview.superview;
+            if (!container || (gWindow.styleMask & NSWindowStyleMaskFullScreen))
+                return;
+            NSRect frame = container.frame;
+            frame.size.height = gBarHeight;
+            frame.origin.y = NSHeight(gWindow.frame) - gBarHeight;
+            if (!NSEqualRects(frame, container.frame))
+                container.frame = frame;
+            for (NSWindowButton kind : {NSWindowCloseButton, NSWindowMiniaturizeButton, NSWindowZoomButton}) {
+                NSButton* b = [gWindow standardWindowButton:kind];
+                NSPoint at = b.frame.origin;
+                at.y = round((NSHeight(b.superview.frame) - NSHeight(b.frame)) * 0.5);
+                if (!NSEqualPoints(at, b.frame.origin))
+                    [b setFrameOrigin:at];
+            }
+        }
 
         // after the frame: a click in empty bar space, now that imgui knows it hit no widget
         void runBarAction() {
@@ -89,6 +112,7 @@ namespace mydear {
 
         gWindow = glfwGetCocoaWindow(d.window);
         gTitleBar = config.titleBar;
+        gBarHeight = config.titleBarHeight;
         if (config.titleBar) {
             NSWindow* w = glfwGetCocoaWindow(d.window);
             w.styleMask |= NSWindowStyleMaskFullSizeContentView;
@@ -161,6 +185,7 @@ namespace mydear {
             ImGui::Render();
             d.backend->renderDrawData(ImGui::GetDrawData());
             d.backend->present();
+            detail::placeNativeViews();
         }
         runBarAction();
     }
@@ -215,6 +240,7 @@ namespace mydear {
         auto& d = *impl_;
         if (!d.window)
             return;
+        detail::dropNativeViews();
         if (d.backend)
             d.backend->shutdown();
         ImGui_ImplGlfw_Shutdown();
@@ -226,8 +252,12 @@ namespace mydear {
         gDelegate = nullptr;
     }
 
+    void* detail::nativeHost() {
+        return (__bridge void*)gWindow.contentView;
+    }
+
     float TitleBarHeight() {
-        return gTitleBar ? kTitleBarHeight : 0;
+        return gTitleBar ? gBarHeight : 0;
     }
 
     TitleBar BeginTitleBar() {
@@ -239,6 +269,8 @@ namespace mydear {
         bar.pos = vp->Pos;
         bar.size = ImVec2(vp->Size.x, TitleBarHeight());
         bar.fullscreen = gWindow && (gWindow.styleMask & NSWindowStyleMaskFullScreen);
+        if (gWindow && gBarHeight != 28)
+            centreTrafficLights();
         if (NSButton* zoom = [gWindow standardWindowButton:NSWindowZoomButton];
             zoom && !zoom.hidden && !bar.fullscreen)
             bar.leftInset = NSMaxX(zoom.frame) + Theme::Spacing::M;

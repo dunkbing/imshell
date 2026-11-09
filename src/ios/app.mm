@@ -1,6 +1,7 @@
 #include "mydear/app.hpp"
 #include "mydear/ios.h"
 #include "mydear/themes.hpp"
+#include "../native_view.hpp"
 
 #include "imgui.h"
 #include "imgui_impl_metal.h"
@@ -355,6 +356,8 @@ namespace {
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+    if (!self.isFirstResponder)
+        [self becomeFirstResponder]; // back from a native text field
     UITouch* touch = touches.anyObject;
     const CGPoint p = [touch locationInView:self];
     ImGuiIO& io = ImGui::GetIO();
@@ -713,12 +716,14 @@ namespace mydear {
             [encoder endEncoding];
             [commands presentDrawable:gView.currentDrawable];
             [commands commit];
+            detail::placeNativeViews();
         }
     }
 
     void App::destroy() {
         if (gApp != this)
             return;
+        detail::dropNativeViews();
         ImGui_ImplMetal_Shutdown();
         ImGui::DestroyContext();
         gApp = nullptr;
@@ -752,6 +757,10 @@ namespace mydear {
 
     void* App::nativeWindow() const {
         return gView ? (__bridge void*)gView.window : nullptr;
+    }
+
+    void* detail::nativeHost() {
+        return (__bridge void*)gView;
     }
 
     void* App::nativeView() const {
