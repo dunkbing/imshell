@@ -3,12 +3,18 @@
 #include "mydear/button.hpp"
 #include "mydear/themes.hpp"
 #include "mydear/title_bar.hpp"
+#include "mydear/native_view.hpp"
 
 #include "imgui_impl_glfw.h"
 
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <utility>
+
+void* makeTextField();
+void* makeDatePicker();
+void describeNativeView(void* view, char* out, int size);
 
 struct Hello : mydear::Delegate {
     mydear::App* app = nullptr;
@@ -22,6 +28,8 @@ struct Hello : mydear::Delegate {
     ImVec2 sizeBefore;
     ImVec2 barButton;
     int barClicks = 0;
+    void* field = nullptr;
+    bool wantPopup = false;
 
     void frame() override {
         const int f = ImGui::GetFrameCount();
@@ -48,6 +56,18 @@ struct Hello : mydear::Delegate {
         if (mydear::Button("Click me", mydear::ButtonVariant::Primary))
             ++clicks;
         ImGui::Text("Clicked %d times", clicks);
+        ImGui::Spacing();
+        ImGui::TextUnformatted("Native views, placed by the imgui layout:");
+        const ImVec2 fieldsAt = ImGui::GetCursorScreenPos();
+        field = mydear::NativeView("##field", ImVec2(240, 22), makeTextField);
+        mydear::NativeView("##date", ImVec2(160, 22), makeDatePicker);
+        if (mydear::SmallButton("Open a popup over them") || std::exchange(wantPopup, false))
+            ImGui::OpenPopup("##over");
+        ImGui::SetNextWindowPos(ImVec2(fieldsAt.x + 40, fieldsAt.y + 4), ImGuiCond_Appearing);
+        if (ImGui::BeginPopup("##over")) {
+            ImGui::TextUnformatted("An imgui popup: the native views hide under it");
+            ImGui::EndPopup();
+        }
         ImGui::End();
     }
 
@@ -67,6 +87,17 @@ struct Hello : mydear::Delegate {
             io.AddMouseButtonEvent(0, false);
         if (f == 60)
             std::printf("probe: bar button clicked %d time(s)\n", barClicks);
+        // the native field: placed where the layout put it, hidden under a popup
+        char where[64];
+        if (f == 70 && field) {
+            describeNativeView(field, where, sizeof where);
+            std::printf("probe: native field %s\n", where);
+            wantPopup = true;
+        }
+        if (f == 80 && field) {
+            describeNativeView(field, where, sizeof where);
+            std::printf("probe: under a popup %s\n", where);
+        }
         if (f == 11 || f == 13)
             io.AddMouseButtonEvent(0, true);
         if (f == 12 || f == 14)
@@ -88,7 +119,7 @@ int main() {
     mydear::Config config;
     config.title = "Hello mydear";
     config.width = 480;
-    config.height = 240;
+    config.height = 300;
     config.titleBar = true;
     mydear::App app;
     Hello hello;

@@ -21,8 +21,10 @@ add_library(mydear::mydear ALIAS mydear)
 
 # the platform shell. imgui core stays the host's; its platform backends are ours
 if(IOS)
-    target_sources(mydear PRIVATE src/ios/app.mm ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm)
-    set_source_files_properties(src/ios/app.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    target_sources(mydear PRIVATE src/ios/app.mm src/apple/native_view.mm
+                                  ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm)
+    set_source_files_properties(src/ios/app.mm src/apple/native_view.mm
+                                PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(mydear PUBLIC "-framework UIKit" "-framework Metal" "-framework MetalKit"
         "-framework QuartzCore" "-framework Foundation")
 elseif(APPLE)
@@ -30,11 +32,12 @@ elseif(APPLE)
     target_sources(mydear PRIVATE
         src/macos/app.mm
         src/macos/metal_backend.mm
+        src/apple/native_view.mm
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm
     )
     # arc for both: they share MetalBackend, whose id members must be owned one way
-    set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm
+    set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(mydear PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
@@ -50,6 +53,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/MydearEmbed.cmake)
 option(MYDEAR_BUILD_EXAMPLES "Build the examples" OFF)
 if(MYDEAR_BUILD_EXAMPLES AND APPLE AND NOT IOS)
     file(GLOB MYDEAR_IMGUI_CORE ${MYDEAR_IMGUI_DIR}/imgui*.cpp)
-    add_executable(mydear_hello examples/hello/main.cpp ${MYDEAR_IMGUI_CORE})
+    add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_macos.mm ${MYDEAR_IMGUI_CORE})
+    set_source_files_properties(examples/hello/native_macos.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(mydear_hello PRIVATE mydear)
 endif()

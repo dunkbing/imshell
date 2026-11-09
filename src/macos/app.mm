@@ -3,6 +3,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_internal.h"
 #include "metal_backend.hpp"
+#include "../native_view.hpp"
 #include "mydear/themes.hpp"
 #include "mydear/title_bar.hpp"
 
@@ -161,6 +162,7 @@ namespace mydear {
             ImGui::Render();
             d.backend->renderDrawData(ImGui::GetDrawData());
             d.backend->present();
+            detail::placeNativeViews();
         }
         runBarAction();
     }
@@ -215,6 +217,7 @@ namespace mydear {
         auto& d = *impl_;
         if (!d.window)
             return;
+        detail::dropNativeViews();
         if (d.backend)
             d.backend->shutdown();
         ImGui_ImplGlfw_Shutdown();
@@ -224,6 +227,10 @@ namespace mydear {
         glfwTerminate();
         d.window = nullptr;
         gDelegate = nullptr;
+    }
+
+    void* detail::nativeHost() {
+        return (__bridge void*)gWindow.contentView;
     }
 
     float TitleBarHeight() {
