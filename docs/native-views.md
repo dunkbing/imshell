@@ -1,6 +1,6 @@
 # Native views
 
-`mydear::NativeView` (`mydear/native_view.hpp`) puts a real platform view, an `NSView` on macOS or a `UIView` on iOS, into the ImGui layout. Use it for what ImGui can't do well: web views, maps, video, PDF previews, native text fields (full IME and spell check), and system controls such as date and colour pickers.
+`mydear::NativeView` (`mydear/native_view.hpp`) puts a real platform view, an `NSView` on macOS, a `UIView` on iOS or an `HWND` on Windows, into the ImGui layout. Use it for what ImGui can't do well: web views, maps, video, PDF previews, native text fields (full IME and spell check), and system controls such as date and colour pickers.
 
 ```objc
 auto* field = (__bridge NSTextField*)mydear::NativeView("##name", ImVec2(240, 22), [] {
@@ -21,6 +21,14 @@ Call it from Objective-C++ (`.mm`), since you create Cocoa objects.
 - **Input:** the view gets its own clicks and keys from the OS. A click on ImGui gives the keyboard back to ImGui (on iOS, a touch on the ImGui view).
 - **Always on top:** native views sit above everything ImGui draws, because ImGui draws the whole UI into one surface. While an ImGui window, popup or tooltip overlaps the view, mydear hides the view, so menus never end up behind it.
 - **Lifetime:** a view not drawn in a frame (its tab closed, scrolled away, collapsed) is hidden. After 3 seconds unused it is removed and released.
+
+## Windows
+
+`create` returns an `HWND` (any window: a Win32 control, a WebView2 host window). mydear makes it a child of a clipping window it creates inside the main window, so the main window's `WS_CLIPCHILDREN` keeps Direct3D from drawing over it.
+
+Win32 controls send their notifications (`WM_COMMAND`, `WM_NOTIFY`, `WM_CTLCOLOR*`) to their parent, which is now mydear's clipping window. mydear sends them back to the control as `OCM_` messages (`WM_USER + 0x1c00` plus the message), the reflection ATL and WinForms use, so handle them by subclassing your control.
+
+A click on ImGui gives the keyboard back to the main window.
 
 ## Limits
 

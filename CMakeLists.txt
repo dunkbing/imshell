@@ -21,7 +21,7 @@ add_library(mydear::mydear ALIAS mydear)
 
 # the platform shell. imgui core stays the host's; its platform backends are ours
 if(IOS)
-    target_sources(mydear PRIVATE src/ios/app.mm src/apple/native_view.mm
+    target_sources(mydear PRIVATE src/ios/app.mm src/apple/native_view.mm src/native_view.cpp
                                   ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm)
     set_source_files_properties(src/ios/app.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
@@ -33,6 +33,7 @@ elseif(APPLE)
         src/macos/app.mm
         src/macos/metal_backend.mm
         src/apple/native_view.mm
+        src/native_view.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm
     )
@@ -42,6 +43,18 @@ elseif(APPLE)
     target_link_libraries(mydear PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
         "-framework ImageIO" "-framework CoreGraphics" "-framework UniformTypeIdentifiers")
+elseif(WIN32)
+    find_package(glfw3 CONFIG REQUIRED)
+    target_sources(mydear PRIVATE
+        src/windows/app.cpp
+        src/windows/dx11_backend.cpp
+        src/windows/native_view.cpp
+        src/native_view.cpp
+        ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+        ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_dx11.cpp
+    )
+    target_compile_definitions(mydear PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+    target_link_libraries(mydear PUBLIC glfw d3d11 dxgi dwmapi)
 endif()
 target_compile_features(mydear PUBLIC cxx_std_20)
 target_include_directories(mydear PUBLIC include ${MYDEAR_IMGUI_DIR} ${MYDEAR_IMGUI_DIR}/backends
