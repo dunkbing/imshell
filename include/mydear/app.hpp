@@ -21,6 +21,7 @@ namespace mydear {
         // the app draws its own title bar: content runs under it (macos keeps the traffic
         // lights), see mydear/title_bar.hpp
         bool titleBar = false;
+        float titleBarHeight = 28; // points; macos's own is 28, taller re-centres the traffic lights
     };
 
     class Delegate {
