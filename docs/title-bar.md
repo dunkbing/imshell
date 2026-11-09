@@ -46,3 +46,16 @@ Widgets in the bar, ImGui items or [native views](native-views.md), never start 
 ## Fullscreen
 
 In fullscreen the OS shows its own title bar when the mouse reaches the top edge, over yours. The insets are 0 there, since the traffic lights are not in the window.
+
+## Windows
+
+There is no system frame: mydear removes it (`WM_NCCALCSIZE`), keeps the window shadow with `DwmExtendFrameIntoClientArea`, and draws the minimize, maximize and close buttons itself at the right end of the bar (`rightInset` is their width, 138 pixels). They follow the theme, and close turns red on hover, like Windows' own.
+
+- **Snap layouts:** the maximize button answers `HTMAXBUTTON` to Windows' hit test, so hovering it on Windows 11 opens the snap layout flyout, and Windows itself handles the click.
+- **Dragging:** empty bar space starts the system move loop, so Aero Snap (drag to an edge), shake and moving between screens work.
+- **Double-click** toggles maximize; **right-click** opens the window menu (Restore, Move, Size, Minimize, Maximize, Close).
+- **Resize:** the window edges still resize, by the system frame width.
+- **Dark mode:** mydear sets `DWMWA_USE_IMMERSIVE_DARK_MODE` from `Theme::Current()->dark` every time the theme changes, so borders and snap previews match.
+- **Maximized**, the window stays inside the work area instead of covering the taskbar.
+
+`Config::titleBarHeight` is in pixels on Windows; 32 matches the system caption.

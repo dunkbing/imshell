@@ -1,5 +1,5 @@
 #include "mydear/app.hpp"
-#include "../activity.hpp"
+#include "../glfw_loop.hpp"
 #include "imgui_impl_glfw.h"
 #include "imgui_internal.h"
 #include "metal_backend.hpp"
@@ -20,10 +20,6 @@
 
 namespace mydear {
     namespace {
-        constexpr double kIdleAfterSeconds = 2.0;   // no input for this long: start idling
-        constexpr double kMinWaitSeconds = 1.0 / 120.0;
-        constexpr double kMaxWaitSeconds = 0.2; // an idle app still wakes this often
-
         Delegate* gDelegate = nullptr; // glfw and appkit callbacks have no user pointer
         NSWindow* gWindow = nil;
         bool gTitleBar = false;
@@ -190,50 +186,9 @@ namespace mydear {
         runBarAction();
     }
 
-    // full speed while the user works or something animates; after kIdleAfterSeconds
-    // without either, the wait between frames grows to kMaxWaitSeconds
     void App::run() {
         auto& d = *impl_;
-        double lastInput = glfwGetTime();
-        bool wasFocused = glfwGetWindowAttrib(d.window, GLFW_FOCUSED) != 0;
-        while (!glfwWindowShouldClose(d.window)) {
-            if (d.delegate->shouldQuit())
-                glfwSetWindowShouldClose(d.window, GLFW_TRUE);
-            const double start = glfwGetTime();
-            const double sinceInput = start - lastInput;
-            const bool focused = glfwGetWindowAttrib(d.window, GLFW_FOCUSED) != 0;
-            const bool busy = d.delegate->wantsFrames();
-
-            double wait = 0.0;
-            if (!focused && !busy)
-                wait = kMaxWaitSeconds;
-            else if (focused && !busy && sinceInput >= kIdleAfterSeconds)
-                wait = std::clamp(sinceInput - kIdleAfterSeconds, kMinWaitSeconds, kMaxWaitSeconds);
-            if (wait > 0.0)
-                glfwWaitEventsTimeout(wait);
-            else
-                glfwPollEvents();
-
-            const bool nowFocused = glfwGetWindowAttrib(d.window, GLFW_FOCUSED) != 0;
-            if (nowFocused && !wasFocused)
-                lastInput = glfwGetTime();
-            wasFocused = nowFocused;
-            // never render unfocused: CAMetalLayer nextDrawable blocks while the window
-            // is in the background, which makes switching apps sluggish
-            if (!nowFocused)
-                continue;
-
-            renderFrame();
-
-            // without vsync nothing paces the loop: sleep out the rest of the frame
-            if (!d.vsync && d.maxFps > 0) {
-                const double left = start + 1.0 / d.maxFps - glfwGetTime();
-                if (left > 0)
-                    std::this_thread::sleep_for(std::chrono::duration<double>(left));
-            }
-            if (detail::isImGuiUserActive() || d.delegate->wantsFrames())
-                lastInput = glfwGetTime();
-        }
+        detail::runGlfwLoop(d.window, *d.delegate, d.vsync, d.maxFps, [this] { renderFrame(); });
     }
 
     void App::destroy() {

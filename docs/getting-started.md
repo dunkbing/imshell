@@ -43,3 +43,4 @@ On iOS, UIKit owns the run loop, so `main()` looks different; see [Platform shel
 
 - macOS: GLFW (`find_package(glfw3)`), Metal, AppKit.
 - iOS: UIKit, Metal, MetalKit.
+- Windows: GLFW (`find_package(glfw3)`), Direct3D 11, DWM.
