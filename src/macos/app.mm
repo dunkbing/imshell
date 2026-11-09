@@ -1,6 +1,7 @@
 #include "mydear/app.hpp"
 #include "../activity.hpp"
 #include "imgui_impl_glfw.h"
+#include "imgui_internal.h"
 #include "metal_backend.hpp"
 #include "mydear/themes.hpp"
 #include "mydear/title_bar.hpp"
@@ -27,6 +28,7 @@ namespace mydear {
         bool gTitleBar = false;
         NSEvent* gLastMouseDown = nil; // what a window drag starts from
         enum class BarAction { None, Drag, DoubleClick } gBarAction = BarAction::None;
+        ImGuiWindow* gFocusBeforeBar = nullptr; // a click on the bar hands focus back to it
         constexpr float kTitleBarHeight = 28; // the native one: traffic lights stay centred
 
         // after the frame: a click in empty bar space, now that imgui knows it hit no widget
@@ -229,6 +231,9 @@ namespace mydear {
     }
 
     TitleBar BeginTitleBar() {
+        if (ImGuiWindow* nav = GImGui->NavWindow;
+            nav && nav != ImGui::FindWindowByName("##mydear_title_bar"))
+            gFocusBeforeBar = nav;
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         TitleBar bar;
         bar.pos = vp->Pos;
@@ -255,6 +260,10 @@ namespace mydear {
     }
 
     void EndTitleBar() {
+        // the bar is chrome: once its click is over, focus goes back where it was
+        if (GImGui->NavWindow == ImGui::GetCurrentWindow() && !ImGui::IsAnyItemActive() &&
+            gFocusBeforeBar && gFocusBeforeBar->WasActive)
+            ImGui::FocusWindow(gFocusBeforeBar);
         if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered() && !ImGui::IsAnyItemActive()) {
             if (ImGui::IsMouseDoubleClicked(0))
                 gBarAction = BarAction::DoubleClick;
