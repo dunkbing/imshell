@@ -43,4 +43,4 @@ Extracted from DearSQL's app code. Done: the macOS shell. Next: the iOS shell an
 
 ## License
 
-Not chosen yet. `third_party/stb_image.h` is public domain / MIT (Sean Barrett).
+MIT, see `LICENSE`. `third_party/stb_image.h` is public domain / MIT (Sean Barrett).
