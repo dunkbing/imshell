@@ -66,6 +66,30 @@ elseif(UNIX)
     )
     target_link_libraries(mydear PUBLIC PkgConfig::MYDEAR_GTK4 PkgConfig::MYDEAR_EPOXY)
 endif()
+# auto-update (mydear/updater.hpp). the host packages the updater: on macos it sets
+# MYDEAR_SPARKLE_FRAMEWORK and embeds the framework, on windows it defines a WinSparkle target
+# and ships the dll; on linux mydear finds httplib, nlohmann_json and openssl
+option(MYDEAR_UPDATER "auto-update through sparkle, winsparkle or an appimage swap" OFF)
+set(MYDEAR_SPARKLE_FRAMEWORK "" CACHE PATH "macos: Sparkle.framework")
+if(NOT MYDEAR_UPDATER OR IOS)
+    target_sources(mydear PRIVATE src/updater_none.cpp)
+elseif(APPLE)
+    target_sources(mydear PRIVATE src/macos/updater.mm)
+    set_source_files_properties(src/macos/updater.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    target_include_directories(mydear PRIVATE "${MYDEAR_SPARKLE_FRAMEWORK}/Headers")
+    target_link_libraries(mydear PUBLIC "${MYDEAR_SPARKLE_FRAMEWORK}")
+elseif(WIN32)
+    target_sources(mydear PRIVATE src/windows/updater.cpp)
+    target_link_libraries(mydear PUBLIC WinSparkle)
+else()
+    find_package(httplib CONFIG REQUIRED)
+    find_package(nlohmann_json CONFIG REQUIRED)
+    find_package(OpenSSL REQUIRED)
+    target_sources(mydear PRIVATE src/linux/updater.cpp)
+    target_link_libraries(mydear PRIVATE httplib::httplib nlohmann_json::nlohmann_json
+                                         OpenSSL::SSL OpenSSL::Crypto)
+endif()
+
 target_compile_features(mydear PUBLIC cxx_std_20)
 target_include_directories(mydear PUBLIC include ${MYDEAR_IMGUI_DIR} ${MYDEAR_IMGUI_DIR}/backends
                                   PRIVATE third_party)

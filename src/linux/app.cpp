@@ -442,8 +442,13 @@ namespace mydear {
         gWindow = gtk_window_new();
         gtk_window_set_title(GTK_WINDOW(gWindow), config.title.c_str());
         gtk_window_set_default_size(GTK_WINDOW(gWindow), config.width, config.height);
-        if (config.titleBar) // an empty titlebar: no header bar, still csd edges and shadow
-            gtk_window_set_titlebar(GTK_WINDOW(gWindow), gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0));
+        if (config.titleBar) {
+            // a hidden titlebar: csd edges and shadow, no header bar (themes give a shown one,
+            // even empty, a header bar's height)
+            GtkWidget* none = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+            gtk_widget_set_visible(none, FALSE);
+            gtk_window_set_titlebar(GTK_WINDOW(gWindow), none);
+        }
         g_signal_connect(gWindow, "close-request", G_CALLBACK(+[](GtkWindow*, gpointer) -> gboolean {
                              gShouldClose = true;
                              return TRUE;

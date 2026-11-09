@@ -45,3 +45,4 @@ On iOS, UIKit owns the run loop, so `main()` looks different; see [Platform shel
 - iOS: UIKit, Metal, MetalKit.
 - Windows: GLFW (`find_package(glfw3)`), Direct3D 11, DWM.
 - Linux: GTK 4 and libepoxy (`pkg-config gtk4 epoxy`).
+- With `-DMYDEAR_UPDATER=ON`: Sparkle (macOS), WinSparkle (Windows), or httplib, nlohmann_json and OpenSSL (Linux); see [Auto-update](auto-update.md).
