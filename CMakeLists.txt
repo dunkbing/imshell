@@ -20,7 +20,12 @@ add_library(mydear STATIC
 add_library(mydear::mydear ALIAS mydear)
 
 # the platform shell. imgui core stays the host's; its platform backends are ours
-if(APPLE AND NOT IOS)
+if(IOS)
+    target_sources(mydear PRIVATE src/ios/app.mm ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm)
+    set_source_files_properties(src/ios/app.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    target_link_libraries(mydear PUBLIC "-framework UIKit" "-framework Metal" "-framework MetalKit"
+        "-framework QuartzCore" "-framework Foundation")
+elseif(APPLE)
     find_package(glfw3 CONFIG REQUIRED)
     target_sources(mydear PRIVATE
         src/macos/app.mm
@@ -28,6 +33,9 @@ if(APPLE AND NOT IOS)
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm
     )
+    # arc for both: they share MetalBackend, whose id members must be owned one way
+    set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm
+                                PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(mydear PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
         "-framework ImageIO" "-framework CoreGraphics" "-framework UniformTypeIdentifiers")
