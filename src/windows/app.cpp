@@ -18,6 +18,9 @@
 #ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
 #define DWMWA_USE_IMMERSIVE_DARK_MODE 20
 #endif
+#ifndef SM_CXPADDEDBORDER
+#define SM_CXPADDEDBORDER 92 // vista+, hidden by older _WIN32_WINNT
+#endif
 
 // imgui coordinates are client pixels here: glfw on windows has no points
 namespace mydear {
