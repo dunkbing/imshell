@@ -5,6 +5,7 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 ## What it has
 
 - **Platform shell** (`mydear/app.hpp`): `mydear::App` opens the native window, sets up the graphics backend and the Dear ImGui platform and renderer backends, and runs a frame loop that idles when nothing happens; the app implements `mydear::Delegate` (`frame()`, plus `setup()`, `openFile()` for dropped or opened files, `wantsFrames()`, `shouldQuit()`). A test engine can drive frames itself with `pollEvents()` / `renderFrame()`. macOS (GLFW + Metal) is done, with offscreen frame capture and video recording; iOS, Windows and Linux are next.
+- **Title bar** (`mydear/title_bar.hpp`, with `Config::titleBar`): the app draws its own bar with ImGui between `BeginTitleBar()` and `EndTitleBar()`, and lays the rest out below `TitleBarHeight()`. mydear keeps the OS buttons in place (`leftInset` / `rightInset` say where they are), makes empty bar space drag the window, and makes a double-click zoom or minimize it as the OS setting says. macOS so far (28 pt, native traffic lights); Windows (own caption buttons, snap layouts) and Linux come with their shells.
 - **Themes** (`mydear/themes.hpp`): eighteen palettes (One Dark/Light, Ayu, Gruvbox, VS Code, Catppuccin, Tokyo Night, Nord, Dracula, Solarized, GitHub), `ApplyTheme(colors)` for the ImGui style, spacing and corner radius constants, and `Theme::Current()`, the theme the widgets below draw with.
 - **Widgets**: `Button` / `SmallButton` / `IconButton` / `IconLabelButton` with variants (`button.hpp`), `Select` (`select.hpp`), `ToggleButton` (`toggle_button.hpp`), `Splitter` and `SegmentedTabs` (`splitter.hpp`), `Spinner` and `SpinnerOverlay` (`spinner.hpp`).
 - **Menus and dialogs** (`menu.hpp`): `BeginMenuPopup`, `BeginContextMenu`, `BeginSubMenu`, `BeginSelect`/`EndSelect` with one padding for every menu; `FitScreen` / `CapToScreen` keep dialogs inside small screens.
@@ -14,7 +15,7 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 
 ## Use
 
-The smallest app is `examples/hello/main.cpp` (configure with `-DMYDEAR_BUILD_EXAMPLES=ON`): a delegate with a `frame()`, `mydear::App::create`, `run`.
+The smallest app is `examples/hello/main.cpp` (configure with `-DMYDEAR_BUILD_EXAMPLES=ON`): a delegate with a `frame()` that draws a title bar and a window, `mydear::App::create`, `run`.
 
 ```cmake
 set(MYDEAR_IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui)
@@ -39,7 +40,7 @@ The host compiles the Dear ImGui core itself and passes the folder as `MYDEAR_IM
 
 ## Status
 
-Extracted from DearSQL's app code. Done: the macOS shell. Next: the iOS shell and touch layer (tap and long press, pan to scroll with momentum, `UITextInput` keyboard with IME and the space-bar cursor, edit menu, document picker); then Windows (GLFW + DX11) and Linux (GTK4 + OpenGL); native alerts, input and file dialogs; font loading with icon merging; native title bars or toolbars.
+Extracted from DearSQL's app code. Done: the macOS shell. Done: the macOS title bar. Next: the iOS shell and touch layer (tap and long press, pan to scroll with momentum, `UITextInput` keyboard with IME and the space-bar cursor, edit menu, document picker); then Windows (GLFW + DX11) and Linux (GTK4 + OpenGL); native alerts, input and file dialogs; font loading with icon merging.
 
 ## License
 

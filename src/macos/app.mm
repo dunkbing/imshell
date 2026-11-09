@@ -3,6 +3,7 @@
 #include "imgui_impl_glfw.h"
 #include "metal_backend.hpp"
 #include "mydear/themes.hpp"
+#include "mydear/title_bar.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -22,6 +23,32 @@ namespace mydear {
         constexpr double kMaxWaitSeconds = 0.2; // an idle app still wakes this often
 
         Delegate* gDelegate = nullptr; // glfw and appkit callbacks have no user pointer
+        NSWindow* gWindow = nil;
+        bool gTitleBar = false;
+        NSEvent* gLastMouseDown = nil; // what a window drag starts from
+        enum class BarAction { None, Drag, DoubleClick } gBarAction = BarAction::None;
+        constexpr float kTitleBarHeight = 28; // the native one: traffic lights stay centred
+
+        // after the frame: a click in empty bar space, now that imgui knows it hit no widget
+        void runBarAction() {
+            const BarAction action = gBarAction;
+            gBarAction = BarAction::None;
+            if (action == BarAction::Drag) {
+                // a click shorter than a frame is over already: nothing to drag
+                if (!gLastMouseDown || !(NSEvent.pressedMouseButtons & 1))
+                    return;
+                [gWindow performWindowDragWithEvent:gLastMouseDown];
+                // the drag loop ate the mouse up
+                ImGui::GetIO().AddMouseButtonEvent(0, false);
+            } else if (action == BarAction::DoubleClick) {
+                NSString* pref =
+                    [NSUserDefaults.standardUserDefaults stringForKey:@"AppleActionOnDoubleClick"];
+                if ([pref isEqualToString:@"Minimize"])
+                    [gWindow performMiniaturize:nil];
+                else if (![pref isEqualToString:@"None"])
+                    [gWindow performZoom:nil];
+            }
+        }
     } // namespace
 
     struct App::Impl {
@@ -56,6 +83,20 @@ namespace mydear {
             std::fprintf(stderr, "mydear: could not create the window\n");
             glfwTerminate();
             return false;
+        }
+
+        gWindow = glfwGetCocoaWindow(d.window);
+        gTitleBar = config.titleBar;
+        if (config.titleBar) {
+            NSWindow* w = glfwGetCocoaWindow(d.window);
+            w.styleMask |= NSWindowStyleMaskFullSizeContentView;
+            w.titlebarAppearsTransparent = YES;
+            w.titleVisibility = NSWindowTitleHidden;
+            [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown
+                                                  handler:^NSEvent*(NSEvent* e) {
+                                                    gLastMouseDown = e;
+                                                    return e;
+                                                  }];
         }
 
         d.backend = std::make_unique<MetalBackend>(d.window);
@@ -119,6 +160,7 @@ namespace mydear {
             d.backend->renderDrawData(ImGui::GetDrawData());
             d.backend->present();
         }
+        runBarAction();
     }
 
     // full speed while the user works or something animates; after kIdleAfterSeconds
@@ -180,6 +222,46 @@ namespace mydear {
         glfwTerminate();
         d.window = nullptr;
         gDelegate = nullptr;
+    }
+
+    float TitleBarHeight() {
+        return gTitleBar ? kTitleBarHeight : 0;
+    }
+
+    TitleBar BeginTitleBar() {
+        const ImGuiViewport* vp = ImGui::GetMainViewport();
+        TitleBar bar;
+        bar.pos = vp->Pos;
+        bar.size = ImVec2(vp->Size.x, TitleBarHeight());
+        bar.fullscreen = gWindow && (gWindow.styleMask & NSWindowStyleMaskFullScreen);
+        if (NSButton* zoom = [gWindow standardWindowButton:NSWindowZoomButton];
+            zoom && !zoom.hidden && !bar.fullscreen)
+            bar.leftInset = NSMaxX(zoom.frame) + Theme::Spacing::M;
+
+        ImGui::SetNextWindowPos(bar.pos);
+        ImGui::SetNextWindowSize(bar.size);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0)); // the default 32 would overlap
+        ImGui::Begin("##mydear_title_bar", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
+                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav |
+                         ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
+        ImGui::PopStyleVar(4);
+        ImGui::SetCursorScreenPos(ImVec2(
+            bar.pos.x + bar.leftInset, bar.pos.y + (bar.size.y - ImGui::GetFrameHeight()) * 0.5f));
+        return bar;
+    }
+
+    void EndTitleBar() {
+        if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered() && !ImGui::IsAnyItemActive()) {
+            if (ImGui::IsMouseDoubleClicked(0))
+                gBarAction = BarAction::DoubleClick;
+            else if (ImGui::IsMouseClicked(0))
+                gBarAction = BarAction::Drag;
+        }
+        ImGui::End();
     }
 
     void App::setVSync(const bool on) {

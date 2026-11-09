@@ -18,6 +18,9 @@ namespace mydear {
         bool docking = true; // ImGuiConfigFlags_DockingEnable
         bool vsync = true;
         int maxFps = 120; // with vsync off; 0 = unlimited
+        // the app draws its own title bar: content runs under it (macos keeps the traffic
+        // lights), see mydear/title_bar.hpp
+        bool titleBar = false;
     };
 
     class Delegate {
@@ -72,7 +75,8 @@ namespace mydear {
         std::unique_ptr<Impl> impl_;
     };
 
-    // macos: render the next frame offscreen at `scale` and save it as a png (docs shots)
+    // macos: render the next frame offscreen at `scale` and save it as a png (docs shots),
+    // without the title bar strip: its os buttons are native, not part of the frame
     void requestFrameCapture(const char* path, float scale);
     bool frameCapturePending();
     // macos: every frame from here on, at `scale`, piped to ffmpeg as an mp4
