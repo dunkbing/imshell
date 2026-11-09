@@ -6,6 +6,7 @@
 #import "imgui_impl_metal.h"
 #include "metal_backend.hpp"
 #include "mydear/app.hpp"
+#include "mydear/title_bar.hpp"
 #import <GLFW/glfw3.h>
 #import <GLFW/glfw3native.h>
 
@@ -23,6 +24,7 @@ namespace {
         std::string path;
         float scale = 2;
         int frames = 0; // two: the first bakes the fonts at the new density
+        size_t top = 0;  // pixel rows left out at the top
         id<MTLTexture> target = nil;
     } capture;
 
@@ -35,12 +37,13 @@ namespace {
         std::vector<uint8_t> buf;
     } rec;
 
-    void savePng(id<MTLTexture> tex, const std::string& path) {
-        const size_t w = tex.width, h = tex.height;
+    // top: rows to leave out (the title bar strip)
+    void savePng(id<MTLTexture> tex, const std::string& path, size_t top) {
+        const size_t w = tex.width, h = tex.height - top;
         NSMutableData* data = [NSMutableData dataWithLength:w * h * 4];
         [tex getBytes:data.mutableBytes
             bytesPerRow:w * 4
-             fromRegion:MTLRegionMake2D(0, 0, w, h)
+             fromRegion:MTLRegionMake2D(0, top, w, h)
             mipmapLevel:0];
         CGColorSpaceRef cs = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
         CGDataProviderRef provider = CGDataProviderCreateWithCFData((__bridge CFDataRef)data);
@@ -64,6 +67,8 @@ namespace {
 void requestFrameCapture(const char* path, float scale) {
     capture.path = path;
     capture.scale = scale;
+    // the os buttons in the strip are native, not in the frame: leave the strip out
+    capture.top = static_cast<size_t>(TitleBarHeight() * scale);
     capture.frames = 2;
 }
 
@@ -253,7 +258,7 @@ void MetalBackend::renderDrawData(ImDrawData* drawData) {
 
     if (currentDrawable_ == nil && capture.frames > 0 && --capture.frames == 0) {
         [(id<MTLCommandBuffer>)currentCommandBuffer_ waitUntilCompleted];
-        savePng(capture.target, capture.path);
+        savePng(capture.target, capture.path, capture.top);
         capture.target = nil;
     } else if (currentDrawable_ == nil && rec.pipe) {
         [(id<MTLCommandBuffer>)currentCommandBuffer_ waitUntilCompleted];
