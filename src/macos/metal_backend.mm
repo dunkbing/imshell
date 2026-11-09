@@ -308,6 +308,7 @@ ImTextureID MetalBackend::createTextureFromRGBA(const uint8_t* pixels, int width
                  withBytes:pixels
                bytesPerRow:width * 4];
 
-    return (ImTextureID)(intptr_t)(void*)texture;
+    // imgui holds the id, not a reference: keep the texture alive with the app
+    return (ImTextureID)(intptr_t)(__bridge_retained void*)texture;
 }
 } // namespace mydear

@@ -33,6 +33,9 @@ elseif(APPLE)
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm
     )
+    # arc for both: they share MetalBackend, whose id members must be owned one way
+    set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm
+                                PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(mydear PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
         "-framework ImageIO" "-framework CoreGraphics" "-framework UniformTypeIdentifiers")
