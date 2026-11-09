@@ -1,6 +1,6 @@
 # Native views
 
-`mydear::NativeView` (`mydear/native_view.hpp`) puts a real platform view, an `NSView` on macOS, a `UIView` on iOS or an `HWND` on Windows, into the ImGui layout. Use it for what ImGui can't do well: web views, maps, video, PDF previews, native text fields (full IME and spell check), and system controls such as date and colour pickers.
+`mydear::NativeView` (`mydear/native_view.hpp`) puts a real platform view, an `NSView` on macOS, a `UIView` on iOS an `HWND` on Windows or a `GtkWidget` on Linux, into the ImGui layout. Use it for what ImGui can't do well: web views, maps, video, PDF previews, native text fields (full IME and spell check), and system controls such as date and colour pickers.
 
 ```objc
 auto* field = (__bridge NSTextField*)mydear::NativeView("##name", ImVec2(240, 22), [] {
@@ -29,6 +29,10 @@ Call it from Objective-C++ (`.mm`), since you create Cocoa objects.
 Win32 controls send their notifications (`WM_COMMAND`, `WM_NOTIFY`, `WM_CTLCOLOR*`) to their parent, which is now mydear's clipping window. mydear sends them back to the control as `OCM_` messages (`WM_USER + 0x1c00` plus the message), the reflection ATL and WinForms use, so handle them by subclassing your control.
 
 A click on ImGui gives the keyboard back to the main window.
+
+## Linux
+
+`create` returns a `GtkWidget*` (a `GtkEntry`, a `WebKitWebView`, anything). mydear puts it in a clipping `GtkFixed` (`GTK_OVERFLOW_HIDDEN`) laid over the `GtkGLArea` in a `GtkOverlay`, and moves it after GTK finishes drawing, since a layout change while drawing is not allowed. A click on ImGui gives the keyboard back to the GL area.
 
 ## Limits
 

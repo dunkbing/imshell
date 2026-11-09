@@ -55,6 +55,16 @@ elseif(WIN32)
     )
     target_compile_definitions(mydear PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
     target_link_libraries(mydear PUBLIC glfw d3d11 dxgi dwmapi)
+elseif(UNIX)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(MYDEAR_GTK4 REQUIRED IMPORTED_TARGET gtk4)
+    pkg_check_modules(MYDEAR_EPOXY REQUIRED IMPORTED_TARGET epoxy)
+    target_sources(mydear PRIVATE
+        src/linux/app.cpp
+        src/native_view.cpp
+        ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+    )
+    target_link_libraries(mydear PUBLIC PkgConfig::MYDEAR_GTK4 PkgConfig::MYDEAR_EPOXY)
 endif()
 target_compile_features(mydear PUBLIC cxx_std_20)
 target_include_directories(mydear PUBLIC include ${MYDEAR_IMGUI_DIR} ${MYDEAR_IMGUI_DIR}/backends
