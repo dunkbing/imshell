@@ -5,7 +5,9 @@
 #include "mydear/title_bar.hpp"
 #include "mydear/native_view.hpp"
 
+#if defined(__APPLE__) || defined(_WIN32)
 #include "imgui_impl_glfw.h"
+#endif
 
 #include <chrono>
 #include <cstdio>
@@ -77,8 +79,10 @@ struct Hello : mydear::Delegate {
         if (f == 10)
             sizeBefore = io.DisplaySize;
         if (f >= 10 && f <= 15 || f >= 50 && f <= 53) {
+#if defined(__APPLE__) || defined(_WIN32)
             // the backend reads the real cursor while it thinks the pointer is outside
             ImGui_ImplGlfw_CursorEnterCallback(app->glfwWindow(), 1);
+#endif
             io.AddMousePosEvent(f < 50 ? empty.x : barButton.x, f < 50 ? empty.y : barButton.y);
         }
         if (f == 51)

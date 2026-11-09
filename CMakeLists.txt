@@ -55,6 +55,16 @@ elseif(WIN32)
     )
     target_compile_definitions(mydear PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
     target_link_libraries(mydear PUBLIC glfw d3d11 dxgi dwmapi)
+elseif(UNIX)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(MYDEAR_GTK4 REQUIRED IMPORTED_TARGET gtk4)
+    pkg_check_modules(MYDEAR_EPOXY REQUIRED IMPORTED_TARGET epoxy)
+    target_sources(mydear PRIVATE
+        src/linux/app.cpp
+        src/native_view.cpp
+        ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+    )
+    target_link_libraries(mydear PUBLIC PkgConfig::MYDEAR_GTK4 PkgConfig::MYDEAR_EPOXY)
 endif()
 target_compile_features(mydear PUBLIC cxx_std_20)
 target_include_directories(mydear PUBLIC include ${MYDEAR_IMGUI_DIR} ${MYDEAR_IMGUI_DIR}/backends
@@ -64,9 +74,13 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/MydearEmbed.cmake)
 
 # examples are hosts too: each compiles its own imgui core
 option(MYDEAR_BUILD_EXAMPLES "Build the examples" OFF)
-if(MYDEAR_BUILD_EXAMPLES AND APPLE AND NOT IOS)
+if(MYDEAR_BUILD_EXAMPLES AND NOT IOS AND NOT WIN32)
     file(GLOB MYDEAR_IMGUI_CORE ${MYDEAR_IMGUI_DIR}/imgui*.cpp)
-    add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_macos.mm ${MYDEAR_IMGUI_CORE})
-    set_source_files_properties(examples/hello/native_macos.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    if(APPLE)
+        add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_macos.mm ${MYDEAR_IMGUI_CORE})
+        set_source_files_properties(examples/hello/native_macos.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    else()
+        add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_linux.cpp ${MYDEAR_IMGUI_CORE})
+    endif()
     target_link_libraries(mydear_hello PRIVATE mydear)
 endif()

@@ -73,6 +73,7 @@ namespace mydear::detail {
         MydearFlippedView* clip = [[MydearFlippedView alloc] init];
 #endif
         clip.clipsToBounds = YES;
+        clip.hidden = YES; // the first placement shows it
         [clip addSubview:view];
         [overlay() addSubview:clip];
         return (__bridge_retained void*)clip; // the entry holds the container, the container the view

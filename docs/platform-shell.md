@@ -35,8 +35,8 @@ A host that drives frames itself, such as the ImGui test engine, calls `pollEven
 ## Handles
 
 - `glfwWindow()`: the GLFW window (desktop).
-- `nativeWindow()`: `NSWindow*` on macOS, `UIWindow*` on iOS, `HWND` on Windows.
-- `nativeView()`: the view ImGui draws into: the window's content view on macOS, the `MTKView` on iOS, the `HWND` on Windows.
+- `nativeWindow()`: `NSWindow*` on macOS, `UIWindow*` on iOS, `HWND` on Windows, `GtkWindow*` on Linux.
+- `nativeView()`: the view ImGui draws into: the window's content view on macOS, the `MTKView` on iOS, the `HWND` on Windows, the `GtkGLArea` on Linux.
 - `createTexture(rgba, w, h)`: upload pixels with the active backend; returns `ImTextureID{}` on failure.
 
 ## Frame capture (macOS)

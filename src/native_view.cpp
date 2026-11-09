@@ -11,7 +11,7 @@ namespace {
         ImGuiWindow* window = nullptr;
         int frame = -1;
         double lastSeen = 0;
-        bool hidden = false;
+        bool hidden = true; // nativeAttach returns a hidden clip
     };
     std::unordered_map<ImGuiID, Entry> gEntries;
     constexpr double kFreeAfterSeconds = 3;

@@ -59,3 +59,13 @@ There is no system frame: mydear removes it (`WM_NCCALCSIZE`), keeps the window 
 - **Maximized**, the window stays inside the work area instead of covering the taskbar.
 
 `Config::titleBarHeight` is in pixels on Windows; 32 matches the system caption.
+
+## Linux
+
+The window gets an empty client-side titlebar, so GTK still draws the window shadow and resize edges, and the bar is yours. mydear draws the window buttons in the order `gtk-decoration-layout` gives (GNOME: close on the right; elementary and others: on the left), so `leftInset` and `rightInset` follow it.
+
+- **Dragging:** empty bar space calls `gdk_toplevel_begin_move`, so the compositor moves the window (Wayland and X11).
+- **Double-click** toggles maximize; **right-click** opens the window manager's menu (`gdk_toplevel_show_window_menu`).
+- **Dark mode:** mydear sets `gtk-application-prefer-dark-theme` from `Theme::Current()->dark`, so GTK dialogs and native views match.
+
+`Config::titleBarHeight` is in logical pixels on Linux.
