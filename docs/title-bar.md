@@ -47,6 +47,10 @@ Widgets in the bar, ImGui items or [native views](native-views.md), never start 
 
 In fullscreen the OS shows its own title bar when the mouse reaches the top edge, over yours. The insets are 0 there, since the traffic lights are not in the window.
 
+## Dark mode
+
+mydear gives the window `Theme::Current()`'s appearance (Dark Aqua or Aqua) and its `base` colour as the window background whenever the theme changes, so the traffic lights, sheets, native views and the edge of a live resize match.
+
 ## Windows
 
 There is no system frame: mydear removes it (`WM_NCCALCSIZE`), keeps the window shadow with `DwmExtendFrameIntoClientArea`, and draws the minimize, maximize and close buttons itself at the right end of the bar (`rightInset` is their width, 138 pixels). They follow the theme, and close turns red on hover, like Windows' own.

@@ -27,6 +27,18 @@ namespace mydear {
         enum class BarAction { None, Drag, DoubleClick } gBarAction = BarAction::None;
         ImGuiWindow* gFocusBeforeBar = nullptr; // a click on the bar hands focus back to it
         float gBarHeight = 28;
+        const Theme::ThemeDef* gTheme = nullptr; // the theme the window was last given
+
+        // the window (traffic lights, sheets, native views) follows the theme, as on windows and linux
+        void followTheme() {
+            const Theme::ThemeDef* theme = Theme::Current();
+            if (theme == gTheme || !theme || !gWindow)
+                return;
+            gTheme = theme;
+            const ImVec4 c = theme->colors.base;
+            gWindow.backgroundColor = [NSColor colorWithRed:c.x green:c.y blue:c.z alpha:c.w];
+            gWindow.appearance = [NSAppearance appearanceNamed:theme->dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
+        }
 
         // macos pins the traffic lights to its 28 pt bar: grow their container and centre them
         // (as electron's trafficLightPosition does). appkit lays them out again on resize and
@@ -174,6 +186,7 @@ namespace mydear {
 
     void App::renderFrame() {
         auto& d = *impl_;
+        followTheme();
         @autoreleasepool {
             d.backend->beginFrame(Theme::Current()->colors.base);
             ImGui::NewFrame();
