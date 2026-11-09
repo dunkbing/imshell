@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <utility>
 
 namespace mydear {
     namespace {
@@ -41,6 +42,7 @@ namespace mydear {
         // the last button press, for a window move or the window menu started after the frame
         GdkEvent* gLastPress = nullptr;
         enum class BarAction { None, Drag, DoubleClick, Menu } gBarAction = BarAction::None;
+        bool gAfterFrame = false; // a frame was drawn: place native views, run the bar action
         ImGuiWindow* gFocusBeforeBar = nullptr;
 
         // clipboard: gtk4 reads it asynchronously, imgui asks synchronously
@@ -295,6 +297,17 @@ namespace mydear {
                 return;
             }
             gGlReady = ImGui_ImplOpenGL3_Init("#version 330");
+            // layout changes are not allowed while gtk draws, and idle callbacks starve while the
+            // frame clock runs: the frame's follow-up work goes right after its paint
+            g_signal_connect(gtk_widget_get_frame_clock(GTK_WIDGET(area)), "after-paint",
+                             G_CALLBACK(+[](GdkFrameClock*, gpointer) {
+                                 if (!std::exchange(gAfterFrame, false))
+                                     return;
+                                 detail::placeNativeViews();
+                                 if (gBarAction != BarAction::None)
+                                     runBarAction(nullptr);
+                             }),
+                             nullptr);
         }
 
         gboolean onRender(GtkGLArea* area, GdkGLContext*, gpointer) {
@@ -328,15 +341,7 @@ namespace mydear {
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             if (detail::isImGuiUserActive())
                 noteInput();
-            // layout changes are not allowed while gtk draws: after it
-            g_idle_add(
-                [](gpointer) -> gboolean {
-                    detail::placeNativeViews();
-                    return G_SOURCE_REMOVE;
-                },
-                nullptr);
-            if (gBarAction != BarAction::None)
-                g_idle_add(runBarAction, nullptr);
+            gAfterFrame = true; // native views and bar actions: in after-paint, see onRealize
             return TRUE;
         }
 
@@ -493,6 +498,17 @@ namespace mydear {
         gtk_widget_add_controller(gArea, GTK_EVENT_CONTROLLER(drop));
 
         gOverlay = gtk_overlay_new();
+        // overlay children sit exactly where imgui put them, even below their minimum size: the
+        // clip box clips
+        g_signal_connect(gOverlay, "get-child-position",
+                         G_CALLBACK(+[](GtkOverlay*, GtkWidget* child, GdkRectangle* out, gpointer) {
+                             auto* r = static_cast<GdkRectangle*>(
+                                 g_object_get_data(G_OBJECT(child), "mydear-rect"));
+                             if (r)
+                                 *out = *r;
+                             return r != nullptr;
+                         }),
+                         nullptr);
         gtk_overlay_set_child(GTK_OVERLAY(gOverlay), gArea);
         gtk_window_set_child(GTK_WINDOW(gWindow), gOverlay);
 
@@ -692,8 +708,8 @@ namespace mydear {
             GtkWidget* view = static_cast<GtkWidget*>(made);
             GtkWidget* clip = gtk_fixed_new();
             gtk_widget_set_overflow(clip, GTK_OVERFLOW_HIDDEN);
-            gtk_widget_set_halign(clip, GTK_ALIGN_START);
-            gtk_widget_set_valign(clip, GTK_ALIGN_START);
+            gtk_widget_set_visible(clip, FALSE); // added mid-draw: no allocation until placed
+            g_object_set_data_full(G_OBJECT(clip), "mydear-rect", g_new0(GdkRectangle, 1), g_free);
             gtk_fixed_put(GTK_FIXED(clip), view, 0, 0);
             gtk_overlay_add_overlay(GTK_OVERLAY(gOverlay), clip);
             return clip;
@@ -701,10 +717,10 @@ namespace mydear {
 
         void nativePlace(void* clip, void* view, const ImRect& visible, const ImRect& full) {
             auto* c = static_cast<GtkWidget*>(clip);
-            gtk_widget_set_margin_start(c, static_cast<int>(visible.Min.x));
-            gtk_widget_set_margin_top(c, static_cast<int>(visible.Min.y));
-            gtk_widget_set_size_request(c, static_cast<int>(visible.GetWidth()),
-                                        static_cast<int>(visible.GetHeight()));
+            auto* r = static_cast<GdkRectangle*>(g_object_get_data(G_OBJECT(c), "mydear-rect"));
+            *r = {static_cast<int>(visible.Min.x), static_cast<int>(visible.Min.y),
+                  static_cast<int>(visible.GetWidth()), static_cast<int>(visible.GetHeight())};
+            gtk_widget_queue_allocate(gOverlay);
             gtk_fixed_move(GTK_FIXED(c), static_cast<GtkWidget*>(view), full.Min.x - visible.Min.x,
                            full.Min.y - visible.Min.y);
             gtk_widget_set_size_request(static_cast<GtkWidget*>(view),

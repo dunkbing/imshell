@@ -49,7 +49,7 @@ namespace mydear::detail {
     void* nativeAttach(void* made) {
         HWND view = static_cast<HWND>(made);
         HWND clip = CreateWindowExW(0, clipClass(), nullptr,
-                                    WS_CHILD | WS_VISIBLE | WS_CLIPCHILDREN | WS_CLIPSIBLINGS, 0, 0,
+                                    WS_CHILD | WS_CLIPCHILDREN | WS_CLIPSIBLINGS, 0, 0, // shown when placed
                                     0, 0, static_cast<HWND>(nativeHost()), nullptr,
                                     GetModuleHandleW(nullptr), nullptr);
         LONG_PTR style = GetWindowLongPtrW(view, GWL_STYLE);
