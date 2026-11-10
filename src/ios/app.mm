@@ -657,6 +657,7 @@ namespace mydear {
         io.BackendPlatformName = "mydear_ios";
         io.MouseDoubleClickMaxDist = 20.0f; // fingers land less precisely than a mouse
         ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+        pio.Platform_GetWindowWorkAreaInsets = [](ImGuiViewport*) { return detail::safeArea(); };
         pio.Platform_GetClipboardTextFn = [](ImGuiContext*) -> const char* {
             static std::string text;
             text = UIPasteboard.generalPasteboard.string.UTF8String ?: "";
@@ -687,6 +688,9 @@ namespace mydear {
                                                                              gView.safeAreaInsets.bottom),
                                                      1));
             io.DisplayFramebufferScale = ImVec2(scale, scale);
+            // shortcut: top only (status and navigation bar); the display already stops above
+            // the home indicator and keyboard. add the sides when landscape iphones need them
+            detail::safeArea() = ImVec4(0, static_cast<float>(gView.safeAreaInsets.top), 0, 0);
             const CFTimeInterval now = CACurrentMediaTime();
             io.DeltaTime = gLastTime > 0 ? static_cast<float>(now - gLastTime) : 1.0f / 60.0f;
             gLastTime = now;

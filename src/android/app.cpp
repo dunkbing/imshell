@@ -214,15 +214,40 @@ namespace {
         ImGui::GetIO().AddMouseWheelEvent(d.x / (2.0f * font), d.y / (5.0f * font));
     }
 
-    // the visible part of the window: no system bars, no keyboard (pixels)
+    // window pixels: left, top, right, bottom covered by system bars and cutouts, then the
+    // keyboard's height (MydearActivity.windowInsets)
+    int gInsets[5] = {};
+
+    void readInsets() {
+        static jmethodID m = method("windowInsets", "()[I");
+        if (!m)
+            return;
+        auto a = static_cast<jintArray>(gEnv->CallObjectMethod(gAndroid->activity->clazz, m));
+        if (!a)
+            return;
+        if (gEnv->GetArrayLength(a) == 5)
+            gEnv->GetIntArrayRegion(a, 0, 5, gInsets);
+        gEnv->DeleteLocalRef(a);
+    }
+
+    // the imgui display (pixels): the whole window above the keyboard. the bars and cutouts
+    // inside it are the safe area
     ARect visibleRect() {
         const int w = ANativeWindow_getWidth(gAndroid->window);
         const int h = ANativeWindow_getHeight(gAndroid->window);
-        const ARect r = gAndroid->contentRect;
-        if (r.right <= r.left || r.bottom <= r.top)
-            return ARect{0, 0, w, h};
-        return ARect{std::max(r.left, 0), std::max(r.top, 0), std::min(r.right, w),
-                     std::min(r.bottom, h)};
+        return ARect{0, 0, w, std::max(h - gInsets[4], 1)};
+    }
+
+    // dark bar icons when the theme is light
+    void followTheme() {
+        static int light = -1;
+        const ImVec4 bg = ImGui::GetStyle().Colors[ImGuiCol_WindowBg];
+        const int now = 0.299f * bg.x + 0.587f * bg.y + 0.114f * bg.z > 0.5f;
+        if (now == light)
+            return;
+        light = now;
+        if (jmethodID m = method("setLightBars", "(Z)V"))
+            gEnv->CallVoidMethod(gAndroid->activity->clazz, m, static_cast<jboolean>(now));
     }
 
     ImVec2 pointerAt(const AInputEvent* e, size_t i) {
@@ -446,6 +471,7 @@ namespace mydear {
         io.IniFilename = nullptr; // the host saves what it wants (activity->internalDataPath)
         io.MouseDoubleClickMaxDist = 20.0f;
         ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+        pio.Platform_GetWindowWorkAreaInsets = [](ImGuiViewport*) { return detail::safeArea(); };
         pio.Platform_GetClipboardTextFn = [](ImGuiContext*) -> const char* {
             static std::string text;
             text = callString("getClipboard");
@@ -475,8 +501,12 @@ namespace mydear {
     void App::renderFrame() {
         if (gSurface == EGL_NO_SURFACE || !gGlReady)
             return;
+        readInsets();
         ImGuiIO& io = ImGui::GetIO();
         const ARect visible = visibleRect();
+        // the keyboard already shrank the display: its edge needs no bottom inset
+        detail::safeArea() = ImVec4(gInsets[0] / gDensity, gInsets[1] / gDensity, gInsets[2] / gDensity,
+                                    std::max(gInsets[3] - gInsets[4], 0) / gDensity);
         io.DisplaySize = ImVec2(std::max(visible.right - visible.left, 1) / gDensity,
                                 std::max(visible.bottom - visible.top, 1) / gDensity);
         io.DisplayFramebufferScale = ImVec2(gDensity, gDensity);
@@ -523,6 +553,7 @@ namespace mydear {
         ImGui::Render();
 
         // a text field wants the keyboard
+        followTheme();
         static bool keyboard = false;
         // PlatformImeData.WantVisible: a custom editor that wants the keyboard (ios does the same)
         const bool wants = io.WantTextInput || GImGui->PlatformImeData.WantVisible;
@@ -638,8 +669,10 @@ namespace mydear {
     TitleBar BeginTitleBar() {
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         TitleBar bar;
-        bar.pos = vp->Pos;
-        bar.size = ImVec2(vp->Size.x, TitleBarHeight());
+        // below the status bar and clear of side cutouts (landscape)
+        const ImVec4 safe = SafeArea();
+        bar.pos = ImVec2(vp->Pos.x + safe.x, vp->Pos.y + safe.y);
+        bar.size = ImVec2(vp->Size.x - safe.x - safe.z, TitleBarHeight());
         bar.leftInset = bar.rightInset = Theme::Spacing::M;
         ImGui::SetNextWindowPos(bar.pos);
         ImGui::SetNextWindowSize(bar.size);

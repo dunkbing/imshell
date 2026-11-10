@@ -5,8 +5,16 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
+import android.graphics.Insets;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.view.DisplayCutout;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
 import android.graphics.Rect;
 import android.provider.OpenableColumns;
 import android.view.ActionMode;
@@ -31,6 +39,70 @@ public class MydearActivity extends NativeActivity {
     private final ConcurrentLinkedQueue<Integer> edits = new ConcurrentLinkedQueue<>();
     private ActionMode editMenu;
     private String pickInto;
+    // left, top, right, bottom (system bars, cutout), keyboard height; window pixels
+    private volatile int[] insets = new int[5];
+
+    // edge to edge on every version (api 35+ targets get it anyway): the surface covers the
+    // whole window, and the shell keeps imgui clear of what the insets say is covered
+    @Override
+    protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        getWindow().getAttributes().layoutInDisplayCutoutMode =
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        View decor = getWindow().getDecorView();
+        if (Build.VERSION.SDK_INT >= 30) {
+            getWindow().setDecorFitsSystemWindows(false);
+        } else {
+            decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        }
+        if (Build.VERSION.SDK_INT < 35) { // 35+ ignores these: its bars are transparent
+            getWindow().setStatusBarColor(Color.TRANSPARENT);
+            getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        }
+        decor.setOnApplyWindowInsetsListener((v, in) -> {
+            int[] next;
+            if (Build.VERSION.SDK_INT >= 30) {
+                Insets bars = in.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                next = new int[] {bars.left, bars.top, bars.right, bars.bottom,
+                                  in.getInsets(WindowInsets.Type.ime()).bottom};
+            } else {
+                // shortcut: before api 30 the keyboard is part of the bottom inset; untested (no 28/29 image)
+                next = new int[] {in.getSystemWindowInsetLeft(), in.getSystemWindowInsetTop(),
+                                  in.getSystemWindowInsetRight(), in.getSystemWindowInsetBottom(), 0};
+                DisplayCutout c = in.getDisplayCutout();
+                if (c != null) {
+                    next[0] = Math.max(next[0], c.getSafeInsetLeft());
+                    next[1] = Math.max(next[1], c.getSafeInsetTop());
+                    next[2] = Math.max(next[2], c.getSafeInsetRight());
+                    next[3] = Math.max(next[3], c.getSafeInsetBottom());
+                }
+            }
+            insets = next;
+            return v.onApplyWindowInsets(in);
+        });
+    }
+
+    public int[] windowInsets() {
+        return insets;
+    }
+
+    // dark bar icons over a light theme
+    public void setLightBars(boolean light) {
+        runOnUiThread(() -> {
+            if (Build.VERSION.SDK_INT >= 30) {
+                int both = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                    | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                getWindow().getInsetsController().setSystemBarsAppearance(light ? both : 0, both);
+            } else {
+                View decor = getWindow().getDecorView();
+                int flags = decor.getSystemUiVisibility();
+                flags = light ? flags | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                              : flags & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+                decor.setSystemUiVisibility(flags);
+            }
+        });
+    }
 
     // the native key event has no character: take it here, imgui still gets the key
     @Override

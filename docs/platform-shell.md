@@ -32,6 +32,10 @@ Anything that animates calls `mydear::requestFrames()` (`mydear/frames.hpp`) to 
 
 A host that drives frames itself, such as the ImGui test engine, calls `pollEvents()` and `renderFrame()` in its own loop instead of `run()`.
 
+## Safe area
+
+`mydear::SafeArea()` (`mydear/app.hpp`) gives the edges system UI covers, in ImGui units (`x` left, `y` top, `z` right, `w` bottom): the status and navigation bar on iOS, system bars and cutouts on Android, zero on desktops. The shells also hand it to ImGui (`Platform_GetWindowWorkAreaInsets`), so the main viewport's `WorkPos`/`WorkSize` leave it out from the next frame on; lay full-screen windows out from `SafeArea()` itself to avoid that frame of lag. On Android the title bar strip starts below the status bar, so put the content at `SafeArea().y + TitleBarHeight()`.
+
 ## Handles
 
 - `glfwWindow()`: the GLFW window (desktop).
@@ -79,7 +83,7 @@ void android_main(android_app* state) {
 }
 ```
 
-The activity must be `io.mydear.MydearActivity` (`android/io/mydear/MydearActivity.java`) or a subclass. It brings what the NDK cannot reach: typed characters, the soft keyboard, the clipboard and the document picker. Graphics are EGL with OpenGL ES 3, and ImGui works in dp (`DisplayFramebufferScale` is the screen density), like points on iOS. The ImGui area is the window minus the system bars and the soft keyboard. The EGL context outlives the window, so textures survive the app going to the background.
+The activity must be `io.mydear.MydearActivity` (`android/io/mydear/MydearActivity.java`) or a subclass. It brings what the NDK cannot reach: typed characters, the soft keyboard, the clipboard and the document picker. Graphics are EGL with OpenGL ES 3, and ImGui works in dp (`DisplayFramebufferScale` is the screen density), like points on iOS. The activity is edge to edge on every Android version (the manifest targets API 36, where Play requires it): the ImGui area is the whole window above the soft keyboard, the system bars and camera cutouts inside it are the safe area, and the bar icons turn dark over a light theme. The EGL context outlives the window, so textures survive the app going to the background.
 
 Touch works as on iOS. A long press over text selects the word under the finger and shows the system's floating text toolbar (Cut, Copy, Paste, Select all, sent to ImGui as Ctrl chords); anywhere else it right-clicks. Both give the long-press haptic tick. A mouse or trackpad is a mouse. Hardware keys go through `imgui_impl_android`.
 
