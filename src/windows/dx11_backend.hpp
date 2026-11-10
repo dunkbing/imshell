@@ -33,6 +33,8 @@ namespace mydear {
         ImTextureID createTextureFromRGBA(const uint8_t* pixels, int width, int height);
 
         bool vsync = true;
+        // resized buffers hold nothing: the next frame draws even when it matches the last
+        bool mustDraw = true;
 
     private:
         void createRenderTarget();

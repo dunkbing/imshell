@@ -80,6 +80,7 @@ namespace mydear {
     void DX11Backend::resize() {
         if (!swapChain_)
             return;
+        mustDraw = true;
         cleanupRenderTarget();
         swapChain_->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
         createRenderTarget();

@@ -9,6 +9,7 @@
 #include "mydear/title_bar.hpp"
 
 #include <cstdio>
+#include <utility>
 #include <dwmapi.h>
 #include <windowsx.h>
 
@@ -326,7 +327,8 @@ namespace mydear {
         ImGui::Render();
         // an unchanged frame is not drawn or presented: the window keeps showing the last one
         const ImVec4 base = Theme::Current()->colors.base;
-        detail::frameSkipped() = detail::sameAsLastFrame(ImGui::GetDrawData(), base);
+        const bool mustDraw = std::exchange(d.backend->mustDraw, false);
+        detail::frameSkipped() = detail::sameAsLastFrame(ImGui::GetDrawData(), base) && !mustDraw;
         if (!detail::frameSkipped()) {
             d.backend->renderDrawData(ImGui::GetDrawData(), base);
             d.backend->present();
