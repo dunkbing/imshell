@@ -8,11 +8,7 @@
 | Safe area (`SafeArea()`, `WorkPos`/`WorkSize`) | zero | top (status and navigation bar); the display stops above the home indicator and keyboard | zero | zero | top (status bar), edge to edge; the display stops at the navigation bar, side cutouts and keyboard |
 | Native views | `NSView` | `UIView` | child `HWND` | `GtkWidget` (overlay) | — |
 | Frame capture, recording | yes | no | no | no | no |
-<<<<<<< HEAD
 | Text input | GLFW keys and chars | `UITextInput` (IME, soft keyboard) | GLFW keys and chars | GTK keys and chars (no IME yet) | an `InputConnection` through the activity (suggestions, composing, swipe typing), hardware keys |
-=======
-| Text input | GLFW keys and chars | `UITextInput` (IME, soft keyboard) | GLFW keys and chars | GTK keys and chars (no IME yet) | typed characters through the activity, soft keyboard (no IME composition yet) |
->>>>>>> origin/main
 | Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) | — (`PickFile` copies one in) |
 | Auto-update (`MYDEAR_UPDATER`) | Sparkle | — (App Store) | WinSparkle | AppImage swap, SHA-256 checked | — (the store) |
 
@@ -27,10 +23,6 @@ On Linux, the window manager keeps its own shortcuts (Super, Alt+F4, Alt+drag an
 ## Differences worth knowing
 
 - **Points, not pixels:** on macOS and iOS (and dp on Android), sizes in `Config` and ImGui coordinates are in points and mydear sets `DisplayFramebufferScale` for the display. On Windows they are pixels, as GLFW reports them there, so `titleBarHeight` is in pixels too. On Linux they are GTK's logical pixels, scaled like points.
-<<<<<<< HEAD
 - **Title bar on iOS:** there is no window to drag; `TitleBarHeight()` is 0 and `BeginTitleBar()` draws nothing, so shared code needs no `#if`. Use the `UINavigationController` bar of `MydearViewController` for native chrome instead.
-=======
-- **Title bar on iOS:** there is no window to drag. Use the `UINavigationController` bar of `MydearViewController` for native chrome instead.
->>>>>>> origin/main
 - **Title bar on Android:** `BeginTitleBar` gives a plain ImGui strip `titleBarHeight` dp tall at the top (with `Config::titleBar`); nothing drags it.
 - **Fullscreen on macOS:** the system title bar slides down over yours; see [Title bar](title-bar.md#fullscreen).

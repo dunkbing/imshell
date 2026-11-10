@@ -24,11 +24,7 @@ add_library(mydear::mydear ALIAS mydear)
 
 # the platform shell. imgui core stays the host's; its platform backends are ours
 if(IOS)
-<<<<<<< HEAD
     target_sources(mydear PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
-=======
-    target_sources(mydear PRIVATE src/ios/app.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
->>>>>>> origin/main
                                   ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm)
     set_source_files_properties(src/ios/app.mm src/ios/file_dialog.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
@@ -70,10 +66,7 @@ elseif(ANDROID)
     set(MYDEAR_GLUE_DIR ${ANDROID_NDK}/sources/android/native_app_glue)
     target_sources(mydear PRIVATE
         src/android/app.cpp
-<<<<<<< HEAD
         src/android/file_dialog.cpp
-=======
->>>>>>> origin/main
         src/touch.cpp
         src/native_view.cpp
         ${MYDEAR_GLUE_DIR}/android_native_app_glue.c

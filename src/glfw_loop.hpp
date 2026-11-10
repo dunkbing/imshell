@@ -24,7 +24,6 @@ namespace mydear::detail {
     void runGlfwLoop(GLFWwindow* window, Delegate& delegate, const bool& vsync, const int& maxFps,
                      Render render) {
         wakeLoopHook().store([] { glfwPostEmptyEvent(); });
-<<<<<<< HEAD
         // the close button, cmd-q, alt-f4: the delegate may keep the window open
         static Delegate* closing;
         closing = &delegate;
@@ -32,8 +31,6 @@ namespace mydear::detail {
             if (!closing->closeRequested())
                 glfwSetWindowShouldClose(w, GLFW_FALSE);
         });
-=======
->>>>>>> origin/main
         double lastInput = glfwGetTime();
         bool wasFocused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
         while (!glfwWindowShouldClose(window)) {
