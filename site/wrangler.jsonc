@@ -3,6 +3,8 @@
 {
   "name": "mydear",
   "compatibility_date": "2026-11-10",
+  // wrangler preview (pull request builds) needs the block, even empty
+  "previews": {},
   "assets": {
     "directory": "./dist",
     "html_handling": "drop-trailing-slash",
