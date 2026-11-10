@@ -69,3 +69,22 @@ The same `main()` runs on macOS, Windows and Linux. On Android, `android_main` c
 - Windows: GLFW (`find_package(glfw3)`), Native File Dialog Extended (`find_package(nfd)`), Direct3D 11, DWM.
 - Linux: GTK 4 and libepoxy (`pkg-config gtk4 epoxy`), Native File Dialog Extended (`find_package(nfd)`).
 - With `-DMYDEAR_UPDATER=ON`: Sparkle (macOS), WinSparkle (Windows), or httplib, nlohmann_json and OpenSSL (Linux); see [Auto-update](auto-update.md).
+
+## Building mydear on its own
+
+mydear builds without a host, to work on it or to try the example. `vcpkg.json` lists what the desktops need (GLFW on macOS and Windows, Native File Dialog Extended), and Dear ImGui comes from a checkout of your choice:
+
+```sh
+cmake -S . -B build -G Ninja \
+  -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
+  -DMYDEAR_IMGUI_DIR=/path/to/imgui \
+  -DMYDEAR_BUILD_EXAMPLES=ON -DMYDEAR_BUILD_TESTS=ON
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+On Linux, GTK 4 and libepoxy come from the system (`pkg-config`). Instead of the vcpkg toolchain, `-DCMAKE_PREFIX_PATH` can point at packages installed some other way, such as a host's `vcpkg_installed/<triplet>`.
+
+`ctest` runs two tests:
+- `mydear_touch_test`: the touch engine on a bare ImGui context, no window.
+- `mydear_hello_smoke`: the example in a real window, which needs a desktop session. With `MYDEAR_HELLO_PROBE=1` it drives itself: it double-clicks the title bar (the window should zoom), clicks a button in the bar, checks that a native view shows and hides under a popup, and closes the window the way the user would, expecting the first close to be refused (`closeRequested`) and the second to go through. It prints `probe: ok`, or `probe: FAILED:` and what failed. `MYDEAR_HELLO_SHOT=out.png` also saves a frame (macOS).

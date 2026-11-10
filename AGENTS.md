@@ -8,7 +8,7 @@ A Dear ImGui toolkit for cross-platform apps, grown while building DearSQL (its 
 - Headers in `include/mydear/`, sources in `src/`, vendored single headers in `third_party/` (private include). Add a source to `CMakeLists.txt` when you add one.
 - C++20. Comments short and lowercase. Keep it small: something moves in when a host needs it, not before.
 - A change to what a host sees (a function, a header, a CMake function) updates `README.md` and the matching page in `docs/` (and the table in `docs/platforms.md` when a platform gains or differs) in the same commit.
-- Build and test through a host (DearSQL: `./scripts/build`, then `./build/ui_tests -nopause`). `-DMYDEAR_BUILD_EXAMPLES=ON` adds `mydear_hello`; `MYDEAR_HELLO_QUIT=3 MYDEAR_HELLO_SHOT=out.png ./mydear_hello` runs it unattended and saves a frame.
+- Build on its own (`docs/getting-started.md`, "Building mydear on its own": `vcpkg.json`, `MYDEAR_BUILD_EXAMPLES`, `MYDEAR_BUILD_TESTS`, then `ctest`, which runs the touch test and hello's probe in a real window), and through a host (DearSQL: `./scripts/build`, then `./build/ui_tests -nopause`). The probe checks print `probe: ok` or `probe: FAILED:`; add a check there when a shell behaviour can be driven from imgui.
 - Changes land through a pull request, never a push to `main`. Commits: short one-line subject, no trailers or attribution lines.
 
 ## Platform shell

@@ -13,12 +13,14 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
+#include <string>
 #include <utility>
 
 void* makeTextField();
 void* makeDatePicker();
 void describeNativeView(void* view, char* out, int size);
-void closeLikeUser();
+bool closeLikeUser(); // false where the platform cannot
 
 struct Hello : mydear::Delegate {
     int clicks = 0;
@@ -98,32 +100,49 @@ struct Hello : mydear::Delegate {
             io.AddMouseButtonEvent(0, true);
         if (f == 52)
             io.AddMouseButtonEvent(0, false);
-        if (f == 60)
+        if (f == 60) {
             std::printf("probe: bar button clicked %d time(s)\n", barClicks);
+            check(barClicks == 1, "bar button");
+        }
         // the native field: placed where the layout put it, hidden under a popup
         char where[64];
         if (f == 70 && field) {
             describeNativeView(field, where, sizeof where);
             std::printf("probe: native field %s\n", where);
+            check(std::strstr(where, "shown"), "native field shown");
             wantPopup = true;
         }
         if (f == 80 && field) {
             describeNativeView(field, where, sizeof where);
             std::printf("probe: under a popup %s\n", where);
+            check(std::strstr(where, "hidden"), "native field hidden under a popup");
         }
         if (f == 11 || f == 13)
             io.AddMouseButtonEvent(0, true);
         if (f == 12 || f == 14)
             io.AddMouseButtonEvent(0, false);
         // close like the user: the first is vetoed (closeRequested), the second goes through
-        if (f == 90 || f == 100)
+        if (f == 90)
+            canClose = closeLikeUser();
+        if (f == 95 && canClose)
+            check(closeAsks == 1, "close asked once and vetoed");
+        if (f == 98)
+            std::printf("probe: %s%s\n", failed.empty() ? "ok" : "FAILED:", failed.c_str());
+        if (f == 100 && canClose)
             closeLikeUser();
-        if (f == 95)
-            std::printf("probe: still open after a vetoed close\n");
-        if (f == 40)
+        if (f == 40) {
             std::printf("probe: %.0fx%.0f -> %.0fx%.0f (%s)\n", sizeBefore.x, sizeBefore.y,
                         io.DisplaySize.x, io.DisplaySize.y,
                         io.DisplaySize.x != sizeBefore.x ? "zoomed" : "NOT zoomed");
+            check(io.DisplaySize.x != sizeBefore.x, "double-click zooms");
+        }
+    }
+
+    std::string failed; // the probe's failed checks
+    bool canClose = false;
+    void check(bool ok, const char* what) {
+        if (!ok)
+            failed += std::string(" ") + what + ";";
     }
 
     int closeAsks = 0;
