@@ -115,6 +115,8 @@ namespace mydear {
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
             "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
             "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/google-noto-sans-cjk-fonts/NotoSansCJK-Regular.ttc", // fedora
+            // not fedora's default NotoSansCJK-VF.ttc: stb_truetype cannot read its cff2 outlines
             "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
             "/usr/share/fonts/wqy-microhei/wqy-microhei.ttc",
             "/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc",
