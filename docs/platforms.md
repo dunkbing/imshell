@@ -1,15 +1,15 @@
 # Platforms
 
-| | macOS | iOS / iPadOS | Windows | Linux |
-|---|---|---|---|---|
-| Window and loop | GLFW | UIKit (`RunUIKit`) | GLFW | GTK4, its frame clock |
-| Graphics | Metal | Metal | Direct3D 11 | OpenGL 3.3 (`GtkGLArea`) |
-| Title bar | ImGui bar, native traffic lights | none (use the navigation bar) | ImGui bar and caption buttons, snap layouts | ImGui bar, window buttons drawn by mydear in GTK's layout |
-| Native views | `NSView` | `UIView` | child `HWND` | `GtkWidget` (overlay) |
-| Frame capture, recording | yes | no | no | no |
-| Text input | GLFW keys and chars | `UITextInput` (IME, soft keyboard) | GLFW keys and chars | GTK keys and chars (no IME yet) |
-| Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) |
-| Auto-update (`MYDEAR_UPDATER`) | Sparkle | — (App Store) | WinSparkle | AppImage swap, SHA-256 checked |
+| | macOS | iOS / iPadOS | Windows | Linux | Android |
+|---|---|---|---|---|---|
+| Window and loop | GLFW | UIKit (`RunUIKit`) | GLFW | GTK4, its frame clock | NativeActivity, `android_main` |
+| Graphics | Metal | Metal | Direct3D 11 | OpenGL 3.3 (`GtkGLArea`) | OpenGL ES 3 (EGL) |
+| Title bar | ImGui bar, native traffic lights | none (use the navigation bar) | ImGui bar and caption buttons, snap layouts | ImGui bar, window buttons drawn by mydear in GTK's layout | ImGui strip at the top, no OS buttons |
+| Native views | `NSView` | `UIView` | child `HWND` | `GtkWidget` (overlay) | — |
+| Frame capture, recording | yes | no | no | no | no |
+| Text input | GLFW keys and chars | `UITextInput` (IME, soft keyboard) | GLFW keys and chars | GTK keys and chars (no IME yet) | typed characters through the activity, soft keyboard (no IME composition yet) |
+| Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) | — (`PickFile` copies one in) |
+| Auto-update (`MYDEAR_UPDATER`) | Sparkle | — (App Store) | WinSparkle | AppImage swap, SHA-256 checked | — (the store) |
 
 ## Keyboard shortcuts
 
@@ -21,6 +21,7 @@ On Linux, the window manager keeps its own shortcuts (Super, Alt+F4, Alt+drag an
 
 ## Differences worth knowing
 
-- **Points, not pixels:** on macOS and iOS, sizes in `Config` and ImGui coordinates are in points and mydear sets `DisplayFramebufferScale` for the display. On Windows they are pixels, as GLFW reports them there, so `titleBarHeight` is in pixels too. On Linux they are GTK's logical pixels, scaled like points.
+- **Points, not pixels:** on macOS and iOS (and dp on Android), sizes in `Config` and ImGui coordinates are in points and mydear sets `DisplayFramebufferScale` for the display. On Windows they are pixels, as GLFW reports them there, so `titleBarHeight` is in pixels too. On Linux they are GTK's logical pixels, scaled like points.
 - **Title bar on iOS:** there is no window to drag. Use the `UINavigationController` bar of `MydearViewController` for native chrome instead.
+- **Title bar on Android:** `BeginTitleBar` gives a plain ImGui strip `titleBarHeight` dp tall at the top (with `Config::titleBar`); nothing drags it.
 - **Fullscreen on macOS:** the system title bar slides down over yours; see [Title bar](title-bar.md#fullscreen).

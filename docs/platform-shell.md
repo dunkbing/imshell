@@ -62,3 +62,31 @@ Touch maps to ImGui like this:
 - a trackpad or mouse is a mouse.
 
 Text input goes through `UITextInput`, so IME and the space-bar cursor work. The soft keyboard follows `io.WantTextInput`, and the layout moves above it.
+
+## Android
+
+`NativeActivity` loads the app as a shared library, and the NDK's `android_native_app_glue` calls `android_main` on its own thread. Hand the glue's app to mydear, then run as on the desktop:
+
+```cpp
+#include "mydear/android.hpp"
+
+void android_main(android_app* state) {
+    mydear::SetAndroidApp(state);
+    mydear::App app;
+    if (app.create(config, delegate))
+        app.run();
+    app.destroy();
+}
+```
+
+The activity must be `io.mydear.MydearActivity` (`android/io/mydear/MydearActivity.java`) or a subclass. It brings what the NDK cannot reach: typed characters, the soft keyboard, the clipboard and the document picker. Graphics are EGL with OpenGL ES 3, and ImGui works in dp (`DisplayFramebufferScale` is the screen density), like points on iOS. The ImGui area is the window minus the system bars and the soft keyboard. The EGL context outlives the window, so textures survive the app going to the background.
+
+Touch works as on iOS, except that a long press always right-clicks (there is no edit menu yet). A mouse or trackpad is a mouse. Hardware keys go through `imgui_impl_android`.
+
+`mydear::PickFile(mimeTypes, intoDir, done)` opens the system document picker. The picked file is copied into `intoDir`, because apps can't open another app's files by path, and `done` gets the copy's path a frame or two later. It is not called when the picker is cancelled.
+
+### Building an APK
+
+`mydear_android_apk(lib PACKAGE id LABEL name ...)` (`cmake/MydearAndroid.cmake`) adds `<lib>_apk`, which packs the library into a signed APK next to it without Gradle: `javac` and `d8` for the activity, `aapt2` for the manifest, then `zipalign` and `apksigner` with the SDK's debug key. The SDK is found from the NDK's location (`<sdk>/ndk/<version>`), and a JDK must be on `PATH`. Debug builds are debuggable, so `adb shell run-as <package>` reaches the app's files. Optional arguments: `ACTIVITY` (a subclass), `JAVA` (more sources), `ASSETS`, `PERMISSIONS`, `VERSION`, `VERSION_CODE`.
+
+Configure with the NDK toolchain, `-DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28` (the minimum).
