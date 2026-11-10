@@ -2,6 +2,7 @@
 #include "mydear/ios.h"
 #include "mydear/themes.hpp"
 #include "../native_view.hpp"
+#include "../touch.hpp"
 
 #include "imgui.h"
 #include "imgui_impl_metal.h"
@@ -24,11 +25,11 @@ namespace {
 // ---- the view: touches, the ipad pointer and keys become imgui input ----
 
 namespace {
-    // a finger touch is held back until we know what it is: a tap (click), a drag on
-    // something draggable (press and drag), a scroll (pan) or a long press (right click)
-    enum class Touch { None, Pending, Pressed };
-    Touch gTouch = Touch::None;
-    CGPoint gTouchStart;
+    namespace touch = mydear::touch; // the shared one-finger model (src/touch.cpp)
+
+    ImVec2 vec(CGPoint p) {
+        return ImVec2(static_cast<float>(p.x), static_cast<float>(p.y));
+    }
 
     ImGuiKey keyFor(UIKeyboardHIDUsage u) {
         if (u >= UIKeyboardHIDUsageKeyboardA && u <= UIKeyboardHIDUsageKeyboardZ)
@@ -104,28 +105,8 @@ namespace {
         ImGui::GetIO().AddKeyEvent(k, false);
     }
 
-    void touchAt(CGPoint p) {
-        ImGuiIO& io = ImGui::GetIO();
-        io.AddMouseSourceEvent(ImGuiMouseSource_TouchScreen);
-        io.AddMousePosEvent(p.x, p.y);
-    }
-
-    // let go without clicking whatever is under the finger
-    void releaseAway() {
-        ImGuiIO& io = ImGui::GetIO();
-        io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
-        io.AddMouseButtonEvent(0, false);
-    }
-
     UIView* gNoKeyboard = nil; // an empty input view: first responder, no keyboard
 
-    CGPoint gFling; // points per second left from a flick
-
-    // a wheel step scrolls 2 font sizes sideways, 5 down: the content stays under the finger
-    void scrollBy(CGPoint d) {
-        const float font = std::max(ImGui::GetFontSize(), 1.0f);
-        ImGui::GetIO().AddMouseWheelEvent(d.x / (2.0f * font), d.y / (5.0f * font));
-    }
 } // namespace
 
 // UITextInput over a document of one position: it exists for the keyboard's hold-space
@@ -367,12 +348,11 @@ namespace {
         io.AddMouseButtonEvent((event.buttonMask & UIEventButtonMaskSecondary) ? 1 : 0, true);
         return;
     }
-    gFling = CGPointZero; // a touch stops a flick
-    if (gTouch != Touch::None)
+    mydear::touch::fling(ImVec2(0, 0)); // a touch stops a flick
+    if (mydear::touch::state() != mydear::touch::State::None)
         return; // one finger drives the mouse
-    gTouch = Touch::Pending;
-    gTouchStart = p;
-    touchAt(p); // hover only: the cursor shape tells the pan what lies under the finger
+    // hover only: the cursor shape tells the pan what lies under the finger
+    mydear::touch::down(vec(p), CACurrentMediaTime());
 }
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     UITouch* touch = touches.anyObject;
@@ -381,8 +361,7 @@ namespace {
         ImGui::GetIO().AddMousePosEvent(p.x, p.y);
         return;
     }
-    if (gTouch == Touch::Pressed)
-        touchAt(p);
+    mydear::touch::follow(vec(p));
 }
 - (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     UITouch* touch = touches.anyObject;
@@ -392,22 +371,15 @@ namespace {
         io.AddMouseButtonEvent(1, false);
         return;
     }
-    if (gTouch == Touch::Pending) { // a tap
-        touchAt(gTouchStart);
-        io.AddMouseButtonEvent(0, true);
-    }
-    if (gTouch != Touch::None)
-        io.AddMouseButtonEvent(0, false);
-    gTouch = Touch::None;
+    // a tap clicks, a press lets go; the cursor stays (the ipad pointer hovers anyway)
+    mydear::touch::up(CACurrentMediaTime(), false);
 }
 - (void)touchesCancelled:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     if (touches.anyObject.type == UITouchTypeIndirectPointer) {
-        releaseAway();
+        mydear::touch::releaseAway();
         return;
     }
-    if (gTouch == Touch::Pressed)
-        releaseAway();
-    gTouch = Touch::None;
+    mydear::touch::cancel();
 }
 @end
 
@@ -494,13 +466,9 @@ namespace {
     if (g != pan_ || g.numberOfTouches != 1)
         return YES; // long press, two fingers, trackpad scroll
     // one finger on a splitter, column edge or text: drag it instead of scrolling
-    const ImGuiMouseCursor cursor = ImGui::GetMouseCursor();
-    if (cursor == ImGuiMouseCursor_Arrow || cursor == ImGuiMouseCursor_Hand)
+    if (touch::scrolls())
         return YES;
-    gTouch = Touch::Pressed;
-    touchAt(gTouchStart);
-    ImGui::GetIO().AddMouseButtonEvent(0, true);
-    touchAt([g locationInView:gView]);
+    touch::press(touch::start(), vec([g locationInView:gView]));
     return NO;
 }
 - (void)hover:(UIHoverGestureRecognizer*)g {
@@ -512,32 +480,29 @@ namespace {
     const CGPoint d = [g translationInView:gView];
     [g setTranslation:CGPointZero inView:gView];
     if (g.numberOfTouches > 0)
-        touchAt([g locationInView:gView]); // scroll the window under the finger
-    scrollBy(d);
+        touch::hover(vec([g locationInView:gView])); // scroll the window under the finger
+    touch::scrollBy(vec(d));
     static bool finger = false; // wheels and trackpads have no touches: no coasting
     if (g.state == UIGestureRecognizerStateBegan)
         finger = g.numberOfTouches > 0;
-    gFling =
-        g.state == UIGestureRecognizerStateEnded && finger ? [g velocityInView:gView] : CGPointZero;
+    touch::fling(g.state == UIGestureRecognizerStateEnded && finger
+                     ? vec([g velocityInView:gView])
+                     : ImVec2(0, 0));
 }
 - (void)longPress:(UILongPressGestureRecognizer*)g {
     if (g.state != UIGestureRecognizerStateBegan)
         return;
     [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
-    ImGuiIO& io = ImGui::GetIO();
-    if (gTouch == Touch::Pressed)
-        releaseAway();
-    gTouch = Touch::None;
+    touch::cancel(); // a press in progress lets go away from its target
     const CGPoint p = [g locationInView:gView];
-    touchAt(p);
+    touch::hover(vec(p));
     // a few frames for imgui to report what is under the finger: text gets the edit menu,
     // anything else a right click
     dispatch_after(
         dispatch_time(DISPATCH_TIME_NOW, 60 * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
           ImGuiIO& io = ImGui::GetIO();
           if (ImGui::GetMouseCursor() != ImGuiMouseCursor_TextInput) {
-              io.AddMouseButtonEvent(1, true);
-              io.AddMouseButtonEvent(1, false);
+              touch::rightClick();
               return;
           }
           if (!io.WantTextInput) { // focus the field first
@@ -694,12 +659,7 @@ namespace mydear {
             const CFTimeInterval now = CACurrentMediaTime();
             io.DeltaTime = gLastTime > 0 ? static_cast<float>(now - gLastTime) : 1.0f / 60.0f;
             gLastTime = now;
-            // the flick coasts on, slowing like a UIScrollView
-            if (std::hypot(gFling.x, gFling.y) > 20.0) {
-                scrollBy(CGPointMake(gFling.x * io.DeltaTime, gFling.y * io.DeltaTime));
-                const CGFloat decay = std::pow(0.998, io.DeltaTime * 1000.0);
-                gFling = CGPointMake(gFling.x * decay, gFling.y * decay);
-            }
+            touch::coast(io.DeltaTime); // the flick coasts on
 
             MTLRenderPassDescriptor* pass = gView.currentRenderPassDescriptor;
             if (!pass)

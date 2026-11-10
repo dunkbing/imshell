@@ -21,7 +21,7 @@ add_library(mydear::mydear ALIAS mydear)
 
 # the platform shell. imgui core stays the host's; its platform backends are ours
 if(IOS)
-    target_sources(mydear PRIVATE src/ios/app.mm src/apple/native_view.mm src/native_view.cpp
+    target_sources(mydear PRIVATE src/ios/app.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
                                   ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm)
     set_source_files_properties(src/ios/app.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
@@ -63,6 +63,7 @@ elseif(ANDROID)
     set(MYDEAR_GLUE_DIR ${ANDROID_NDK}/sources/android/native_app_glue)
     target_sources(mydear PRIVATE
         src/android/app.cpp
+        src/touch.cpp
         src/native_view.cpp
         ${MYDEAR_GLUE_DIR}/android_native_app_glue.c
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_android.cpp
@@ -127,4 +128,15 @@ if(MYDEAR_BUILD_EXAMPLES AND NOT IOS AND NOT WIN32)
         add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_linux.cpp ${MYDEAR_IMGUI_CORE})
     endif()
     target_link_libraries(mydear_hello PRIVATE mydear)
+endif()
+
+# the touch engine's test: a bare imgui context, no platform
+option(MYDEAR_BUILD_TESTS "Build the tests" OFF)
+if(MYDEAR_BUILD_TESTS)
+    enable_testing()
+    file(GLOB MYDEAR_TEST_IMGUI ${MYDEAR_IMGUI_DIR}/imgui*.cpp)
+    add_executable(mydear_touch_test tests/touch_test.cpp src/touch.cpp ${MYDEAR_TEST_IMGUI})
+    target_include_directories(mydear_touch_test PRIVATE src ${MYDEAR_IMGUI_DIR})
+    target_compile_features(mydear_touch_test PRIVATE cxx_std_20)
+    add_test(NAME mydear_touch_test COMMAND mydear_touch_test)
 endif()

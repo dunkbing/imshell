@@ -7,6 +7,7 @@
 #include "mydear/themes.hpp"
 #include "mydear/title_bar.hpp"
 #include "../native_view.hpp"
+#include "../touch.hpp"
 
 #include "imgui_impl_android.h"
 #include "imgui_impl_opengl3.h"
@@ -28,6 +29,7 @@
 #include <string>
 
 namespace {
+    namespace touch = mydear::touch; // the shared one-finger model (src/touch.cpp)
     android_app* gAndroid = nullptr;
     mydear::Delegate* gDelegate = nullptr;
 
@@ -189,30 +191,9 @@ namespace {
         return gContext != EGL_NO_CONTEXT && makeSurface();
     }
 
-    // ---- touch ----
+    // ---- touch (the shared engine, src/touch.cpp) ----
 
-    enum class Touch { None, Pending, Pressed, Scrolling };
-    Touch gTouch = Touch::None;
-    int32_t gPointer = -1;
-    ImVec2 gStart, gLast;
-    double gStartTime = 0, gLastMoveTime = 0;
-    ImVec2 gVelocity, gFling; // dp per second
-    bool gLift = false;       // move the touch cursor away after the next frame (no stuck hover)
-
-    constexpr float kSlop = 8;               // dp before a touch becomes a drag
-    constexpr double kLongPress = 0.5;       // seconds
-    constexpr float kFlingStop = 20;         // dp per second
-
-    void touchAt(ImVec2 p) {
-        ImGuiIO& io = ImGui::GetIO();
-        io.AddMouseSourceEvent(ImGuiMouseSource_TouchScreen);
-        io.AddMousePosEvent(p.x, p.y);
-    }
-
-    void scrollBy(ImVec2 d) {
-        const float font = std::max(ImGui::GetFontSize(), 1.0f);
-        ImGui::GetIO().AddMouseWheelEvent(d.x / (2.0f * font), d.y / (5.0f * font));
-    }
+    int32_t gPointer = -1; // the finger driving the mouse
 
     // window pixels: left, top, right, bottom covered by system bars and cutouts, then the
     // keyboard's height (MydearActivity.windowInsets)
@@ -257,84 +238,28 @@ namespace {
     }
 
     void touchEvent(const AInputEvent* e) {
-        ImGuiIO& io = ImGui::GetIO();
         const int32_t action = AMotionEvent_getAction(e) & AMOTION_EVENT_ACTION_MASK;
-        const size_t index = (AMotionEvent_getAction(e) & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >>
-                             AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
         const double now = nowSeconds();
         switch (action) {
-        case AMOTION_EVENT_ACTION_DOWN: {
+        case AMOTION_EVENT_ACTION_DOWN:
             hideEditMenu(); // a touch elsewhere dismisses the text toolbar
-            gFling = ImVec2(0, 0);
-            gLift = false;
             gPointer = AMotionEvent_getPointerId(e, 0);
-            gStart = gLast = pointerAt(e, 0);
-            gStartTime = gLastMoveTime = now;
-            gVelocity = ImVec2(0, 0);
-            gTouch = Touch::Pending;
-            touchAt(gStart); // hover only: the cursor shape says what lies under the finger
+            touch::down(pointerAt(e, 0), now);
             break;
-        }
-        case AMOTION_EVENT_ACTION_MOVE: {
-            size_t i = 0;
-            for (; i < AMotionEvent_getPointerCount(e); ++i)
+        case AMOTION_EVENT_ACTION_MOVE:
+            for (size_t i = 0; i < AMotionEvent_getPointerCount(e); ++i)
                 if (AMotionEvent_getPointerId(e, i) == gPointer)
-                    break;
-            if (i == AMotionEvent_getPointerCount(e))
-                break;
-            const ImVec2 p = pointerAt(e, i);
-            if (gTouch == Touch::Pending &&
-                std::hypot(p.x - gStart.x, p.y - gStart.y) > kSlop) {
-                const ImGuiMouseCursor cursor = ImGui::GetMouseCursor();
-                if (cursor == ImGuiMouseCursor_Arrow || cursor == ImGuiMouseCursor_Hand) {
-                    gTouch = Touch::Scrolling;
-                    gLast = gStart;
-                } else { // a splitter, column edge or text: drag it
-                    gTouch = Touch::Pressed;
-                    touchAt(gStart);
-                    io.AddMouseButtonEvent(0, true);
-                }
-            }
-            if (gTouch == Touch::Scrolling) {
-                const ImVec2 d(p.x - gLast.x, p.y - gLast.y);
-                touchAt(p); // scroll the window under the finger
-                scrollBy(d);
-                const float dt = static_cast<float>(std::max(now - gLastMoveTime, 1e-3));
-                gVelocity = ImVec2(d.x / dt * 0.5f + gVelocity.x * 0.5f,
-                                   d.y / dt * 0.5f + gVelocity.y * 0.5f);
-            } else if (gTouch == Touch::Pressed) {
-                touchAt(p);
-            }
-            gLast = p;
-            gLastMoveTime = now;
+                    touch::move(pointerAt(e, i), now);
             break;
-        }
         case AMOTION_EVENT_ACTION_UP:
-            if (gTouch == Touch::Pending) { // a tap
-                touchAt(gStart);
-                io.AddMouseButtonEvent(0, true);
-                io.AddMouseButtonEvent(0, false);
-            } else if (gTouch == Touch::Pressed) {
-                io.AddMouseButtonEvent(0, false);
-            } else if (gTouch == Touch::Scrolling && now - gLastMoveTime < 0.1) {
-                gFling = gVelocity;
-            }
-            gTouch = Touch::None;
+            touch::up(now, true); // no hover on a touch screen: nothing stays highlighted
             gPointer = -1;
-            gLift = true;
             break;
         case AMOTION_EVENT_ACTION_CANCEL:
-            if (gTouch == Touch::Pressed) {
-                io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
-                io.AddMouseButtonEvent(0, false);
-            }
-            gTouch = Touch::None;
+            touch::cancel();
             gPointer = -1;
             break;
-        case AMOTION_EVENT_ACTION_POINTER_DOWN:
-            (void)index; // ponytail: one finger drives the mouse; no pinch or two-finger scroll
-            break;
-        default:
+        default: // shortcut: one finger drives the mouse; no pinch or two-finger scroll yet (#13)
             break;
         }
     }
@@ -403,7 +328,7 @@ namespace {
     // what keeps the loop drawing without input
     bool animating() {
         // shortcut: an open picker keeps frames coming until it answers (seconds, while hidden)
-        return gTouch == Touch::Pending || std::hypot(gFling.x, gFling.y) > kFlingStop || gLift ||
+        return touch::animating() ||
                gPickDone ||
                // imgui trickles queued input one event per frame: typed text needs frames
                (GImGui && GImGui->InputEventsQueue.Size > 0);
@@ -518,9 +443,7 @@ namespace mydear {
         pollChars();
         pollPicked();
         pollEdits();
-        if (gTouch == Touch::Pending && now - gStartTime > kLongPress) {
-            gTouch = Touch::None;
-            touchAt(gStart);
+        if (touch::longPressDue(now)) {
             callVoid("longPressFeedback");
             // the finger has hovered since it landed, so the cursor says what is under it
             if (ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput) {
@@ -530,21 +453,15 @@ namespace mydear {
                     io.AddMouseButtonEvent(0, true);
                     io.AddMouseButtonEvent(0, false);
                 }
+                const ImVec2 at = touch::start();
                 const ARect r = visibleRect();
-                showEditMenu(static_cast<int>(gStart.x * gDensity) + r.left,
-                             static_cast<int>(gStart.y * gDensity) + r.top);
+                showEditMenu(static_cast<int>(at.x * gDensity) + r.left,
+                             static_cast<int>(at.y * gDensity) + r.top);
             } else { // anything else: a right click (context menus)
-                io.AddMouseButtonEvent(1, true);
-                io.AddMouseButtonEvent(1, false);
+                touch::rightClick();
             }
         }
-        if (std::hypot(gFling.x, gFling.y) > kFlingStop) { // a flick coasts, slowing down
-            touchAt(gLast);
-            scrollBy(ImVec2(gFling.x * io.DeltaTime, gFling.y * io.DeltaTime));
-            const float decay = std::pow(0.998f, io.DeltaTime * 1000.0f);
-            gFling = ImVec2(gFling.x * decay, gFling.y * decay);
-        }
-        const bool lift = gLift && gTouch == Touch::None && std::hypot(gFling.x, gFling.y) <= kFlingStop;
+        touch::coast(io.DeltaTime);
 
         ImGui::GetStyle().TouchExtraPadding = ImVec2(Theme::Spacing::S, 0.0f);
         ImGui_ImplOpenGL3_NewFrame();
@@ -577,10 +494,7 @@ namespace mydear {
         eglSwapBuffers(gDisplay, gSurface);
         detail::placeNativeViews();
 
-        if (lift) { // the finger is gone: nothing stays hovered
-            io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
-            gLift = false;
-        }
+        touch::takeLift(); // the finger is gone: nothing stays hovered
     }
 
     void App::run() {
