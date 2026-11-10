@@ -410,7 +410,7 @@ namespace mydear {
                 } else {
                     dl->AddLine({m.x - 4, m.y - 4}, {m.x + 4, m.y + 4}, text, 1.5f);
                     dl->AddLine({m.x + 4, m.y - 4}, {m.x - 4, m.y + 4}, text, 1.5f);
-                    if (clicked)
+                    if (clicked && (!gDelegate || gDelegate->closeRequested()))
                         gShouldClose = true;
                 }
                 x += kButtonSide + kButtonGap;
@@ -436,7 +436,7 @@ namespace mydear {
         }
         gDelegate = &delegate;
         gTitleBar = config.titleBar;
-        gBarHeight = config.titleBarHeight;
+        gBarHeight = config.titleBarHeight > 0 ? config.titleBarHeight : 36;
         gShouldClose = false;
 
         gWindow = gtk_window_new();
@@ -450,7 +450,8 @@ namespace mydear {
             gtk_window_set_titlebar(GTK_WINDOW(gWindow), none);
         }
         g_signal_connect(gWindow, "close-request", G_CALLBACK(+[](GtkWindow*, gpointer) -> gboolean {
-                             gShouldClose = true;
+                             if (!gDelegate || gDelegate->closeRequested())
+                                 gShouldClose = true;
                              return TRUE;
                          }),
                          nullptr);
@@ -519,6 +520,7 @@ namespace mydear {
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
+        detail::useIniFile(config);
         ImGuiIO& io = ImGui::GetIO();
         if (config.docking)
             io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;

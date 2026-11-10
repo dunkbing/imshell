@@ -36,6 +36,33 @@ Open menus through these so every menu gets the same padding (`kMenuPadding`):
 
 Close them with ImGui's usual `EndPopup()` / `EndMenu()`. `FitScreen(size)` and `CapToScreen()` keep dialogs inside small screens (iPhone, split view).
 
+## Alerts and prompts (`mydear/alert.hpp`)
+
+`Alert::show(title, message, buttons)` queues a modal with a message and buttons (one OK when there are none); `InputDialog::show(title, label, initial, confirmText, onConfirm, onCancel, validator)` queues a one-line text prompt, kept open while `validator` or `onConfirm` returns an error message. Both can be called from any thread and wake the loop. Call `Alert::render()` once a frame after the rest of the UI: it draws the front entry over every popup open that frame, so an alert raised from inside a dialog stacks on top of it instead of replacing it. Buttons sit cancel first, then destructive, then default; escape answers the cancel button (or the only one), return the default one, never a destructive one. The popup's ID is `<title>###mydear_alert`, so a test engine reaches a button as `//<title>###mydear_alert/<button>`.
+
+## Fonts (`mydear/fonts.hpp`)
+
+Call `AddFont` from `Delegate::setup()`. The first file is the base font and the rest merge into it: icon fonts (`icons = true`: no oversampling, snapped to pixels, with the icon font's glyph `ranges`) and other scripts. With `systemCjk` (the default) the system's Chinese, Japanese and Korean font merges in last, so names and text in those scripts render; `SystemCjkFontPath()` says which one, or nothing when none is installed. That file is mapped rather than read (they are 20 MB and more), and the OS loads only the glyphs drawn. Font data is not copied, so files from `mydear_embed_fonts` work as they are:
+
+```cpp
+const EmbeddedFont* text = findEmbeddedFont("Inter-Regular");
+const EmbeddedFont* icons = findEmbeddedFont("fa-solid-900");
+static const ImWchar kIcons[] = {ICON_MIN_FA, ICON_MAX_16_FA, 0};
+mydear::AddFont({{text->data, text->size}, {icons->data, icons->size, kIcons, true}});
+```
+
+## File dialogs (`mydear/file_dialog.hpp`)
+
+`OpenFileDialog(filters, done)`, `SaveFileDialog(defaultName, filters, done)` and `PickFolderDialog(done)` call `done` with the chosen path, and not at all when the user cancels. Filters are a name and extensions without dots (`{"CSV files", "csv,tsv"}`); `"*"` allows any file.
+
+| | Desktops | iOS and Android |
+|---|---|---|
+| Open | Native File Dialog, modal: `done` runs before the call returns | the system document picker; `done` runs a moment later. Another app's file is copied into `copyInto` (`DocumentsDir()` when empty), because it can't be opened by path |
+| Save | the system save dialog | a free name in `DocumentsDir()` (`name 2.ext` when taken), at once |
+| Folder | the system folder picker | `DocumentsDir()`, at once |
+
+On iOS the documents folder shows in the Files app under the app's name. Filters become content types (iOS) or MIME types (Android, from a short table; anything else allows any file). On the desktops, link Native File Dialog Extended (vcpkg `nativefiledialog-extended`); mydear finds it with `find_package(nfd)`.
+
 ## Images (`mydear/image.hpp`)
 
 `LoadTexture(bytes, size, create)` decodes a PNG with stb_image and hands the pixels to `create`, normally the app's `createTexture`.

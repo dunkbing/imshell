@@ -2,6 +2,7 @@
 
 #include "imgui.h"
 #include "mydear/frames.hpp"
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -13,6 +14,8 @@ struct GLFWwindow;
 namespace mydear {
     struct Config {
         std::string title;
+        // names the data folder (DataDir) where imgui.ini is kept; empty = no imgui.ini
+        std::string appName;
         int width = 1280;
         int height = 800;
         bool docking = true; // ImGuiConfigFlags_DockingEnable
@@ -21,7 +24,9 @@ namespace mydear {
         // the app draws its own title bar: content runs under it (macos keeps the traffic
         // lights), see mydear/title_bar.hpp
         bool titleBar = false;
-        float titleBarHeight = 28; // points; macos's own is 28, taller re-centres the traffic lights
+        // points (dp on android, pixels on windows); 0 = the platform's own: 28 on macos, 32 on
+        // windows, 36 on linux, 44 on android. taller re-centres the macos traffic lights
+        float titleBarHeight = 0;
     };
 
     class Delegate {
@@ -42,6 +47,11 @@ namespace mydear {
         // checked every loop: true closes the window
         virtual bool shouldQuit() {
             return false;
+        }
+        // the user closes the window (close button, cmd-q, alt-f4): false keeps it open, e.g. to
+        // ask about unsaved work first and quit later through shouldQuit()
+        virtual bool closeRequested() {
+            return true;
         }
     };
 
@@ -91,6 +101,29 @@ namespace mydear {
     inline ImVec4 SafeArea() {
         return detail::safeArea();
     }
+
+    float TitleBarHeight(); // mydear/title_bar.hpp
+    struct Rect {
+        ImVec2 pos, size;
+    };
+    // where the app's ui goes: the main viewport inside SafeArea(), under the title bar
+    inline Rect ContentRect() {
+        const ImGuiViewport* vp = ImGui::GetMainViewport();
+        const ImVec4 s = SafeArea();
+        const float top = s.y + TitleBarHeight();
+        return {ImVec2(vp->Pos.x + s.x, vp->Pos.y + top),
+                ImVec2(std::max(0.0f, vp->Size.x - s.x - s.z), std::max(0.0f, vp->Size.y - top - s.w))};
+    }
+
+    // the app's own folder for settings and data, created on first call: application support
+    // (macos), %APPDATA% (windows), $XDG_DATA_HOME or ~/.local/share (linux), the app's private
+    // files (ios documents, android internal storage). empty if it cannot be made
+    std::string DataDir(const std::string& appName);
+
+    // the whole app: create, run, destroy; 1 if the window could not be made. on android call it
+    // from android_main after SetAndroidApp, with a delegate that outlives it (static): a
+    // recreated activity carries on in the same app. not on ios (see RunUIKit)
+    int Run(const Config& config, Delegate& delegate);
 
     // macos: render the next frame offscreen at `scale` and save it as a png (docs shots),
     // without the title bar strip: its os buttons are native, not part of the frame

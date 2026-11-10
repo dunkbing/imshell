@@ -2,6 +2,7 @@
 // opengl3 renderer. imgui works in dp (DisplayFramebufferScale = density), like points on ios.
 // touch follows the ios shell: a tap clicks, a drag on empty space or a plain button scrolls
 // (and coasts), a drag on a resize or text cursor drags, a long press right-clicks
+#include "../activity.hpp"
 #include "mydear/android.hpp"
 #include "mydear/app.hpp"
 #include "mydear/themes.hpp"
@@ -445,7 +446,7 @@ namespace mydear {
         gDelegate = &delegate;
         gVSync = config.vsync;
         gTitleBar = config.titleBar;
-        gBarHeight = config.titleBarHeight;
+        gBarHeight = config.titleBarHeight > 0 ? config.titleBarHeight : 44;
         gAndroid->onAppCmd = onCmd;
         gAndroid->onInputEvent = onInput;
         gAndroid->activity->vm->AttachCurrentThread(&gEnv, nullptr);
@@ -466,7 +467,7 @@ namespace mydear {
         ImGuiIO& io = ImGui::GetIO();
         if (config.docking)
             io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        io.IniFilename = nullptr; // the host saves what it wants (activity->internalDataPath)
+        detail::useIniFile(config);
         io.MouseDoubleClickMaxDist = 20.0f;
         ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
         pio.Platform_GetWindowWorkAreaInsets = [](ImGuiViewport*) { return detail::safeArea(); };
@@ -714,3 +715,7 @@ namespace mydear {
         void nativeRemove(void*) {}
     } // namespace detail
 } // namespace mydear
+
+std::string mydear::detail::androidFilesDir() {
+    return gAndroid && gAndroid->activity->internalDataPath ? gAndroid->activity->internalDataPath : "";
+}

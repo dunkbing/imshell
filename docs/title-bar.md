@@ -29,9 +29,13 @@ Lay the rest of the UI out below `mydear::TitleBarHeight()`.
 
 The cursor starts at `leftInset`, vertically centred for a row of frame-height widgets.
 
+## Laying out below it
+
+`mydear::ContentRect()` (`mydear/app.hpp`) is the rest of the window: below the bar and inside `SafeArea()`. Give it to the app's main window. On iOS there is no strip: `TitleBarHeight()` is 0 and `BeginTitleBar()`/`EndTitleBar()` draw nothing, so the same code builds there.
+
 ## Height
 
-`Config::titleBarHeight` sets the bar's height in points. On macOS the default, 28, matches the system's own title bar. A taller bar moves the traffic lights down so they stay centred. AppKit puts them back on every resize and when leaving fullscreen, so mydear re-checks each frame and only moves them when something changed.
+`Config::titleBarHeight` sets the bar's height in points; 0, the default, takes the platform's own: 28 on macOS, 32 on Windows, 36 on Linux, 44 on Android. On macOS 28 matches the system's own title bar. A taller bar moves the traffic lights down so they stay centred. AppKit puts them back on every resize and when leaving fullscreen, so mydear re-checks each frame and only moves them when something changed.
 
 ## How clicks are decided
 
