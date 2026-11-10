@@ -553,16 +553,22 @@ namespace mydear {
     }
 
     void App::run() {
+        // requestFrames() from any thread wakes the looper (latched: a wake before the poll counts)
+        detail::wakeLoopHook().store([] {
+            if (gAndroid)
+                ALooper_wake(gAndroid->looper);
+        });
         while (!gDelegate->shouldQuit()) {
-            // idle: a frame every 200 ms, like the desktop loops, so work finishing on another
-            // thread shows up without asking for frames
             // no surface (backgrounded, a picker on top): nothing drains, so sleep
             const bool drawing = gSurface != EGL_NO_SURFACE &&
                                  (gDelegate->wantsFrames() || animating());
-            if (pump(drawing ? 0 : 200))
+            // shortcut: idle, a 1 s heartbeat frame for work on other threads that never asks
+            // for frames; drop it once hosts always call requestFrames()
+            if (pump(drawing ? 0 : 1000))
                 break;
             renderFrame();
         }
+        detail::wakeLoopHook().store(nullptr);
     }
 
     void App::destroy() {

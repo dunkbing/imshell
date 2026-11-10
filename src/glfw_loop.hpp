@@ -12,7 +12,10 @@
 namespace mydear::detail {
     constexpr double kIdleAfterSeconds = 2.0; // no input for this long: start idling
     constexpr double kMinWaitSeconds = 1.0 / 120.0;
-    constexpr double kMaxWaitSeconds = 0.2; // an idle app still wakes this often
+    // requestFrames() wakes the loop (glfwPostEmptyEvent); an idle app still wakes this often
+    // shortcut: a heartbeat for work on other threads that never asks for frames; drop it
+    // once hosts always call requestFrames() when they hand the ui something
+    constexpr double kMaxWaitSeconds = 1.0;
 
     // full speed while the user works or something animates; after kIdleAfterSeconds without
     // either, the wait between frames grows to kMaxWaitSeconds. vsync and maxFps are read
@@ -20,6 +23,7 @@ namespace mydear::detail {
     template <class Render>
     void runGlfwLoop(GLFWwindow* window, Delegate& delegate, const bool& vsync, const int& maxFps,
                      Render render) {
+        wakeLoopHook().store([] { glfwPostEmptyEvent(); });
         double lastInput = glfwGetTime();
         bool wasFocused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
         while (!glfwWindowShouldClose(window)) {
@@ -60,5 +64,6 @@ namespace mydear::detail {
             if (isImGuiUserActive() || delegate.wantsFrames())
                 lastInput = glfwGetTime();
         }
+        wakeLoopHook().store(nullptr);
     }
 } // namespace mydear::detail
