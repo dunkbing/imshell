@@ -23,3 +23,8 @@ void describeNativeView(void* view, char* out, int size) {
     std::snprintf(out, size, "%.0f,%.0f %.0fx%.0f %s", r.origin.x, r.origin.y, r.size.width,
                   r.size.height, clip.hidden ? "hidden" : "shown");
 }
+
+// the probe closes the window the way the close button does (windowShouldClose:)
+void closeLikeUser() {
+    [NSApp.windows.firstObject performClose:nil];
+}

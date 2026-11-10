@@ -17,6 +17,7 @@
 void* makeTextField();
 void* makeDatePicker();
 void describeNativeView(void* view, char* out, int size);
+void closeLikeUser();
 
 struct Hello : mydear::Delegate {
     int clicks = 0;
@@ -107,10 +108,22 @@ struct Hello : mydear::Delegate {
             io.AddMouseButtonEvent(0, true);
         if (f == 12 || f == 14)
             io.AddMouseButtonEvent(0, false);
+        // close like the user: the first is vetoed (closeRequested), the second goes through
+        if (f == 90 || f == 100)
+            closeLikeUser();
+        if (f == 95)
+            std::printf("probe: still open after a vetoed close\n");
         if (f == 40)
             std::printf("probe: %.0fx%.0f -> %.0fx%.0f (%s)\n", sizeBefore.x, sizeBefore.y,
                         io.DisplaySize.x, io.DisplaySize.y,
                         io.DisplaySize.x != sizeBefore.x ? "zoomed" : "NOT zoomed");
+    }
+
+    int closeAsks = 0;
+    bool closeRequested() override {
+        ++closeAsks;
+        std::printf("probe: close asked (%d)\n", closeAsks);
+        return !probe || closeAsks > 1;
     }
 
     bool shouldQuit() override {

@@ -21,3 +21,5 @@ void describeNativeView(void* view, char* out, int size) {
     std::snprintf(out, size, "%.0f,%.0f %.0fx%.0f %s", r.origin.x, r.origin.y, r.size.width,
                   r.size.height, gtk_widget_get_visible(clip) ? "shown" : "hidden");
 }
+
+void closeLikeUser() {}

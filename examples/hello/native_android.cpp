@@ -21,3 +21,5 @@ void android_main(android_app* state) {
     mydear::SetAndroidApp(state);
     main();
 }
+
+void closeLikeUser() {}
