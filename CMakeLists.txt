@@ -23,6 +23,11 @@ add_library(mydear STATIC
 )
 add_library(mydear::mydear ALIAS mydear)
 
+# optional components (mydear/components.hpp): a host links mydear::components to use them
+add_library(mydear_components STATIC src/components.cpp)
+add_library(mydear::components ALIAS mydear_components)
+target_link_libraries(mydear_components PUBLIC mydear)
+
 # the platform shell. imgui core stays the host's; its platform backends are ours
 if(EMSCRIPTEN) # before UNIX, which emscripten's toolchain also sets
     target_sources(mydear PRIVATE
@@ -162,6 +167,15 @@ if(MYDEAR_BUILD_EXAMPLES AND NOT IOS)
         add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_linux.cpp ${MYDEAR_IMGUI_CORE})
     endif()
     target_link_libraries(mydear_hello PRIVATE mydear)
+    # the components gallery; on the web it is the site's demo
+    if(NOT ANDROID)
+        add_executable(mydear_gallery examples/gallery/main.cpp ${MYDEAR_IMGUI_CORE})
+        target_link_libraries(mydear_gallery PRIVATE mydear_components)
+        if(EMSCRIPTEN)
+            set_target_properties(mydear_gallery PROPERTIES SUFFIX .html)
+            target_link_options(mydear_gallery PRIVATE --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/examples/web_shell.html)
+        endif()
+    endif()
 endif()
 
 # the touch engine's test: a bare imgui context, no platform
@@ -177,6 +191,11 @@ if(MYDEAR_BUILD_TESTS)
     target_include_directories(mydear_frame_skip_test PRIVATE src ${MYDEAR_IMGUI_DIR})
     target_compile_features(mydear_frame_skip_test PRIVATE cxx_std_20)
     add_test(NAME mydear_frame_skip_test COMMAND mydear_frame_skip_test)
+    add_executable(mydear_components_test tests/components_test.cpp src/components.cpp src/button.cpp ${MYDEAR_TEST_IMGUI})
+    target_include_directories(mydear_components_test PRIVATE include ${MYDEAR_IMGUI_DIR})
+    target_compile_features(mydear_components_test PRIVATE cxx_std_20)
+    target_compile_definitions(mydear_components_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
+    add_test(NAME mydear_components_test COMMAND mydear_components_test)
     # the smoke test: hello drives its own window (title bar, native views, the close veto) and
     # prints "probe: ok"; needs a desktop session
     if(TARGET mydear_hello AND NOT ANDROID AND NOT EMSCRIPTEN)
