@@ -1,6 +1,9 @@
 #include "mydear/fonts.hpp"
 
+#include <cstdint>
+#include <cstring>
 #include <filesystem>
+#include <fstream>
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -61,10 +64,44 @@ namespace mydear {
         }
     } // namespace
 
+    // stb_truetype, imgui's default rasterizer, reads truetype and cff outlines but not cff2:
+    // a variable cjk font (android 13 and later, fedora's default) fails its assert. reads the
+    // table directory of the file's first font only, not the font
+    static bool stbCanRead(const std::string& path) {
+#ifdef IMGUI_ENABLE_FREETYPE
+        return std::filesystem::exists(path); // freetype reads cff2
+#else
+        std::ifstream in(path, std::ios::binary);
+        unsigned char h[12];
+        const auto u32 = [](const unsigned char* p) {
+            return uint32_t{p[0]} << 24 | uint32_t{p[1]} << 16 | uint32_t{p[2]} << 8 | p[3];
+        };
+        if (!in.read(reinterpret_cast<char*>(h), sizeof h))
+            return false;
+        if (std::memcmp(h, "ttcf", 4) == 0) { // a collection: the first font's offset follows
+            unsigned char offset[4];
+            if (!in.read(reinterpret_cast<char*>(offset), 4) || !in.seekg(u32(offset)) ||
+                !in.read(reinterpret_cast<char*>(h), sizeof h))
+                return false;
+        }
+        const int tables = h[4] << 8 | h[5];
+        for (int i = 0; i < tables; ++i) {
+            unsigned char record[16];
+            if (!in.read(reinterpret_cast<char*>(record), sizeof record))
+                return false;
+            if (std::memcmp(record, "CFF2", 4) == 0)
+                return false;
+        }
+        return tables > 0;
+#endif
+    }
+
     std::string SystemCjkFontPath() {
         static const char* candidates[] = {
 #if defined(__ANDROID__)
             "/system/fonts/NotoSansCJK-Regular.ttc",
+            "/system/fonts/NotoSerifCJK-Regular.ttc", // android 13+: the sans one is a variable
+                                                      // font
 #elif defined(__APPLE__)
             "/System/Library/Fonts/Hiragino Sans GB.ttc",
             "/System/Library/Fonts/PingFang.ttc",
@@ -83,9 +120,8 @@ namespace mydear {
             "/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc",
 #endif
         };
-        std::error_code ec;
         for (const char* path : candidates)
-            if (std::filesystem::exists(path, ec))
+            if (stbCanRead(path))
                 return path;
         return {};
     }
@@ -102,9 +138,8 @@ namespace mydear {
                 config.OversampleH = config.OversampleV = 1;
                 config.PixelSnapH = true;
             }
-            ImFont* added = atlas->AddFontFromMemoryTTF(const_cast<void*>(f.data),
-                                                        static_cast<int>(f.size), size, &config,
-                                                        f.ranges);
+            ImFont* added = atlas->AddFontFromMemoryTTF(
+                const_cast<void*>(f.data), static_cast<int>(f.size), size, &config, f.ranges);
             if (!font && !added)
                 return nullptr; // no base to merge into
             if (!font)
