@@ -24,12 +24,12 @@
 #include <cfloat>
 #include <chrono>
 #include <cmath>
+#include <functional>
 #include <string>
 
 namespace {
     android_app* gAndroid = nullptr;
     mydear::Delegate* gDelegate = nullptr;
-    std::string gFilesDir;
 
     EGLDisplay gDisplay = EGL_NO_DISPLAY;
     EGLSurface gSurface = EGL_NO_SURFACE;
@@ -88,6 +88,26 @@ namespace {
             return;
         while (const jint c = gEnv->CallIntMethod(gAndroid->activity->clazz, m))
             ImGui::GetIO().AddInputCharacter(static_cast<unsigned>(c));
+    }
+
+    std::function<void(const std::string&)> gPickDone; // a picker is open
+
+    // java answers null while the picker is open, "" when cancelled, else the copy's path
+    void pollPicked() {
+        static jmethodID m = method("pollPicked", "()Ljava/lang/String;");
+        if (!gPickDone || !m)
+            return;
+        auto s = static_cast<jstring>(gEnv->CallObjectMethod(gAndroid->activity->clazz, m));
+        if (!s)
+            return;
+        const char* utf = gEnv->GetStringUTFChars(s, nullptr);
+        const std::string path = utf ? utf : "";
+        gEnv->ReleaseStringUTFChars(s, utf);
+        gEnv->DeleteLocalRef(s);
+        auto done = std::move(gPickDone);
+        gPickDone = nullptr;
+        if (!path.empty())
+            done(path);
     }
 
     // ---- egl ----
@@ -315,7 +335,9 @@ namespace {
 
     // what keeps the loop drawing without input
     bool animating() {
-        return gTouch == Touch::Pending || std::hypot(gFling.x, gFling.y) > kFlingStop || gLift;
+        // shortcut: an open picker keeps frames coming until it answers (seconds, while hidden)
+        return gTouch == Touch::Pending || std::hypot(gFling.x, gFling.y) > kFlingStop || gLift ||
+               gPickDone;
     }
 } // namespace
 
@@ -328,8 +350,17 @@ namespace mydear {
         return gAndroid;
     }
 
-    const char* AndroidFilesDir() {
-        return gFilesDir.c_str();
+    void PickFile(const std::string& mimeTypes, const std::string& intoDir,
+                  std::function<void(const std::string&)> done) {
+        jmethodID m = method("pickFile", "(Ljava/lang/String;Ljava/lang/String;)V");
+        if (!m || gPickDone)
+            return;
+        gPickDone = std::move(done);
+        jstring types = gEnv->NewStringUTF(mimeTypes.c_str());
+        jstring dir = gEnv->NewStringUTF(intoDir.c_str());
+        gEnv->CallVoidMethod(gAndroid->activity->clazz, m, types, dir);
+        gEnv->DeleteLocalRef(types);
+        gEnv->DeleteLocalRef(dir);
     }
 
     struct App::Impl {};
@@ -352,9 +383,6 @@ namespace mydear {
         gAndroid->onAppCmd = onCmd;
         gAndroid->onInputEvent = onInput;
         gAndroid->activity->vm->AttachCurrentThread(&gEnv, nullptr);
-        gFilesDir = callString("filesDir");
-        if (gFilesDir.empty() && gAndroid->activity->internalDataPath)
-            gFilesDir = gAndroid->activity->internalDataPath;
         gDensity = std::max(AConfiguration_getDensity(gAndroid->config), 1) / 160.0f;
 
         // the window arrives a few events after start
@@ -371,7 +399,7 @@ namespace mydear {
         ImGuiIO& io = ImGui::GetIO();
         if (config.docking)
             io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        io.IniFilename = nullptr; // the host saves what it wants under AndroidFilesDir()
+        io.IniFilename = nullptr; // the host saves what it wants (activity->internalDataPath)
         io.MouseDoubleClickMaxDist = 20.0f;
         ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
         pio.Platform_GetClipboardTextFn = [](ImGuiContext*) -> const char* {
@@ -414,6 +442,7 @@ namespace mydear {
         gLastTime = now;
 
         pollChars();
+        pollPicked();
         if (gTouch == Touch::Pending && now - gStartTime > kLongPress) { // long press: right click
             touchAt(gStart);
             io.AddMouseButtonEvent(1, true);

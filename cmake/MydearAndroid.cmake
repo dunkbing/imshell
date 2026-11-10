@@ -4,7 +4,7 @@
 #                      [ACTIVITY io.mydear.MydearActivity] [JAVA extra.java...] [ASSETS dir]
 #                      [PERMISSIONS android.permission.INTERNET...] [VERSION 1.0] [VERSION_CODE 1])
 #
-# adds the target <lib>_apk, which writes <lib>.apk next to the library. the sdk is the ndk's
+# adds the target <lib>_apk, which writes <lib>.apk next to the library (debuggable in Debug). the sdk is the ndk's
 # parent (ndk/<version> inside it); needs a jdk (javac, jar, keytool) on PATH
 
 function(mydear_android_apk lib)
@@ -38,7 +38,7 @@ function(mydear_android_apk lib)
     get_filename_component(sdk ${ndk}/../.. ABSOLUTE)
     set(java ${dir}/../../android/io/mydear/MydearActivity.java ${APK_JAVA})
     add_custom_target(${lib}_apk ALL
-        COMMAND ${dir}/apk.sh ${sdk} ${work} ${work}/AndroidManifest.xml
+        COMMAND ${CMAKE_COMMAND} -E env MYDEAR_APK_DEBUG=$<CONFIG:Debug> ${dir}/apk.sh ${sdk} ${work} ${work}/AndroidManifest.xml
                 $<TARGET_FILE:${lib}> ${CMAKE_CURRENT_BINARY_DIR}/${lib}.apk ${APK_ASSETS} ${java}
         DEPENDS ${lib} ${java}
         VERBATIM)

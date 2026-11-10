@@ -11,12 +11,20 @@
 //   }
 //
 // the activity must be io.mydear.MydearActivity (android/io/mydear/MydearActivity.java) or a
-// subclass: it brings the soft keyboard, typed characters and the clipboard
+// subclass: it brings the soft keyboard, typed characters, the clipboard and the file picker.
+// the app's private folder is state->activity->internalDataPath
 #include <android_native_app_glue.h> // android_main, with c linkage
+
+#include <functional>
+#include <string>
 
 namespace mydear {
     void SetAndroidApp(android_app* app);
     android_app* AndroidApp();
-    // the app's private files folder (Context.getFilesDir)
-    const char* AndroidFilesDir();
+
+    // the system document picker. the picked file is copied into `intoDir` (apps cannot open
+    // another app's files by path) and `done` gets the copy's path on the ui thread, a frame
+    // or two later; never when cancelled. mimeTypes: comma-separated, empty for any file
+    void PickFile(const std::string& mimeTypes, const std::string& intoDir,
+                  std::function<void(const std::string&)> done);
 } // namespace mydear
