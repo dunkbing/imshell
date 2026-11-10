@@ -1,17 +1,34 @@
 #pragma once
 
 // android: NativeActivity runs the app through android_native_app_glue, which calls the
+<<<<<<< HEAD
 // host's android_main on its own thread. hand the glue's app over, then run as on the desktop:
 //
 //   void android_main(android_app* state) {
 //       mydear::SetAndroidApp(state);
 //       static MyApp delegate; // outlives a recreated activity
 //       mydear::Run(config, delegate);
+=======
+// host's android_main on its own thread. hand the glue's app over before App::create:
+//
+//   void android_main(android_app* state) {
+//       static mydear::App app; // outlives a recreated activity
+//       static bool started = false;
+//       mydear::SetAndroidApp(state);
+//       if (!started && !(started = app.create(config, delegate))) return;
+//       app.run();
+//       if (mydear::AndroidActivityRecreating()) return; // the next activity carries on
+//       app.destroy();
+>>>>>>> origin/main
 //   }
 //
 // the activity must be io.mydear.MydearActivity (android/io/mydear/MydearActivity.java) or a
 // subclass: it brings the soft keyboard, typed characters, the clipboard and the file picker.
+<<<<<<< HEAD
 // the app's private folder is state->activity->internalDataPath (DataDir is inside it)
+=======
+// the app's private folder is state->activity->internalDataPath
+>>>>>>> origin/main
 #include <android_native_app_glue.h> // android_main, with c linkage
 
 #include <functional>

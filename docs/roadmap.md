@@ -14,6 +14,7 @@ What comes next, roughly in order. Each item has an issue with the problem, the 
 ## Input and platform services
 
 7. **Native text input on Android** ([#15](https://github.com/dunkbing/mydear/issues/15)): ✅ an `InputConnection` for composition, suggestions and swipe typing; next selection handles, autofill and a composing underline.
+<<<<<<< HEAD
 8. **File dialogs** ([#16](https://github.com/dunkbing/mydear/issues/16)): ✅ asynchronous open and save on every platform, saves through the system on mobile.
 9. **Haptics** ([#18](https://github.com/dunkbing/mydear/issues/18)): `mydear::Haptic(kind)`.
 10. **Font loading with icon merging** ([#23](https://github.com/dunkbing/mydear/issues/23)): ✅ `AddFont`, with the system CJK font merged in.
@@ -21,12 +22,20 @@ What comes next, roughly in order. Each item has an issue with the problem, the 
 ## App API
 
 14. **What a new app needs from the shell**: ✅ `Run(config, delegate)` on desktops and Android, `ContentRect()`, `DataDir(appName)` with `imgui.ini` there, `Delegate::closeRequested()`, platform-default title bar heights, the title bar calls on iOS, alerts and prompts (`alert.hpp`). Next: window size and position restored across launches (no position on Wayland), and a CMake helper for the bundle, icon and installer.
+=======
+8. **File dialogs** ([#16](https://github.com/dunkbing/mydear/issues/16)): asynchronous open and save on every platform, saves through the system on mobile.
+9. **Haptics** ([#18](https://github.com/dunkbing/mydear/issues/18)): `mydear::Haptic(kind)`.
+10. **Font loading with icon merging** ([#23](https://github.com/dunkbing/mydear/issues/23)).
+>>>>>>> origin/main
 
 ## Tooling
 
 11. **Frame capture everywhere** ([#17](https://github.com/dunkbing/mydear/issues/17)): `requestFrameCapture` beyond macOS, for docs and store screenshots.
 12. **Standalone build and smoke test** ([#19](https://github.com/dunkbing/mydear/issues/19)): `hello` and its probe on every platform without a host.
+<<<<<<< HEAD
     Also: draw background windows that are still visible (`occlusionState` on macOS), verified for app switching with the screen unlocked; the loop only draws focused windows today.
+=======
+>>>>>>> origin/main
 
 ## Long term
 

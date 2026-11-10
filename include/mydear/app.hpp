@@ -102,6 +102,7 @@ namespace mydear {
         return detail::safeArea();
     }
 
+<<<<<<< HEAD
     float TitleBarHeight(); // mydear/title_bar.hpp
     struct Rect {
         ImVec2 pos, size;
@@ -125,6 +126,8 @@ namespace mydear {
     // recreated activity carries on in the same app. not on ios (see RunUIKit)
     int Run(const Config& config, Delegate& delegate);
 
+=======
+>>>>>>> origin/main
     // macos: render the next frame offscreen at `scale` and save it as a png (docs shots),
     // without the title bar strip: its os buttons are native, not part of the frame
     void requestFrameCapture(const char* path, float scale);
