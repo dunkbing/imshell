@@ -6,6 +6,7 @@ A Dear ImGui toolkit for cross-platform apps, grown while building DearSQL (its 
 - Never compile Dear ImGui here: the host passes `MYDEAR_IMGUI_DIR` and builds imgui (and its backends) once. Two copies split ImGui's global context silently.
 - Widgets draw with `Theme::Current()`; the host sets it when its theme changes.
 - Components (`include/mydear/components.hpp`, `src/components.cpp`, namespace `mydear::ui`) are a separate opt-in target, `mydear::components`: core never includes them. a new one goes into the gallery (`examples/gallery`, also the site demo) and `tests/components_test.cpp` (fails on a duplicate item id via the test engine item hook).
+- The site (`site/`: static `index.html`, `components.html`, `style.css`, no js framework, no external requests) is built by `site/build.sh` into `site/dist` (git-ignored) with the gallery compiled to wasm under `gallery/`. a feature on the landing page or a component in the list changes with the code.
 - Headers in `include/mydear/`, sources in `src/`, vendored single headers in `third_party/` (private include). Add a source to `CMakeLists.txt` when you add one.
 - C++20. Comments short and lowercase. Keep it small: something moves in when a host needs it, not before.
 - A change to what a host sees (a function, a header, a CMake function) updates `README.md` and the matching page in `docs/` (and the table in `docs/platforms.md` when a platform gains or differs) in the same commit.

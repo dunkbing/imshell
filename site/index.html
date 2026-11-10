@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mydear: Dear ImGui apps on every platform</title>
+<meta name="description" content="A small C++ toolkit that turns a Dear ImGui frame into a real app on macOS, iOS, Windows, Linux, Android and the web.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav><div class="wrap">
+  <a class="brand" href="./">my<span>dear</span></a>
+  <a href="components.html">Components</a>
+  <a href="https://github.com/dunkbing/mydear/blob/main/docs/README.md">Docs</a>
+  <a href="https://github.com/dunkbing/mydear">GitHub</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <h1>Dear ImGui apps, <em>on every platform</em>.</h1>
+  <p>mydear is a small C++20 toolkit around Dear ImGui. You write one <code>frame()</code>; it brings the window, the graphics backend, the frame loop that idles, the title bar, themes and widgets, and the platform pieces in between.</p>
+  <div class="actions">
+    <a class="button primary" href="components.html">Try the components</a>
+    <a class="button" href="https://github.com/dunkbing/mydear/blob/main/docs/getting-started.md">Get started</a>
+  </div>
+  <ul class="platforms">
+    <li>macOS · Metal</li><li>iOS &amp; iPadOS · Metal</li><li>Windows · Direct3D 11</li>
+    <li>Linux · GTK 4 + OpenGL</li><li>Android · OpenGL ES 3</li><li>Web · WebGL 2</li>
+  </ul>
+</div></header>
+
+<section><div class="wrap">
+  <h2>The whole app</h2>
+  <p>A delegate draws a frame; <code>mydear::Run</code> does the rest. The same file builds for every platform above.</p>
+<pre><span class="k">#include</span> <span class="s">"mydear/app.hpp"</span>
+<span class="k">#include</span> <span class="s">"mydear/button.hpp"</span>
+
+<span class="k">struct</span> Hello : mydear::Delegate {
+    <span class="k">int</span> clicks = <span class="n">0</span>;
+    <span class="k">void</span> <span class="f">frame</span>() <span class="k">override</span> {
+        <span class="k">const</span> mydear::Rect r = mydear::<span class="f">ContentRect</span>();   <span class="c">// under the title bar, inside the safe area</span>
+        ImGui::<span class="f">SetNextWindowPos</span>(r.pos);
+        ImGui::<span class="f">SetNextWindowSize</span>(r.size);
+        ImGui::<span class="f">Begin</span>(<span class="s">"hello"</span>, <span class="k">nullptr</span>, ImGuiWindowFlags_NoDecoration);
+        <span class="k">if</span> (mydear::<span class="f">Button</span>(<span class="s">"Click me"</span>, mydear::ButtonVariant::Primary))
+            ++clicks;
+        ImGui::<span class="f">Text</span>(<span class="s">"Clicked %d times"</span>, clicks);
+        ImGui::<span class="f">End</span>();
+    }
+};
+
+<span class="k">int</span> <span class="f">main</span>() {
+    <span class="k">static</span> Hello hello;
+    <span class="k">return</span> mydear::<span class="f">Run</span>({.title = <span class="s">"Hello"</span>, .titleBar = <span class="k">true</span>}, hello);
+}</pre>
+</div></section>
+
+<section><div class="wrap">
+  <h2>What it has</h2>
+  <p>Each part is small and stays out of the way: Dear ImGui is still yours, compiled once by your project.</p>
+  <div class="grid">
+    <div class="card"><h3>Platform shell <code>app.hpp</code></h3><p>The window, Metal, Direct3D, OpenGL or WebGL, input, and a loop that idles when nothing changes and skips frames identical to the last.</p></div>
+    <div class="card"><h3>Title bar <code>title_bar.hpp</code></h3><p>Draw your own bar in ImGui; mydear keeps the OS buttons, dragging, snap layouts and double-click zoom.</p></div>
+    <div class="card"><h3>Touch <code>iOS, Android</code></h3><p>Tap to click, long press for menus or the text toolbar, drag to scroll with momentum, the soft keyboard and IME.</p></div>
+    <div class="card"><h3>Native views <code>native_view.hpp</code></h3><p>Put a real NSView, UIView, HWND or GtkWidget (a text field, a map, a web view) into the ImGui layout.</p></div>
+    <div class="card"><h3>Themes &amp; widgets <code>themes.hpp</code></h3><p>Eighteen palettes, buttons, selects, toggles, splitters, spinners, menus and modal alerts that all follow the theme.</p></div>
+    <div class="card"><h3>Components <code>optional</code></h3><p>Text fields, cards, badges, callouts, progress, avatars, metrics, chips and toasts, in a separate target you link only if you want them.</p></div>
+    <div class="card"><h3>Fonts &amp; files <code>fonts.hpp</code></h3><p>One UI font from a text font, icon fonts and the system's CJK font; file dialogs; fonts and images baked into the binary.</p></div>
+    <div class="card"><h3>Auto-update <code>updater.hpp</code></h3><p>Sparkle on macOS, WinSparkle on Windows and a checked AppImage swap on Linux, behind one call.</p></div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <h2>Built for a real app</h2>
+  <p>mydear grew out of <a href="https://dearsql.dev">DearSQL</a>, a SQL client for desktop, iPad and iPhone, where it runs everything between the operating system and the UI. MIT licensed.</p>
+  <div class="actions">
+    <a class="button" href="https://github.com/dunkbing/mydear">Source on GitHub</a>
+    <a class="button" href="https://github.com/dunkbing/mydear/blob/main/docs/platforms.md">What each platform supports</a>
+  </div>
+</div></section>
+
+<footer><div class="wrap">mydear · MIT License · <a href="https://github.com/dunkbing/mydear">github.com/dunkbing/mydear</a></div></footer>
+</body>
+</html>
