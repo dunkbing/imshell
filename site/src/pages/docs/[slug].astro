@@ -1,0 +1,15 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { docContent, docPages } from "./_docs";
+
+export function getStaticPaths() {
+  return docPages.map((page) => ({ params: { slug: page.slug }, props: { page } }));
+}
+
+const { page } = Astro.props;
+const Content = docContent(page.slug);
+---
+
+<DocsLayout title={page.title} description={page.description}>
+  <Content />
+</DocsLayout>

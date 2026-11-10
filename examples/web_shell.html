@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>mydear</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1b26; }
+  canvas { display: block; outline: none; }
+  #status { position: absolute; inset: 0; display: grid; place-items: center; color: #a9b1d6; font: 14px ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<div id="status">Loading...</div>
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<script>
+  var Module = {
+    canvas: document.getElementById('canvas'),
+    onRuntimeInitialized() { document.getElementById('status').remove(); },
+  };
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

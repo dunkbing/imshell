@@ -1,0 +1,48 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const components = [
+  ["Text field", "TextField", "label above, placeholder, a hint or an error below, password masking"],
+  ["Card", "BeginCard / EndCard", "a bordered panel that grows with its content, with an optional title"],
+  ["Badge", "Badge", "a pill with a word or a count, in one of five tones"],
+  ["Callout", "Callout", "an inline message with an accent stripe; the text wraps"],
+  ["Progress", "Progress", "a bar with its percentage, or an indeterminate sweep"],
+  ["Skeleton", "Skeleton", "a pulsing placeholder while content loads"],
+  ["Avatar", "Avatar", "initials in a circle, coloured by the name"],
+  ["Metric", "Metric", "a card with a large value and a green or red change"],
+  ["Empty state", "EmptyState", "a centred title, text and an action button"],
+  ["Chips", "Chips", "toggle chips that wrap onto new rows"],
+  ["Toast", "Toast / RenderToasts", "short messages stacked in a corner that fade out"],
+];
+---
+
+<Layout title="Components · mydear" description="mydear's optional components running live in the browser: the same C++ compiled to WebAssembly.">
+  <main class="max-w-4xl mx-auto px-4 py-6 text-sm">
+    <h1 class="text-xl font-bold mb-1">## Components</h1>
+    <p class="text-subtext0 mb-4 max-w-2xl">
+      Optional pieces for forms, status and feedback, in <code>mydear::components</code>. Below is the gallery example running live: the same C++ as on the desktop, compiled to WebAssembly and drawn by Dear ImGui on a WebGL 2 canvas. Type in the fields, press the buttons, switch the theme.
+    </p>
+    <div class="border border-surface1 bg-surface0">
+      <div class="flex items-center justify-between px-3 py-2 border-b border-surface1">
+        <p class="font-bold text-green">&gt; examples/gallery</p>
+        <p class="text-xs text-subtext0"><a href={`${base}/gallery/mydear_gallery.html`} class="hover:underline">full page</a></p>
+      </div>
+      <iframe src={`${base}/gallery/mydear_gallery.html`} title="mydear components gallery" class="block w-full h-[min(78vh,760px)] border-0"></iframe>
+    </div>
+
+    <h2 class="text-base font-bold mt-8 mb-2">## The list</h2>
+    <p class="text-subtext0 mb-3">
+      Link <code>mydear::components</code>, include <code>mydear/components.hpp</code>; everything is in namespace <code>mydear::ui</code>. More in <a href={`${base}/docs/components`}>the components doc</a>.
+    </p>
+    <ul class="space-y-1">
+      {
+        components.map(([name, call, text]) => (
+          <li>
+            <span class="text-subtext0">* </span><span class="font-bold">{name}</span> <code class="text-mauve">{call}</code>: <span class="text-subtext0">{text}</span>
+          </li>
+        ))
+      }
+    </ul>
+  </main>
+</Layout>

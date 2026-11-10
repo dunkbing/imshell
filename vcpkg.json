@@ -3,7 +3,7 @@
   "version-string": "0.1.0",
   "description": "a dear imgui toolkit for cross-platform apps; this manifest is for building mydear on its own (hosts bring their own)",
   "dependencies": [
-    { "name": "glfw3", "platform": "!linux & !ios & !android" },
-    { "name": "nativefiledialog-extended", "platform": "!ios & !android" }
+    { "name": "glfw3", "platform": "!linux & !ios & !android & !emscripten" },
+    { "name": "nativefiledialog-extended", "platform": "!ios & !android & !emscripten" }
   ]
 }

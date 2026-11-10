@@ -24,10 +24,9 @@ bool closeLikeUser(); // false where the platform cannot
 
 struct Hello : mydear::Delegate {
     int clicks = 0;
-    // smoke tests: MYDEAR_HELLO_QUIT=<seconds> closes by itself, MYDEAR_HELLO_SHOT=<png>
-    // saves a frame, MYDEAR_HELLO_PROBE=1 double-clicks the empty title bar (it should zoom)
+    // smoke tests: MYDEAR_HELLO_QUIT=<seconds> closes by itself, MYDEAR_HELLO_PROBE=1 drives the
+    // window (title bar zoom, a bar button, native views, the close veto)
     const char* quitAfter = std::getenv("MYDEAR_HELLO_QUIT");
-    const char* shot = std::getenv("MYDEAR_HELLO_SHOT");
     const bool probe = std::getenv("MYDEAR_HELLO_PROBE");
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     ImVec2 sizeBefore;
@@ -39,10 +38,8 @@ struct Hello : mydear::Delegate {
 
     void frame() override {
         const int f = ImGui::GetFrameCount();
-        if (shot || probe)
+        if (probe)
             mydear::requestFrames(); // the probe counts frames: no idling
-        if (shot && f == 5)
-            mydear::requestFrameCapture(shot, 2);
         if (probe)
             runProbe(f);
 

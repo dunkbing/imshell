@@ -1,0 +1,23 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { docPages } from "./_docs";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+
+<Layout title="Docs · mydear" description="How each part of mydear behaves: the platform shell, the title bar, native views, themes and widgets, components and what differs per platform.">
+  <main class="max-w-2xl mx-auto px-4 py-6 text-sm">
+    <h1 class="text-xl font-bold mb-1">## Docs</h1>
+    <p class="text-subtext0 text-xs mb-6">The same pages as the repository's <code>docs/</code> folder.</p>
+    <ul class="space-y-3">
+      {
+        docPages.map((page) => (
+          <li>
+            <span class="text-subtext0">* </span><a href={`${base}/docs/${page.slug}`} class="font-bold">{page.title}</a>
+            <p class="text-subtext0 pl-4">{page.description}</p>
+          </li>
+        ))
+      }
+    </ul>
+  </main>
+</Layout>
