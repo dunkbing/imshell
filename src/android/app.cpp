@@ -84,9 +84,11 @@ namespace {
         return out;
     }
 
-    void showKeyboard(bool show) {
-        if (jmethodID m = method("showKeyboard", "(Z)V"))
-            gEnv->CallVoidMethod(gAndroid->activity->clazz, m, static_cast<jboolean>(show));
+    // password: the keyboard neither suggests nor learns what is typed
+    void showKeyboard(bool show, bool password) {
+        if (jmethodID m = method("showKeyboard", "(ZZ)V"))
+            gEnv->CallVoidMethod(gAndroid->activity->clazz, m, static_cast<jboolean>(show),
+                                 static_cast<jboolean>(password));
     }
 
     void pollChars() {
@@ -250,6 +252,7 @@ namespace {
     // what the current activity was told; a recreated one starts over
     int gLightBars = -1;
     bool gKeyboardShown = false;
+    bool gPasswordField = false; // the keyboard is open for a password field
     // the next frame draws even when it matches the last: a new or resized surface, or the
     // system asked for a redraw (an undrawn surface keeps its last frame otherwise)
     bool gMustDraw = true;
@@ -412,6 +415,7 @@ namespace mydear {
         gRecreating = false;
         gLightBars = -1;
         gKeyboardShown = false;
+        gPasswordField = false;
         gEditMenu = false;
         gAndroid->onAppCmd = onCmd;
         gAndroid->onInputEvent = onInput;
@@ -553,7 +557,7 @@ namespace mydear {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui::NewFrame();
         gDelegate->frame();
-        if (gKeyboardShown)
+        if (gKeyboardShown && !gPasswordField)
             detail::drawComposingUnderline(callString("composing").c_str());
         ImGui::Render();
 
@@ -562,9 +566,14 @@ namespace mydear {
         bool& keyboard = gKeyboardShown;
         // PlatformImeData.WantVisible: a custom editor that wants the keyboard (ios does the same)
         const bool wants = io.WantTextInput || GImGui->PlatformImeData.WantVisible;
-        if (wants != keyboard) {
+        const ImGuiContext& g = *GImGui;
+        const bool password = wants && g.ActiveId != 0 && g.InputTextState.ID == g.ActiveId &&
+                              (g.InputTextState.Flags & ImGuiInputTextFlags_Password);
+        // moving between a password field and another reopens the keyboard in the new kind
+        if (wants != keyboard || password != gPasswordField) {
             keyboard = wants;
-            showKeyboard(keyboard);
+            gPasswordField = password;
+            showKeyboard(keyboard, password);
         }
 
         const int fullW = ANativeWindow_getWidth(gAndroid->window);
