@@ -13,7 +13,7 @@ What comes next, roughly in order. Each item has an issue with the problem, the 
 
 ## Input and platform services
 
-7. **Native text input on Android** ([#15](https://github.com/dunkbing/mydear/issues/15)): ✅ an `InputConnection` for composition, suggestions and swipe typing; a composing underline; next selection handles and autofill.
+7. **Native text input on Android** ([#15](https://github.com/dunkbing/mydear/issues/15)): ✅ an `InputConnection` for composition, suggestions and swipe typing; a composing underline, selection handles, and a password keyboard for password fields; next password-manager autofill.
 8. **File dialogs** ([#16](https://github.com/dunkbing/mydear/issues/16)): ✅ asynchronous open and save on every platform, saves through the system on mobile.
 9. **Haptics** ([#18](https://github.com/dunkbing/mydear/issues/18)): ✅ `mydear::Haptic(kind)`.
 10. **Font loading with icon merging** ([#23](https://github.com/dunkbing/mydear/issues/23)): ✅ `AddFont`, with the system CJK font merged in.

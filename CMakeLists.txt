@@ -166,6 +166,10 @@ if(MYDEAR_BUILD_TESTS)
     target_include_directories(mydear_ime_test PRIVATE src ${MYDEAR_IMGUI_DIR})
     target_compile_features(mydear_ime_test PRIVATE cxx_std_20)
     add_test(NAME mydear_ime_test COMMAND mydear_ime_test)
+    add_executable(mydear_handles_test tests/handles_test.cpp src/touch.cpp ${MYDEAR_TEST_IMGUI})
+    target_include_directories(mydear_handles_test PRIVATE src ${MYDEAR_IMGUI_DIR})
+    target_compile_features(mydear_handles_test PRIVATE cxx_std_20)
+    add_test(NAME mydear_handles_test COMMAND mydear_handles_test)
     # the smoke test: hello drives its own window (title bar, native views, the close veto) and
     # prints "probe: ok"; needs a desktop session
     if(TARGET mydear_hello AND NOT ANDROID)
