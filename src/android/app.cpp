@@ -694,15 +694,6 @@ namespace mydear {
         ImGui::End();
     }
 
-    void requestFrameCapture(const char*, float) {}
-    bool frameCapturePending() {
-        return false;
-    }
-    bool startRecording(const char*, float, int, int) {
-        return false;
-    }
-    void stopRecording() {}
-
     // native views: none on android yet (a View over a NativeActivity surface needs a java layout)
     void* detail::nativeHost() {
         return nullptr;
