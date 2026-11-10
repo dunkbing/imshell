@@ -21,6 +21,7 @@
 |---|---|
 | `setup()` | once, after the ImGui context exists: load fonts, set the style |
 | `frame()` | every frame, between `ImGui::NewFrame()` and `ImGui::Render()` |
+| `tick()` | every pass of the loop on macOS and Windows, also while the window is unfocused and `frame()` is not called; for work that must not wait for a frame. `requestFrames()` from another thread brings the next pass at once. Not called on the other shells yet |
 | `openFile(path)` | a file was dropped on the window or opened with the app |
 | `wantsFrames()` | before the loop sleeps; return true to keep drawing (default: `framesRequested()`) |
 | `shouldQuit()` | every loop; true closes the window |

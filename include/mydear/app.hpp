@@ -36,6 +36,11 @@ namespace mydear {
         virtual void setup() {}
         // one frame of ui, between ImGui::NewFrame() and ImGui::Render()
         virtual void frame() = 0;
+        // every pass of the loop on macos and windows, also while the window is in the
+        // background and frame() is not called: work that must not wait for a frame (a reply
+        // to send on). requestFrames() from another thread brings the next pass at once.
+        // the other shells do not call it yet
+        virtual void tick() {}
         // a file dropped on the window or opened with the app (finder, explorer)
         virtual void openFile(const std::string& path) {
             (void)path;
