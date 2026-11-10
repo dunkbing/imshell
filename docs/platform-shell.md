@@ -32,6 +32,8 @@
 
 Anything that animates calls `mydear::requestFrames()` (`mydear/frames.hpp`) to keep frames coming for a moment (250 ms by default); mydear's spinners already do. It is safe to call from any thread, and a request while the app is idle wakes the loop at once: call it whenever a worker hands the UI something to show. Otherwise an idle loop draws once a second (a heartbeat for producers that never ask).
 
+On macOS and iOS a frame whose draw data matches the last one is not drawn or presented (`src/frame_skip.cpp`, an exact copy of the last frame's buffers), so a busy loop with nothing moving costs the CPU work of the frame but no GPU work. A frame that uploads a texture, has a draw callback, or changes the display, scale or clear colour always draws, and so does every frame while `requestFrameCapture` is capturing. Windows, Linux and Android draw every frame for now.
+
 A host that drives frames itself, such as the ImGui test engine, calls `pollEvents()` and `renderFrame()` in its own loop instead of `run()`.
 
 ## Safe area

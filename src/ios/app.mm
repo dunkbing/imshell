@@ -1,4 +1,5 @@
 #include "../activity.hpp"
+#include "../frame_skip.hpp"
 #include "mydear/title_bar.hpp"
 #include "mydear/app.hpp"
 #include "mydear/haptics.hpp"
@@ -729,10 +730,15 @@ namespace mydear {
             ImGui::NewFrame();
             impl_->delegate->frame();
             ImGui::Render();
-            ImGui_ImplMetal_RenderDrawData(ImGui::GetDrawData(), commands, encoder);
-            [encoder endEncoding];
-            [commands presentDrawable:gView.currentDrawable];
-            [commands commit];
+            // the display link paces the view either way: an unchanged frame is not drawn
+            if (detail::sameAsLastFrame(ImGui::GetDrawData(), base)) {
+                [encoder endEncoding];
+            } else {
+                ImGui_ImplMetal_RenderDrawData(ImGui::GetDrawData(), commands, encoder);
+                [encoder endEncoding];
+                [commands presentDrawable:gView.currentDrawable];
+                [commands commit];
+            }
             detail::placeNativeViews();
         }
         settle(impl_->delegate->wantsFrames() || touch::animating() || detail::isImGuiUserActive() ||

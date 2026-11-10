@@ -270,6 +270,15 @@ void MetalBackend::renderDrawData(ImDrawData* drawData) {
     }
 }
 
+bool MetalBackend::capturing() const {
+    return capture.frames > 0 || rec.pipe;
+}
+
+void MetalBackend::dropFrame() {
+    [(id<MTLRenderCommandEncoder>)currentRenderEncoder_ endEncoding];
+    currentDrawable_ = nil; // back to the layer's pool unpresented
+}
+
 void MetalBackend::present() {
     if (currentDrawable_) {
         [(id<CAMetalDrawable>)currentDrawable_ present];

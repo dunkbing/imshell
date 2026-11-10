@@ -1,5 +1,6 @@
 #include "../activity.hpp"
 #include "mydear/app.hpp"
+#include "../frame_skip.hpp"
 #include "../glfw_loop.hpp"
 #include "imgui_impl_glfw.h"
 #include "imgui_internal.h"
@@ -194,8 +195,15 @@ namespace mydear {
             ImGui::NewFrame();
             d.delegate->frame();
             ImGui::Render();
-            d.backend->renderDrawData(ImGui::GetDrawData());
-            d.backend->present();
+            detail::frameSkipped() =
+                !d.backend->capturing() &&
+                detail::sameAsLastFrame(ImGui::GetDrawData(), Theme::Current()->colors.base);
+            if (detail::frameSkipped()) {
+                d.backend->dropFrame();
+            } else {
+                d.backend->renderDrawData(ImGui::GetDrawData());
+                d.backend->present();
+            }
             detail::placeNativeViews();
         }
         runBarAction();
