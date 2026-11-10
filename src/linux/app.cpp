@@ -706,16 +706,6 @@ namespace mydear {
         return gArea;
     }
 
-    // frame capture and recording are macos-only so far
-    void requestFrameCapture(const char*, float) {}
-    bool frameCapturePending() {
-        return false;
-    }
-    bool startRecording(const char*, float, int, int) {
-        return false;
-    }
-    void stopRecording() {}
-
     void* detail::nativeHost() {
         return gOverlay;
     }

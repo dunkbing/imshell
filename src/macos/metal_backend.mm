@@ -10,97 +10,6 @@
 #import <GLFW/glfw3.h>
 #import <GLFW/glfw3native.h>
 
-#import <ImageIO/ImageIO.h>
-#import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
-#include <cstdio>
-#include <format>
-#include <string>
-#include <vector>
-
-namespace mydear {
-namespace {
-    // docs screenshots: a frame rendered offscreen at a set scale, saved as png
-    struct FrameCapture {
-        std::string path;
-        float scale = 2;
-        int frames = 0; // two: the first bakes the fonts at the new density
-        size_t top = 0;  // pixel rows left out at the top
-        id<MTLTexture> target = nil;
-    } capture;
-
-    // ui test videos: every frame offscreen, piped raw to ffmpeg
-    struct Recording {
-        FILE* pipe = nullptr;
-        float scale = 1;
-        NSUInteger w = 0, h = 0;
-        id<MTLTexture> target = nil;
-        std::vector<uint8_t> buf;
-    } rec;
-
-    // top: rows to leave out (the title bar strip)
-    void savePng(id<MTLTexture> tex, const std::string& path, size_t top) {
-        const size_t w = tex.width, h = tex.height - top;
-        NSMutableData* data = [NSMutableData dataWithLength:w * h * 4];
-        [tex getBytes:data.mutableBytes
-            bytesPerRow:w * 4
-             fromRegion:MTLRegionMake2D(0, top, w, h)
-            mipmapLevel:0];
-        CGColorSpaceRef cs = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-        CGDataProviderRef provider = CGDataProviderCreateWithCFData((__bridge CFDataRef)data);
-        CGImageRef image = CGImageCreate(w, h, 8, 32, w * 4, cs,
-                                         kCGBitmapByteOrder32Little | kCGImageAlphaNoneSkipFirst,
-                                         provider, nullptr, false, kCGRenderingIntentDefault);
-        NSURL* url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path.c_str()]];
-        CGImageDestinationRef dest = CGImageDestinationCreateWithURL(
-            (__bridge CFURLRef)url, (__bridge CFStringRef)UTTypePNG.identifier, 1, nullptr);
-        if (dest) {
-            CGImageDestinationAddImage(dest, image, nullptr);
-            CGImageDestinationFinalize(dest);
-            CFRelease(dest);
-        }
-        CGImageRelease(image);
-        CGDataProviderRelease(provider);
-        CGColorSpaceRelease(cs);
-    }
-} // namespace
-
-void requestFrameCapture(const char* path, float scale) {
-    capture.path = path;
-    capture.scale = scale;
-    // the os buttons in the strip are native, not in the frame: leave the strip out
-    capture.top = static_cast<size_t>(TitleBarHeight() * scale);
-    capture.frames = 2;
-}
-
-bool frameCapturePending() {
-    return capture.frames > 0;
-}
-
-bool startRecording(const char* path, float scale, int width, int height) {
-    rec.scale = scale;
-    rec.w = static_cast<NSUInteger>(width * scale);
-    rec.h = static_cast<NSUInteger>(height * scale);
-    rec.buf.resize(rec.w * rec.h * 4);
-    // wall-clock stamps: the video runs as fast as the app did, no faster
-    const std::string cmd =
-        std::format("ffmpeg -loglevel error -y -f rawvideo -pix_fmt bgra -s {}x{} "
-                    "-use_wallclock_as_timestamps 1 "
-                    "-i - -fps_mode cfr -r 60 -c:v h264_videotoolbox -b:v 12M -pix_fmt yuv420p "
-                    "-movflags +faststart '{}'",
-                    rec.w, rec.h, path);
-    rec.pipe = popen(cmd.c_str(), "w");
-    return rec.pipe != nullptr;
-}
-
-void stopRecording() {
-    if (rec.pipe) {
-        pclose(rec.pipe);
-        rec.pipe = nullptr;
-        rec.target = nil;
-    }
-}
-
-} // namespace mydear
 
 // Pass-through views: hitTest returns nil so all events reach GLFW's content view.
 @interface MydearPassthroughView : NSView
@@ -182,44 +91,9 @@ bool MetalBackend::initializeImGui() {
 
 void MetalBackend::beginFrame(ImVec4 clearColor) {
     ((CAMetalLayer*)metalLayer_).displaySyncEnabled = vsync;
-    id<MTLTexture> texture = nil;
-    if (capture.frames > 0) {
-        int w = 0, h = 0;
-        glfwGetWindowSize(window_, &w, &h);
-        const auto tw = static_cast<NSUInteger>(w * capture.scale);
-        const auto th = static_cast<NSUInteger>(h * capture.scale);
-        if (!capture.target || capture.target.width != tw || capture.target.height != th) {
-            MTLTextureDescriptor* d =
-                [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
-                                                                   width:tw
-                                                                  height:th
-                                                               mipmapped:NO];
-            d.usage = MTLTextureUsageRenderTarget;
-            d.storageMode = MTLStorageModeShared;
-            capture.target = [(id<MTLDevice>)metalDevice_ newTextureWithDescriptor:d];
-        }
-        texture = capture.target;
-        clearColor.w = 1; // no vibrancy behind a png
-        currentDrawable_ = nil;
-    } else if (rec.pipe) {
-        if (!rec.target) {
-            MTLTextureDescriptor* d =
-                [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
-                                                                   width:rec.w
-                                                                  height:rec.h
-                                                               mipmapped:NO];
-            d.usage = MTLTextureUsageRenderTarget;
-            d.storageMode = MTLStorageModeShared;
-            rec.target = [(id<MTLDevice>)metalDevice_ newTextureWithDescriptor:d];
-        }
-        texture = rec.target;
-        clearColor.w = 1;
-        currentDrawable_ = nil;
-    } else {
-        id<CAMetalDrawable> drawable = [(CAMetalLayer*)metalLayer_ nextDrawable];
-        currentDrawable_ = drawable;
-        texture = drawable.texture;
-    }
+    id<CAMetalDrawable> drawable = [(CAMetalLayer*)metalLayer_ nextDrawable];
+    currentDrawable_ = drawable;
+    id<MTLTexture> texture = drawable.texture;
 
     MTLRenderPassDescriptor* renderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
     renderPassDescriptor.colorAttachments[0].texture = texture;
@@ -237,11 +111,6 @@ void MetalBackend::beginFrame(ImVec4 clearColor) {
 
     ImGui_ImplMetal_NewFrame(renderPassDescriptor);
     ImGui_ImplGlfw_NewFrame();
-    if (capture.frames > 0) {
-        ImGui::GetIO().DisplayFramebufferScale = ImVec2(capture.scale, capture.scale);
-    } else if (rec.pipe) {
-        ImGui::GetIO().DisplayFramebufferScale = ImVec2(rec.scale, rec.scale);
-    }
 }
 
 void MetalBackend::renderDrawData(ImDrawData* drawData) {
@@ -255,23 +124,6 @@ void MetalBackend::renderDrawData(ImDrawData* drawData) {
     [(id<MTLRenderCommandEncoder>)currentRenderEncoder_ endEncoding];
 
     [(id<MTLCommandBuffer>)currentCommandBuffer_ commit];
-
-    if (currentDrawable_ == nil && capture.frames > 0 && --capture.frames == 0) {
-        [(id<MTLCommandBuffer>)currentCommandBuffer_ waitUntilCompleted];
-        savePng(capture.target, capture.path, capture.top);
-        capture.target = nil;
-    } else if (currentDrawable_ == nil && rec.pipe) {
-        [(id<MTLCommandBuffer>)currentCommandBuffer_ waitUntilCompleted];
-        [rec.target getBytes:rec.buf.data()
-                 bytesPerRow:rec.w * 4
-                  fromRegion:MTLRegionMake2D(0, 0, rec.w, rec.h)
-                 mipmapLevel:0];
-        fwrite(rec.buf.data(), 1, rec.buf.size(), rec.pipe);
-    }
-}
-
-bool MetalBackend::capturing() const {
-    return capture.frames > 0 || rec.pipe;
 }
 
 void MetalBackend::dropFrame() {

@@ -24,7 +24,7 @@ What comes next, roughly in order. Each item has an issue with the problem, the 
 
 ## Tooling
 
-11. **Frame capture everywhere** ([#17](https://github.com/dunkbing/mydear/issues/17)): `requestFrameCapture` beyond macOS, for docs and store screenshots.
+11. **Frame capture everywhere** ([#17](https://github.com/dunkbing/mydear/issues/17)): not doing; screenshots and recordings are the host's tooling (see `docs/platform-shell.md`), so mydear has none.
 12. **Standalone build and smoke test** ([#19](https://github.com/dunkbing/mydear/issues/19)): ✅ (run on macOS; Windows and Linux written, not run yet) `hello` and its probe on every platform without a host.
     Also: draw background windows that are still visible (`occlusionState` on macOS), verified for app switching with the screen unlocked; the loop only draws focused windows today.
 

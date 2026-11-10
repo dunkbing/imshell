@@ -1,0 +1,64 @@
+---
+import Layout from "./Layout.astro";
+import { docPages } from "../pages/docs/_docs";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const path = Astro.url.pathname.replace(/\/$/, "");
+---
+
+<Layout title={`${title} · mydear docs`} description={description}>
+  <main class="max-w-4xl mx-auto px-4 py-6 text-sm">
+    <a href={`${base}/docs`} class="text-subtext0 text-xs">&lt;- back to docs</a>
+    <div class="mt-4 flex flex-col md:flex-row md:gap-8">
+      <nav class="md:w-48 shrink-0 mb-6 md:mb-0 text-xs">
+        <p class="text-text font-bold mb-1">Docs</p>
+        <ul class="space-y-1">
+          {
+            docPages.map((page) => {
+              const url = `${base}/docs/${page.slug}`;
+              return (
+                <li>
+                  <a href={url} class={path === url ? "text-text" : "text-subtext0 hover:text-text"}>
+                    {path === url ? "> " : "  "}
+                    {page.title}
+                  </a>
+                </li>
+              );
+            })
+          }
+        </ul>
+      </nav>
+      <div class="min-w-0 flex-1">
+        <h1 class="text-xl font-bold mb-1 before:content-['##_']">{title}</h1>
+        {description && <p class="text-subtext0 text-xs mb-6">{description}</p>}
+        <article class="docs-page text-subtext0 space-y-4">
+          <slot />
+        </article>
+      </div>
+    </div>
+  </main>
+</Layout>
+
+<style is:global>
+  .docs-page > h1:first-child { display: none; } /* the page's own title, shown above */
+  .docs-page h2 { color: var(--text); font-weight: bold; margin-top: 1.5rem; }
+  .docs-page h3 { color: var(--text); font-weight: bold; margin-top: 1rem; }
+  .docs-page ul { padding-left: 1.25rem; list-style: disc; }
+  .docs-page ol { padding-left: 1.25rem; list-style: decimal; }
+  .docs-page code { background: var(--surface0); padding: 0 0.25rem; }
+  .docs-page pre { border: 1px solid var(--surface1); padding: 1rem 1.25rem; overflow-x: auto; margin: 1rem 0; line-height: 1.6; }
+  .docs-page pre code { background: transparent; padding: 0; }
+  .docs-page table { width: 100%; border-collapse: collapse; margin: 1rem 0; display: block; overflow-x: auto; }
+  .docs-page th { color: var(--text); text-align: left; border-bottom: 1px solid var(--surface1); padding: 0.25rem 0.5rem 0.25rem 0; }
+  .docs-page td { border-bottom: 1px solid var(--surface0); padding: 0.25rem 0.5rem 0.25rem 0; vertical-align: top; }
+  .docs-page a { color: var(--text); text-decoration: underline; }
+  @media (prefers-color-scheme: dark) {
+    .astro-code, .astro-code span { color: var(--shiki-dark) !important; background-color: var(--shiki-dark-bg) !important; }
+  }
+</style>
