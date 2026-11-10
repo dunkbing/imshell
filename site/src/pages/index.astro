@@ -1,0 +1,120 @@
+---
+import { Code } from "astro:components";
+import Layout from "../layouts/Layout.astro";
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const platforms = [
+  ["macOS", "GLFW + Metal, native traffic lights"],
+  ["iOS & iPadOS", "UIKit + Metal, touch, the soft keyboard and IME"],
+  ["Windows", "GLFW + Direct3D 11, snap layouts"],
+  ["Linux", "GTK 4 + OpenGL, GTK's frame clock"],
+  ["Android", "NativeActivity + OpenGL ES 3, an APK without Gradle"],
+  ["Web", "Emscripten + WebGL 2, any static host"],
+];
+
+const features = [
+  ["Platform shell", "the window, the graphics backend, input, and a loop that idles when nothing changes and skips frames identical to the last.", "platform-shell"],
+  ["Title bar", "draw your own bar in ImGui; mydear keeps the OS buttons, dragging, snap layouts and double-click zoom.", "title-bar"],
+  ["Touch", "tap to click, long press for menus or the text toolbar, drag to scroll with momentum.", "platform-shell"],
+  ["Native views", "a real NSView, UIView, HWND or GtkWidget (a text field, a map, a web view) in the ImGui layout.", "native-views"],
+  ["Themes and widgets", "eighteen palettes; buttons, selects, toggles, splitters, spinners, menus and modal alerts that follow them.", "ui"],
+  ["Components", "optional text fields, cards, badges, callouts, progress, avatars, metrics, chips and toasts.", "components"],
+  ["Fonts and files", "one UI font from a text font, icon fonts and the system's CJK font; file dialogs; fonts and images baked into the binary.", "ui"],
+  ["Auto-update", "Sparkle, WinSparkle or a checked AppImage swap, behind one call.", "auto-update"],
+];
+
+const hello = `#include "mydear/app.hpp"
+#include "mydear/button.hpp"
+
+struct Hello : mydear::Delegate {
+    int clicks = 0;
+    void frame() override {
+        const mydear::Rect r = mydear::ContentRect(); // under the title bar, inside the safe area
+        ImGui::SetNextWindowPos(r.pos);
+        ImGui::SetNextWindowSize(r.size);
+        ImGui::Begin("hello", nullptr, ImGuiWindowFlags_NoDecoration);
+        if (mydear::Button("Click me", mydear::ButtonVariant::Primary))
+            ++clicks;
+        ImGui::Text("Clicked %d times", clicks);
+        ImGui::End();
+    }
+};
+
+int main() {
+    static Hello hello;
+    return mydear::Run({.title = "Hello", .titleBar = true}, hello);
+}`;
+
+const cmake = `set(MYDEAR_IMGUI_DIR \${CMAKE_CURRENT_SOURCE_DIR}/external/imgui)
+add_subdirectory(external/mydear)
+add_executable(app main.cpp \${IMGUI_SOURCES})
+target_link_libraries(app PRIVATE mydear::mydear) # + mydear::components, optional`;
+---
+
+<Layout title="mydear: Dear ImGui apps on every platform">
+  <main class="max-w-2xl mx-auto px-4 py-6">
+    <section class="pb-6">
+      <p class="text-subtext0 text-xs mb-2">
+        <a href="https://github.com/dunkbing/mydear" target="_blank" class="no-underline hover:underline">open source</a> &middot; MIT
+      </p>
+      <h1 class="text-xl font-bold mb-2">mydear: Dear ImGui apps on every platform.</h1>
+      <p class="text-sm mb-1">
+        <span class="text-subtext0">You write</span> <span class="text-peach font-bold">one frame()</span><span class="text-subtext0">. It brings the rest.</span>
+      </p>
+      <p class="text-subtext0 text-sm mb-2">A small C++20 toolkit around Dear ImGui. No browser engine, no runtime.</p>
+      <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-subtext0 mb-3">
+        <span>* macOS, iOS, Windows, Linux, Android, web</span>
+        <span>* Metal, Direct3D 11, OpenGL, WebGL 2</span>
+        <span>* <a href={`${base}/components`} class="hover:underline">components you can try in the browser</a></span>
+      </div>
+      <p class="text-sm text-subtext0 mb-5">
+        mydear opens the window, sets up the graphics backend and the Dear ImGui backends, runs a frame loop that idles when nothing changes, and fills the gaps between ImGui and each operating system: a title bar with the real OS buttons, touch and the soft keyboard on phones and tablets, native views in the layout, fonts, file dialogs, haptics and auto-update. Dear ImGui stays yours, compiled once by your project. It grew out of <a href="https://dearsql.dev" target="_blank" class="hover:underline">DearSQL</a>, a SQL client for desktop, iPad and iPhone, where it runs everything between the OS and the UI.
+      </p>
+
+      <div class="border border-surface1 bg-surface0 text-sm">
+        <div class="flex items-center justify-between px-3 py-2 border-b border-surface1">
+          <p class="font-bold text-green">&gt; Platforms</p>
+          <p class="text-xs text-subtext0"><a href={`${base}/docs/platforms`} class="hover:underline">what differs</a></p>
+        </div>
+        {
+          platforms.map(([name, how], i) => (
+            <div class={`flex flex-wrap items-baseline gap-x-2 px-3 py-2 ${i < platforms.length - 1 ? "border-b border-surface1" : ""}`}>
+              <span><span class="text-subtext0">* </span>{name}</span>
+              <span class="text-subtext0 text-xs">{how}</span>
+            </div>
+          ))
+        }
+      </div>
+    </section>
+
+    <section class="py-6 border-t border-surface1">
+      <h2 class="text-base font-bold mb-2">## The whole app</h2>
+      <p class="text-sm text-subtext0 mb-3">A delegate draws a frame; <code>mydear::Run</code> does the rest. The same file builds for every platform above.</p>
+      <Code code={hello} lang="cpp" themes={{ light: "github-light", dark: "github-dark" }} class="code" />
+      <p class="text-sm text-subtext0 mt-4 mb-3">In CMake, next to your own Dear ImGui:</p>
+      <Code code={cmake} lang="cmake" themes={{ light: "github-light", dark: "github-dark" }} class="code" />
+      <p class="text-sm mt-3"><a href={`${base}/docs/getting-started`}>Getting started &rarr;</a></p>
+    </section>
+
+    <section class="py-6 border-t border-surface1">
+      <h2 class="text-base font-bold mb-3">## What it has</h2>
+      <ul class="text-sm space-y-2">
+        {
+          features.map(([name, text, page]) => (
+            <li>
+              <span class="text-subtext0">* </span><a href={`${base}/docs/${page}`} class="font-bold text-text no-underline hover:underline">{name}</a>: <span class="text-subtext0">{text}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </main>
+</Layout>
+
+<style is:global>
+  .code { border: 1px solid var(--surface1); padding: 1rem 1.25rem; font-size: 12.5px; line-height: 1.6; overflow-x: auto; }
+  @media (prefers-color-scheme: dark) {
+    .astro-code, .astro-code span { color: var(--shiki-dark) !important; background-color: var(--shiki-dark-bg) !important; }
+  }
+</style>

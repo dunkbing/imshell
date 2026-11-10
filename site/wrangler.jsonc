@@ -1,0 +1,11 @@
+// cloudflare workers static assets, like dearsql.dev: site/build.sh, then `bunx wrangler deploy`
+// from site/ (the gallery is compiled with emscripten locally, so the build is not cloudflare's)
+{
+  "name": "mydear",
+  "compatibility_date": "2026-11-10",
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "drop-trailing-slash",
+    "not_found_handling": "404-page",
+  },
+}
