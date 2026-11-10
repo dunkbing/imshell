@@ -69,7 +69,7 @@ On iOS the documents folder shows in the Files app under the app's name. Filters
 
 ## Images (`mydear/image.hpp`)
 
-`LoadTexture(bytes, size, create)` decodes a PNG with stb_image and hands the pixels to `create`, normally the app's `createTexture`.
+`LoadTexture(bytes, size, create)` decodes a PNG with stb_image and hands the pixels to `create`, normally the app's `createTexture`. An app started with `Run()` has no `App` to ask: `LoadTexture(bytes, size)` uploads through the running one (not on iOS).
 
 ## Embedded files (`cmake/MydearEmbed.cmake`, `mydear/embedded.hpp`)
 
