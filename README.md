@@ -46,7 +46,7 @@ The host compiles the Dear ImGui core itself and passes the folder as `MYDEAR_IM
 
 ## Status
 
-Extracted from DearSQL's app code. Done: the macOS, Windows and Linux shells and title bars, the iOS shell and touch layer, the Android shell, auto-update. Next: native alerts, input and file dialogs; font loading with icon merging.
+Extracted from DearSQL's app code. Done: the macOS, Windows and Linux shells and title bars, the iOS shell and touch layer, the Android shell, auto-update. Next: see the [roadmap](docs/roadmap.md).
 
 ## License
 
