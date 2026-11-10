@@ -71,6 +71,7 @@ Touch maps to ImGui like this:
 - a tap clicks;
 - a long press shows the edit menu over text, and right-clicks elsewhere;
 - a finger drag scrolls with momentum, unless the cursor under it is a resize or text cursor;
+- a text selection gets a handle under each end, and dragging one moves that end (the same on Android; not in password, read-only or word-wrapped fields, or a host's own editor);
 - a trackpad or mouse is a mouse.
 
 Text input goes through `UITextInput`, so IME and the space-bar cursor work. The soft keyboard follows `io.WantTextInput`, and the layout moves above it.

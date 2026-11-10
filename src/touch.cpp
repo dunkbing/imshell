@@ -1,5 +1,7 @@
 #include "touch.hpp"
 
+#include "imgui_internal.h"
+
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -11,6 +13,56 @@ namespace mydear::touch {
         double gStartTime = 0, gLastMoveTime = 0;
         ImVec2 gVelocity, gFling;
         bool gLift = false;
+
+        // selection handles, as drawn last frame: where each end's character is (its line's
+        // middle), the knob below it, and the knob's radius; none when hidden
+        int gHandleCount = 0;
+        ImVec2 gHandleChar[2], gHandleKnob[2];
+        float gHandleRadius = 0;
+        bool gGrab = false; // dragging one: shift is held and the finger is offset to the text
+        ImVec2 gGrabOffset;
+
+        // a handle under the finger: the selection turns so the other end anchors, then a
+        // shift-press at this end's character lets imgui's own drag move it
+        bool grabHandle(ImVec2 p) {
+            ImGuiContext& g = *GImGui;
+            ImGuiInputTextState& s = g.InputTextState;
+            for (int k = 0; k < gHandleCount; ++k) {
+                const ImVec2 d(p.x - gHandleKnob[k].x, p.y - gHandleKnob[k].y);
+                if (std::hypot(d.x, d.y) > gHandleRadius * 2 || s.ID != g.ActiveId)
+                    continue;
+                const int a = s.GetSelectionStart(), b = s.GetSelectionEnd();
+                const int lo = std::min(a, b), hi = std::max(a, b);
+                s.SetSelection(k == 0 ? hi : lo, k == 0 ? lo : hi);
+                gGrab = true;
+                gGrabOffset = ImVec2(gHandleChar[k].x - p.x, gHandleChar[k].y - p.y);
+                ImGuiIO& io = ImGui::GetIO();
+                io.AddKeyEvent(ImGuiMod_Shift, true);
+                gState = State::Pressed;
+                hover(gHandleChar[k]);
+                io.AddMouseButtonEvent(0, true);
+                return true;
+            }
+            return false;
+        }
+
+        void letGo() {
+            if (gGrab)
+                ImGui::GetIO().AddKeyEvent(ImGuiMod_Shift, false);
+            gGrab = false;
+            gGrabOffset = ImVec2(0, 0);
+        }
+
+        // where character i is drawn, from the text alone: lines and widths before it
+        ImVec2 layout(const char* text, int i, float size) {
+            int lines = 0, lineStart = 0;
+            for (int j = 0; j < i; ++j)
+                if (text[j] == '\n')
+                    ++lines, lineStart = j + 1;
+            const float x =
+                ImGui::GetFont()->CalcTextSizeA(size, FLT_MAX, 0, text + lineStart, text + i).x;
+            return ImVec2(x, lines * size);
+        }
 
         float length(ImVec2 v) {
             return std::hypot(v.x, v.y);
@@ -34,6 +86,9 @@ namespace mydear::touch {
     void down(ImVec2 p, double now) {
         gFling = gVelocity = ImVec2(0, 0);
         gLift = false;
+        letGo();
+        if (grabHandle(p))
+            return;
         gStart = p;
         gStartTime = gLastMoveTime = now;
         gState = State::Pending;
@@ -54,7 +109,7 @@ namespace mydear::touch {
 
     void follow(ImVec2 p) {
         if (gState == State::Pressed)
-            hover(p);
+            hover(ImVec2(p.x + gGrabOffset.x, p.y + gGrabOffset.y));
     }
 
     void scrollBy(ImVec2 d) {
@@ -80,7 +135,7 @@ namespace mydear::touch {
             gVelocity = ImVec2(d.x / dt * 0.5f + gVelocity.x * 0.5f,
                                d.y / dt * 0.5f + gVelocity.y * 0.5f);
         } else if (gState == State::Pressed) {
-            hover(p);
+            hover(ImVec2(p.x + gGrabOffset.x, p.y + gGrabOffset.y));
         }
         gLastMoveTime = now;
     }
@@ -93,6 +148,7 @@ namespace mydear::touch {
             io.AddMouseButtonEvent(0, false);
         } else if (gState == State::Pressed) {
             io.AddMouseButtonEvent(0, false);
+            letGo();
         } else if (gState == State::Scrolling && now - gLastMoveTime < 0.1) {
             gFling = gVelocity;
         }
@@ -109,6 +165,7 @@ namespace mydear::touch {
     void cancel() {
         if (gState == State::Pressed)
             releaseAway();
+        letGo();
         gState = State::None;
     }
 
@@ -150,5 +207,46 @@ namespace mydear::touch {
 
     bool animating() {
         return gState == State::Pending || length(gFling) > kFlingStop || gLift;
+    }
+} // namespace mydear::touch
+
+namespace mydear::touch {
+    bool grabbing() {
+        return gGrab;
+    }
+
+    void drawHandles() {
+        gHandleCount = 0;
+        ImGuiContext& g = *GImGui;
+        const ImGuiInputTextState& s = g.InputTextState;
+        const ImGuiPlatformImeData& ime = g.PlatformImeData;
+        if (gGrab && gState != State::Pressed)
+            letGo(); // never leave shift held
+        // shortcut: no handles in password, read-only or word-wrapped fields (the layout below
+        // knows only line breaks); a host's own editor draws its own
+        if (!ime.WantTextInput || g.ActiveId == 0 || s.ID != g.ActiveId || !s.HasSelection() ||
+            (s.Flags & (ImGuiInputTextFlags_Password | ImGuiInputTextFlags_ReadOnly)) ||
+            s.WrapWidth > 0)
+            return;
+        const float size = ime.InputLineHeight;
+        const char* text = s.TextA.Data;
+        const int cursor = s.GetCursorPos();
+        const int ends[2] = {std::min(s.GetSelectionStart(), s.GetSelectionEnd()),
+                             std::max(s.GetSelectionStart(), s.GetSelectionEnd())};
+        // the caret is drawn at the cursor: every other position is measured from it
+        const ImVec2 caret(ime.InputPos.x + 1, ime.InputPos.y), at = layout(text, cursor, size);
+        gHandleRadius = std::max(size * 0.45f, 8.0f);
+        ImVec4 c = ImGui::GetStyleColorVec4(ImGuiCol_TextSelectedBg);
+        c.w = 1;
+        ImDrawList* fg = ImGui::GetForegroundDrawList(ImGui::FindViewportByID(ime.ViewportId));
+        for (int k = 0; k < 2; ++k) {
+            const ImVec2 l = layout(text, ends[k], size);
+            const ImVec2 top(caret.x + l.x - at.x, caret.y + l.y - at.y);
+            gHandleChar[k] = ImVec2(top.x, top.y + size * 0.5f);
+            gHandleKnob[k] = ImVec2(top.x, top.y + size + gHandleRadius);
+            fg->AddLine(top, ImVec2(top.x, top.y + size), ImGui::GetColorU32(c), 2);
+            fg->AddCircleFilled(gHandleKnob[k], gHandleRadius, ImGui::GetColorU32(c));
+        }
+        gHandleCount = 2;
     }
 } // namespace mydear::touch

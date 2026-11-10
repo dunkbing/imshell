@@ -46,4 +46,9 @@ namespace mydear::touch {
 
     void hover(ImVec2 p);
     ImVec2 start();
+
+    // the active text field's selection gets a handle at each end: call between the frame and
+    // ImGui::Render(). down() on a handle drags that end (the other end stays)
+    void drawHandles();
+    bool grabbing(); // a handle is being dragged: not a scroll, not a long press
 } // namespace mydear::touch

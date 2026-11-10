@@ -557,6 +557,7 @@ namespace mydear {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui::NewFrame();
         gDelegate->frame();
+        touch::drawHandles();
         if (gKeyboardShown && !gPasswordField)
             detail::drawComposingUnderline(callString("composing").c_str());
         ImGui::Render();
