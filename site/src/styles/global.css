@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+:root {
+  --base: #faf7f0;
+  --mantle: #f4f0e6;
+  --crust: #eee8da;
+  --surface0: #f0ece2;
+  --surface1: #b8b098;
+  --surface2: #9a9280;
+  --overlay0: #7a7468;
+  --overlay1: #5c5848;
+  --overlay2: #3e3a30;
+  --text: #2d2a25;
+  --subtext0: #6b6455;
+  --subtext1: #4a4538;
+  --blue: #0000ee;
+  --sky: #0055aa;
+  --green: #006400;
+  --peach: #cc4400;
+  --mauve: #551a8b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --base: #1a1a1a;
+    --mantle: #151515;
+    --crust: #101010;
+    --surface0: #252525;
+    --surface1: #3a3a3a;
+    --surface2: #505050;
+    --overlay0: #666666;
+    --overlay1: #808080;
+    --overlay2: #9a9a9a;
+    --text: #d4d4d4;
+    --subtext0: #999999;
+    --subtext1: #bbbbbb;
+    --blue: #6699ff;
+    --sky: #88bbff;
+    --green: #55bb55;
+    --peach: #ee8833;
+    --mauve: #bb88ff;
+  }
+}
+
+@theme inline {
+  /* so the `font-mono` utility matches the body font */
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, "Liberation Mono",
+    monospace;
+  --color-base: var(--base);
+  --color-mantle: var(--mantle);
+  --color-crust: var(--crust);
+  --color-surface0: var(--surface0);
+  --color-surface1: var(--surface1);
+  --color-surface2: var(--surface2);
+  --color-overlay0: var(--overlay0);
+  --color-overlay1: var(--overlay1);
+  --color-overlay2: var(--overlay2);
+  --color-text: var(--text);
+  --color-subtext0: var(--subtext0);
+  --color-subtext1: var(--subtext1);
+  --color-blue: var(--blue);
+  --color-sky: var(--sky);
+  --color-green: var(--green);
+  --color-peach: var(--peach);
+  --color-mauve: var(--mauve);
+}
+
+/* self-hosted so the site keeps making no third-party requests */
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/plex-mono-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("/fonts/plex-mono-600.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  body {
+    background: var(--base);
+    color: var(--text);
+    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, "Liberation Mono", monospace;
+    font-size: 13.5px;
+    line-height: 1.7;
+  }
+
+  a {
+    color: var(--blue);
+    text-decoration: underline;
+  }
+
+  a:hover {
+    color: var(--peach);
+  }
+}

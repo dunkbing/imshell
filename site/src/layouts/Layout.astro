@@ -1,0 +1,64 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = "mydear: a small C++ toolkit that turns a Dear ImGui frame into a real app on macOS, iOS, Windows, Linux, Android and the web.",
+} = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const path = Astro.url.pathname.replace(/\/$/, "") || "/";
+const link = (href: string, label: string) => {
+  const here = path === base + href || (href !== "/" && path.startsWith(base + href));
+  return { href: base + href, label, here };
+};
+const nav = [link("/components", "components"), link("/docs", "docs")];
+const year = new Date().getFullYear();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preload" as="font" type="font/woff2" href={`${base}/fonts/plex-mono-400.woff2`} crossorigin />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#faf7f0" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <title>{title}</title>
+  </head>
+  <body class="pt-12">
+    <header class="fixed top-0 inset-x-0 z-50 bg-crust border-b border-surface1">
+      <nav class="max-w-2xl mx-auto px-4 py-2 flex flex-wrap items-center gap-x-1 text-sm">
+        <a href={`${base}/`} class="font-bold text-text no-underline mr-2">mydear</a>
+        [
+        {
+          nav.map((n, i) => (
+            <>
+              {n.here ? <span class="font-bold text-text">{n.label}</span> : <a href={n.href} class="no-underline hover:underline">{n.label}</a>}
+              {" | "}
+            </>
+          ))
+        }
+        <a href="https://github.com/dunkbing/mydear" target="_blank" class="no-underline hover:underline">github</a> ]
+      </nav>
+    </header>
+
+    <slot />
+
+    <footer class="border-t border-surface1 py-4 px-4 text-xs text-subtext0">
+      <div class="max-w-2xl mx-auto flex flex-wrap items-center justify-between gap-y-2">
+        <p>&copy; {year} mydear &middot; MIT License</p>
+        <p>
+          [<a href={`${base}/docs`} class="hover:text-text">docs</a>] [<a href="https://github.com/dunkbing/mydear" target="_blank" class="hover:text-text">github</a>] [<a href="https://dearsql.dev" target="_blank" class="hover:text-text">dearsql</a>]
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
