@@ -87,4 +87,4 @@ On Linux, GTK 4 and libepoxy come from the system (`pkg-config`). Instead of the
 
 `ctest` runs two tests:
 - `mydear_touch_test`: the touch engine on a bare ImGui context, no window.
-- `mydear_hello_smoke`: the example in a real window, which needs a desktop session. With `MYDEAR_HELLO_PROBE=1` it drives itself: it double-clicks the title bar (the window should zoom), clicks a button in the bar, checks that a native view shows and hides under a popup, and closes the window the way the user would, expecting the first close to be refused (`closeRequested`) and the second to go through. It prints `probe: ok`, or `probe: FAILED:` and what failed. `MYDEAR_HELLO_SHOT=out.png` also saves a frame (macOS).
+- `mydear_hello_smoke`: the example in a real window, which needs a desktop session. With `MYDEAR_HELLO_PROBE=1` it drives itself: it double-clicks the title bar (the window should zoom), clicks a button in the bar, checks that a native view shows and hides under a popup, and closes the window the way the user would, expecting the first close to be refused (`closeRequested`) and the second to go through. It prints `probe: ok`, or `probe: FAILED:` and what failed.
