@@ -23,6 +23,12 @@ import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.text.Editable;
+import android.text.InputType;
+import android.view.ViewGroup;
+import android.view.inputmethod.BaseInputConnection;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -39,6 +45,9 @@ public class MydearActivity extends NativeActivity {
     private final ConcurrentLinkedQueue<Integer> edits = new ConcurrentLinkedQueue<>();
     private ActionMode editMenu;
     private String pickInto;
+    private Editor editor;
+    // keys in the character queue, after what was typed before them
+    private static final int BACKSPACE = -1, DELETE = -2, ENTER = -3;
     // left, top, right, bottom (system bars, cutout), keyboard height; window pixels
     private volatile int[] insets = new int[5];
 
@@ -47,6 +56,8 @@ public class MydearActivity extends NativeActivity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        editor = new Editor(this);
+        addContentView(editor, new ViewGroup.LayoutParams(1, 1));
         getWindow().getAttributes().layoutInDisplayCutoutMode =
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
         View decor = getWindow().getDecorView();
@@ -138,11 +149,164 @@ public class MydearActivity extends NativeActivity {
     public void showKeyboard(boolean show) {
         runOnUiThread(() -> {
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (show)
-                imm.showSoftInput(getWindow().getDecorView(), 0);
-            else
-                imm.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
+            if (show) {
+                editor.requestFocus();
+                imm.restartInput(editor);
+                imm.showSoftInput(editor, 0);
+            } else {
+                imm.hideSoftInputFromWindow(editor.getWindowToken(), 0);
+            }
         });
+    }
+
+    // the caret moved under the keyboard (a tap): it must not keep editing the old word
+    public void resetInput() {
+        runOnUiThread(() -> {
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.restartInput(editor);
+        });
+    }
+
+    private void type(String text) {
+        text.codePoints().forEach(c -> chars.offer(c == '\n' ? ENTER : c));
+    }
+
+    // the keyboard's editor: an invisible view whose InputConnection turns the keyboard's
+    // edits into characters and keys for imgui, which keeps the real text
+    // shortcut: the ime sees only what was typed since the last reset (a tap restarts it), and
+    // imgui draws no composing underline; mirror imgui's text here if that is not enough
+    private final class Editor extends View {
+        Editor(Context context) {
+            super(context);
+            setFocusable(true);
+            setFocusableInTouchMode(true);
+        }
+
+        @Override
+        public boolean onCheckIsTextEditor() {
+            return true;
+        }
+
+        @Override
+        public InputConnection onCreateInputConnection(EditorInfo info) {
+            info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                | InputType.TYPE_TEXT_FLAG_AUTO_CORRECT;
+            info.imeOptions = EditorInfo.IME_FLAG_NO_ENTER_ACTION | EditorInfo.IME_FLAG_NO_FULLSCREEN
+                | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+            return new Connection(this);
+        }
+    }
+
+    // the ime edits a real buffer (BaseInputConnection's own editable: what was typed since the
+    // last reset), so it can read back, compose, autocorrect and replace. after each edit the
+    // buffer is diffed against what imgui already got, and only the difference is sent:
+    // backspaces to where they part, then the new text
+    private final class Connection extends BaseInputConnection {
+        private String sent = ""; // the buffer as imgui has it
+        private int batch = 0;
+
+        Connection(View view) {
+            super(view, true);
+        }
+
+        private boolean sync(boolean ok) {
+            if (batch > 0)
+                return ok;
+            Editable e = getEditable();
+            String now = e == null ? "" : e.toString();
+            int same = 0; // never split a surrogate pair
+            while (same < sent.length() && same < now.length() && sent.charAt(same) == now.charAt(same))
+                same++;
+            if (same > 0 && Character.isHighSurrogate(sent.charAt(same - 1)))
+                same--;
+            int erase = sent.codePointCount(same, sent.length());
+            for (int i = 0; i < erase; i++)
+                chars.offer(BACKSPACE);
+            type(now.substring(same));
+            if (erase > 0 || same < now.length())
+                wakeLoop();
+            sent = now;
+            return ok;
+        }
+
+        @Override
+        public boolean beginBatchEdit() {
+            batch++;
+            return super.beginBatchEdit();
+        }
+
+        @Override
+        public boolean endBatchEdit() {
+            boolean ok = super.endBatchEdit();
+            batch = Math.max(batch - 1, 0);
+            return sync(ok);
+        }
+
+        @Override
+        public boolean commitText(CharSequence text, int newCursorPosition) {
+            return sync(super.commitText(text, newCursorPosition));
+        }
+
+        @Override
+        public boolean setComposingText(CharSequence text, int newCursorPosition) {
+            return sync(super.setComposingText(text, newCursorPosition));
+        }
+
+        @Override
+        public boolean setComposingRegion(int start, int end) {
+            return sync(super.setComposingRegion(start, end));
+        }
+
+        @Override
+        public boolean finishComposingText() {
+            return sync(super.finishComposingText());
+        }
+
+        @Override
+        public boolean deleteSurroundingText(int before, int after) {
+            return sync(super.deleteSurroundingText(before, after));
+        }
+
+        @Override
+        public boolean deleteSurroundingTextInCodePoints(int before, int after) {
+            return sync(super.deleteSurroundingTextInCodePoints(before, after));
+        }
+
+        @Override
+        public boolean replaceText(int start, int end, CharSequence text, int newCursorPosition,
+                                   android.view.inputmethod.TextAttribute attribute) {
+            return sync(super.replaceText(start, end, text, newCursorPosition, attribute));
+        }
+
+        // keys from the keyboard (backspace on an empty word, enter): edit the buffer the same
+        // way so it stays what imgui has
+        @Override
+        public boolean sendKeyEvent(KeyEvent event) {
+            if (event.getAction() != KeyEvent.ACTION_DOWN)
+                return true;
+            Editable e = getEditable();
+            switch (event.getKeyCode()) {
+            case KeyEvent.KEYCODE_DEL:
+                if (e != null && e.length() > 0) {
+                    super.deleteSurroundingTextInCodePoints(1, 0);
+                    return sync(true);
+                }
+                chars.offer(BACKSPACE); // before the buffer: imgui's text
+                break;
+            case KeyEvent.KEYCODE_FORWARD_DEL:
+                chars.offer(DELETE);
+                break;
+            case KeyEvent.KEYCODE_ENTER:
+                return sync(super.commitText("\n", 1));
+            default:
+                int c = event.getUnicodeChar(event.getMetaState());
+                if (c >= 32 && c != 127)
+                    return sync(super.commitText(new String(Character.toChars(c)), 1));
+                return true;
+            }
+            wakeLoop();
+            return true;
+        }
     }
 
     public String getClipboard() {

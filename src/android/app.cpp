@@ -88,8 +88,19 @@ namespace {
         static jmethodID m = method("pollChar", "()I");
         if (!m)
             return;
-        while (const jint c = gEnv->CallIntMethod(gAndroid->activity->clazz, m))
-            ImGui::GetIO().AddInputCharacter(static_cast<unsigned>(c));
+        ImGuiIO& io = ImGui::GetIO();
+        while (const jint c = gEnv->CallIntMethod(gAndroid->activity->clazz, m)) {
+            if (c > 0) {
+                io.AddInputCharacter(static_cast<unsigned>(c));
+                continue;
+            }
+            // the soft keyboard's edits, in order with its characters
+            const ImGuiKey key = c == -1   ? ImGuiKey_Backspace
+                                 : c == -2 ? ImGuiKey_Delete
+                                           : ImGuiKey_Enter;
+            io.AddKeyEvent(key, true);
+            io.AddKeyEvent(key, false);
+        }
     }
 
 
@@ -282,6 +293,8 @@ namespace {
         switch (action) {
         case AMOTION_EVENT_ACTION_DOWN:
             hideEditMenu(); // a touch elsewhere dismisses the text toolbar
+            if (gKeyboardShown)
+                callVoid("resetInput"); // the caret may move: the keyboard starts a new word
             gPointer = AMotionEvent_getPointerId(e, 0);
             touch::down(pointerAt(e, 0), now);
             break;
