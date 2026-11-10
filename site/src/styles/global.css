@@ -45,7 +45,7 @@
 @theme inline {
   /* so the `font-mono` utility matches the body font */
   --font-mono:
-    "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, "Liberation Mono",
+    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, "Liberation Mono",
     monospace;
   --color-base: var(--base);
   --color-mantle: var(--mantle);
@@ -66,18 +66,19 @@
   --color-mauve: var(--mauve);
 }
 
-/* self-hosted so the site keeps making no third-party requests */
+/* jetbrains mono like dearsql (medium and bold, ofl: /fonts/OFL.txt), latin subset without
+   ligatures like imgui draws it; self-hosted so the site keeps making no third-party requests */
 @font-face {
-  font-family: "IBM Plex Mono";
-  src: url("/fonts/plex-mono-400.woff2") format("woff2");
-  font-weight: 400;
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono-500.woff2") format("woff2");
+  font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: "IBM Plex Mono";
-  src: url("/fonts/plex-mono-600.woff2") format("woff2");
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono-700.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -87,8 +88,9 @@
   body {
     background: var(--base);
     color: var(--text);
-    font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, "Liberation Mono", monospace;
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, "Liberation Mono", monospace;
     font-size: 13.5px;
+    font-weight: 500;
     line-height: 1.7;
   }
 
