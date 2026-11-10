@@ -24,7 +24,19 @@ add_library(mydear STATIC
 add_library(mydear::mydear ALIAS mydear)
 
 # the platform shell. imgui core stays the host's; its platform backends are ours
-if(IOS)
+if(EMSCRIPTEN) # before UNIX, which emscripten's toolchain also sets
+    target_sources(mydear PRIVATE
+        src/web/app.cpp
+        src/haptics_none.cpp
+        src/native_view.cpp
+        ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+        ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+    )
+    # glfw on a canvas (emscripten's contrib port: hidpi, resizing, clipboard), webgl2
+    target_compile_options(mydear PUBLIC --use-port=contrib.glfw3)
+    target_link_options(mydear PUBLIC --use-port=contrib.glfw3 -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=2
+                                      -sALLOW_MEMORY_GROWTH=1)
+elseif(IOS)
     target_sources(mydear PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/apple/haptics.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
                                   ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm)
     set_source_files_properties(src/ios/app.mm src/ios/file_dialog.mm src/apple/haptics.mm src/apple/native_view.mm
@@ -94,7 +106,7 @@ elseif(UNIX)
 endif()
 
 # desktop file dialogs: native file dialog extended (vcpkg nativefiledialog-extended)
-if(NOT IOS AND NOT ANDROID)
+if(NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
     find_package(nfd CONFIG REQUIRED)
     target_sources(mydear PRIVATE src/file_dialog_nfd.cpp)
     target_link_libraries(mydear PUBLIC nfd::nfd)
@@ -105,7 +117,7 @@ endif()
 # and ships the dll; on linux mydear finds httplib, nlohmann_json and openssl
 option(MYDEAR_UPDATER "auto-update through sparkle, winsparkle or an appimage swap" OFF)
 set(MYDEAR_SPARKLE_FRAMEWORK "" CACHE PATH "macos: Sparkle.framework")
-if(NOT MYDEAR_UPDATER OR IOS OR ANDROID)
+if(NOT MYDEAR_UPDATER OR IOS OR ANDROID OR EMSCRIPTEN)
     target_sources(mydear PRIVATE src/updater_none.cpp)
 elseif(APPLE)
     target_sources(mydear PRIVATE src/macos/updater.mm)
@@ -137,6 +149,10 @@ if(MYDEAR_BUILD_EXAMPLES AND NOT IOS)
     if(ANDROID)
         add_library(mydear_hello SHARED examples/hello/main.cpp examples/hello/native_android.cpp ${MYDEAR_IMGUI_CORE})
         mydear_android_apk(mydear_hello PACKAGE io.mydear.hello LABEL "Hello mydear")
+    elseif(EMSCRIPTEN) # hello.html (+ .js, .wasm); serve the folder
+        add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_web.cpp ${MYDEAR_IMGUI_CORE})
+        set_target_properties(mydear_hello PROPERTIES SUFFIX .html)
+        target_link_options(mydear_hello PRIVATE --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/examples/web_shell.html)
     elseif(APPLE)
         add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_macos.mm ${MYDEAR_IMGUI_CORE})
         set_source_files_properties(examples/hello/native_macos.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
@@ -163,7 +179,7 @@ if(MYDEAR_BUILD_TESTS)
     add_test(NAME mydear_frame_skip_test COMMAND mydear_frame_skip_test)
     # the smoke test: hello drives its own window (title bar, native views, the close veto) and
     # prints "probe: ok"; needs a desktop session
-    if(TARGET mydear_hello AND NOT ANDROID)
+    if(TARGET mydear_hello AND NOT ANDROID AND NOT EMSCRIPTEN)
         add_test(NAME mydear_hello_smoke COMMAND mydear_hello)
         set_tests_properties(mydear_hello_smoke PROPERTIES
             ENVIRONMENT "MYDEAR_HELLO_PROBE=1;MYDEAR_HELLO_QUIT=20"
