@@ -16,6 +16,8 @@ void describeNativeView(void*, char* out, int size) {
 
 int main();
 
+// shortcut: main() owns its App, so hello does not survive the activity being recreated (an
+// overlay or theme change); hosts follow the pattern in mydear/android.hpp
 void android_main(android_app* state) {
     mydear::SetAndroidApp(state);
     main();

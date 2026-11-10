@@ -75,13 +75,19 @@ Text input goes through `UITextInput`, so IME and the space-bar cursor work. The
 #include "mydear/android.hpp"
 
 void android_main(android_app* state) {
+    static mydear::App app; // outlives a recreated activity
+    static bool started = false;
     mydear::SetAndroidApp(state);
-    mydear::App app;
-    if (app.create(config, delegate))
-        app.run();
+    if (!started && !(started = app.create(config, delegate)))
+        return;
+    app.run();
+    if (mydear::AndroidActivityRecreating())
+        return; // the next activity carries on
     app.destroy();
 }
 ```
+
+A configuration change the manifest's `configChanges` cannot absorb (a system theme or overlay change, such as switching to three-button navigation) destroys the activity and starts a new one in the same process. `run()` then returns with `AndroidActivityRecreating()` true: return from `android_main` without tearing anything down, and the next `android_main`'s `SetAndroidApp` re-attaches the running shell (new glue thread, looper and window; the same ImGui and EGL contexts), so the app carries on where it was.
 
 The activity must be `io.mydear.MydearActivity` (`android/io/mydear/MydearActivity.java`) or a subclass. It brings what the NDK cannot reach: typed characters, the soft keyboard, the clipboard and the document picker. Graphics are EGL with OpenGL ES 3, and ImGui works in dp (`DisplayFramebufferScale` is the screen density), like points on iOS. The activity is edge to edge on every Android version (the manifest targets API 36, where Play requires it): the ImGui area stops at the navigation bar, side cutouts and the soft keyboard, as on iOS (ImGui keeps popups inside it, and taps on the navigation bar go to the system); only the status bar lies inside it, as the safe area. The bar icons turn dark over a light theme. Back stays a key event (`enableOnBackInvokedCallback="false"`; target 36 would make it predictive back). The EGL context outlives the window, so textures survive the app going to the background.
 

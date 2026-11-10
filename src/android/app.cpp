@@ -231,6 +231,10 @@ namespace {
     // window pixels: left, top, right, bottom covered by system bars and cutouts, then the
     // keyboard's height (MydearActivity.windowInsets)
     int gInsets[5] = {};
+    // what the current activity was told; a recreated one starts over
+    int gLightBars = -1;
+    bool gKeyboardShown = false;
+    bool gRecreating = false; // the activity went away only to come back (configuration change)
 
     void readInsets() {
         static jmethodID m = method("windowInsets", "()[I");
@@ -256,7 +260,7 @@ namespace {
 
     // dark bar icons when the theme is light
     void followTheme() {
-        static int light = -1;
+        int& light = gLightBars;
         const ImVec4 bg = ImGui::GetStyle().Colors[ImGuiCol_WindowBg];
         const int now = 0.299f * bg.x + 0.587f * bg.y + 0.114f * bg.z > 0.5f;
         if (now == light)
@@ -373,6 +377,26 @@ namespace {
 namespace mydear {
     void SetAndroidApp(android_app* app) {
         gAndroid = app;
+        if (!gRecreating)
+            return;
+        // the next activity after a recreation: same process, imgui context and egl context;
+        // a new glue thread, looper, java activity and window
+        gRecreating = false;
+        gLightBars = -1;
+        gKeyboardShown = false;
+        gEditMenu = false;
+        gAndroid->onAppCmd = onCmd;
+        gAndroid->onInputEvent = onInput;
+        gAndroid->activity->vm->AttachCurrentThread(&gEnv, nullptr);
+        registerWake();
+        gDensity = std::max(AConfiguration_getDensity(gAndroid->config), 1) / 160.0f;
+        while (!gAndroid->window) // APP_CMD_INIT_WINDOW makes the surface current here
+            if (pump(-1))
+                return; // gone again: run() returns at once
+    }
+
+    bool AndroidActivityRecreating() {
+        return gRecreating;
     }
 
     android_app* AndroidApp() {
@@ -505,7 +529,7 @@ namespace mydear {
 
         // a text field wants the keyboard
         followTheme();
-        static bool keyboard = false;
+        bool& keyboard = gKeyboardShown;
         // PlatformImeData.WantVisible: a custom editor that wants the keyboard (ios does the same)
         const bool wants = io.WantTextInput || GImGui->PlatformImeData.WantVisible;
         if (wants != keyboard) {
@@ -548,11 +572,24 @@ namespace mydear {
             renderFrame();
         }
         detail::wakeLoopHook().store(nullptr);
+        // destroyed only to be recreated (a configuration change configChanges cannot cover,
+        // such as an overlay or system colours): keep the process, imgui and the egl context,
+        // let this glue thread go. the next android_main's SetAndroidApp picks them up
+        if (gAndroid->destroyRequested) {
+            jmethodID m = method("isChangingConfigurations", "()Z");
+            gRecreating = m && gEnv->CallBooleanMethod(gAndroid->activity->clazz, m);
+        }
+        if (gRecreating) {
+            dropSurface(); // the context is current on no thread now
+            gAndroid->activity->vm->DetachCurrentThread();
+            gEnv = nullptr;
+            gAndroid = nullptr; // freed by the glue once android_main returns
+        }
     }
 
     void App::destroy() {
-        if (!gDelegate)
-            return;
+        if (!gDelegate || gRecreating)
+            return; // recreating: the next activity still needs all of it
         detail::dropNativeViews();
         if (gGlReady) {
             ImGui_ImplOpenGL3_Shutdown();
