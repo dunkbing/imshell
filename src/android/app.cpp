@@ -90,6 +90,47 @@ namespace {
             ImGui::GetIO().AddInputCharacter(static_cast<unsigned>(c));
     }
 
+    void callVoid(const char* name) {
+        if (jmethodID m = method(name, "()V"))
+            gEnv->CallVoidMethod(gAndroid->activity->clazz, m);
+    }
+
+    // the system's floating text toolbar (cut, copy, paste, select all) at window pixels
+    bool gEditMenu = false;
+
+    void showEditMenu(int x, int y) {
+        if (jmethodID m = method("showEditMenu", "(II)V")) {
+            gEnv->CallVoidMethod(gAndroid->activity->clazz, m, x, y);
+            gEditMenu = true;
+        }
+    }
+
+    void hideEditMenu() {
+        if (!gEditMenu)
+            return;
+        callVoid("hideEditMenu");
+        gEditMenu = false;
+    }
+
+    // a toolbar pick comes back as its shortcut letter: the ctrl chord imgui and editors know
+    void pollEdits() {
+        static jmethodID m = method("pollEdit", "()I");
+        if (!m)
+            return;
+        ImGuiIO& io = ImGui::GetIO();
+        while (const jint c = gEnv->CallIntMethod(gAndroid->activity->clazz, m)) {
+            const ImGuiKey key = c == 'X' ? ImGuiKey_X
+                               : c == 'C' ? ImGuiKey_C
+                               : c == 'V' ? ImGuiKey_V
+                                          : ImGuiKey_A;
+            io.AddKeyEvent(ImGuiMod_Ctrl, true);
+            io.AddKeyEvent(key, true);
+            io.AddKeyEvent(key, false);
+            io.AddKeyEvent(ImGuiMod_Ctrl, false);
+            gEditMenu = false;
+        }
+    }
+
     std::function<void(const std::string&)> gPickDone; // a picker is open
 
     // java answers null while the picker is open, "" when cancelled, else the copy's path
@@ -198,6 +239,7 @@ namespace {
         const double now = nowSeconds();
         switch (action) {
         case AMOTION_EVENT_ACTION_DOWN: {
+            hideEditMenu(); // a touch elsewhere dismisses the text toolbar
             gFling = ImVec2(0, 0);
             gLift = false;
             gPointer = AMotionEvent_getPointerId(e, 0);
@@ -445,11 +487,26 @@ namespace mydear {
 
         pollChars();
         pollPicked();
-        if (gTouch == Touch::Pending && now - gStartTime > kLongPress) { // long press: right click
-            touchAt(gStart);
-            io.AddMouseButtonEvent(1, true);
-            io.AddMouseButtonEvent(1, false);
+        pollEdits();
+        if (gTouch == Touch::Pending && now - gStartTime > kLongPress) {
             gTouch = Touch::None;
+            touchAt(gStart);
+            callVoid("longPressFeedback");
+            // the finger has hovered since it landed, so the cursor says what is under it
+            if (ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput) {
+                // like an android text field: a double click selects the word (and focuses
+                // the field), then the system text toolbar
+                for (int i = 0; i < 2; ++i) {
+                    io.AddMouseButtonEvent(0, true);
+                    io.AddMouseButtonEvent(0, false);
+                }
+                const ARect r = visibleRect();
+                showEditMenu(static_cast<int>(gStart.x * gDensity) + r.left,
+                             static_cast<int>(gStart.y * gDensity) + r.top);
+            } else { // anything else: a right click (context menus)
+                io.AddMouseButtonEvent(1, true);
+                io.AddMouseButtonEvent(1, false);
+            }
         }
         if (std::hypot(gFling.x, gFling.y) > kFlingStop) { // a flick coasts, slowing down
             touchAt(gLast);

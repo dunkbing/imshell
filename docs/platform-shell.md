@@ -81,7 +81,7 @@ void android_main(android_app* state) {
 
 The activity must be `io.mydear.MydearActivity` (`android/io/mydear/MydearActivity.java`) or a subclass. It brings what the NDK cannot reach: typed characters, the soft keyboard, the clipboard and the document picker. Graphics are EGL with OpenGL ES 3, and ImGui works in dp (`DisplayFramebufferScale` is the screen density), like points on iOS. The ImGui area is the window minus the system bars and the soft keyboard. The EGL context outlives the window, so textures survive the app going to the background.
 
-Touch works as on iOS, except that a long press always right-clicks (there is no edit menu yet). A mouse or trackpad is a mouse. Hardware keys go through `imgui_impl_android`.
+Touch works as on iOS. A long press over text selects the word under the finger and shows the system's floating text toolbar (Cut, Copy, Paste, Select all, sent to ImGui as Ctrl chords); anywhere else it right-clicks. Both give the long-press haptic tick. A mouse or trackpad is a mouse. Hardware keys go through `imgui_impl_android`.
 
 `mydear::PickFile(mimeTypes, intoDir, done)` opens the system document picker. The picked file is copied into `intoDir`, because apps can't open another app's files by path, and `done` gets the copy's path a frame or two later. It is not called when the picker is cancelled.
 

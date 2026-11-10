@@ -7,8 +7,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
+import android.graphics.Rect;
 import android.provider.OpenableColumns;
+import android.view.ActionMode;
+import android.view.HapticFeedbackConstants;
 import android.view.KeyEvent;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -22,6 +28,8 @@ public class MydearActivity extends NativeActivity {
     private static final int PICK = 0x6d79;
     private final ConcurrentLinkedQueue<Integer> chars = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> picked = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<Integer> edits = new ConcurrentLinkedQueue<>();
+    private ActionMode editMenu;
     private String pickInto;
 
     // the native key event has no character: take it here, imgui still gets the key
@@ -64,6 +72,69 @@ public class MydearActivity extends NativeActivity {
     public void setClipboard(String text) {
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         cm.setPrimaryClip(ClipData.newPlainText("text", text));
+    }
+
+
+    // the system's floating text toolbar at (x, y), window pixels. a pick lands in pollEdit as
+    // the letter of its shortcut: 'X' cut, 'C' copy, 'V' paste, 'A' select all
+    // the long-press tick other apps give
+    public void longPressFeedback() {
+        runOnUiThread(() -> getWindow().getDecorView().performHapticFeedback(HapticFeedbackConstants.LONG_PRESS));
+    }
+
+    public void showEditMenu(int x, int y) {
+        runOnUiThread(() -> {
+            if (editMenu != null)
+                editMenu.finish();
+            View decor = getWindow().getDecorView();
+            editMenu = decor.startActionMode(new ActionMode.Callback2() {
+                @Override
+                public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+                    menu.add(0, 'X', 0, android.R.string.cut);
+                    menu.add(0, 'C', 1, android.R.string.copy);
+                    ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                    if (cm.hasPrimaryClip())
+                        menu.add(0, 'V', 2, android.R.string.paste);
+                    menu.add(0, 'A', 3, android.R.string.selectAll);
+                    return true;
+                }
+
+                @Override
+                public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+                    return false;
+                }
+
+                @Override
+                public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+                    edits.offer(item.getItemId());
+                    mode.finish();
+                    return true;
+                }
+
+                @Override
+                public void onDestroyActionMode(ActionMode mode) {
+                    if (editMenu == mode)
+                        editMenu = null;
+                }
+
+                @Override
+                public void onGetContentRect(ActionMode mode, View view, Rect outRect) {
+                    outRect.set(x, y, x + 1, y + 1);
+                }
+            }, ActionMode.TYPE_FLOATING);
+        });
+    }
+
+    public void hideEditMenu() {
+        runOnUiThread(() -> {
+            if (editMenu != null)
+                editMenu.finish();
+        });
+    }
+
+    public int pollEdit() {
+        Integer c = edits.poll();
+        return c == null ? 0 : c;
     }
 
     // the document picker; the result lands in pollPicked: a path, or "" when cancelled
