@@ -1,6 +1,7 @@
 // the smallest mydear app: a themed window with its own title bar and a button
 #include "mydear/app.hpp"
 #include "mydear/button.hpp"
+#include "mydear/file_dialog.hpp"
 #include "mydear/themes.hpp"
 #include "mydear/title_bar.hpp"
 #include "mydear/native_view.hpp"
@@ -32,6 +33,7 @@ struct Hello : mydear::Delegate {
     int barClicks = 0;
     void* field = nullptr;
     bool wantPopup = false;
+    std::string opened;
 
     void frame() override {
         const int f = ImGui::GetFrameCount();
@@ -65,6 +67,11 @@ struct Hello : mydear::Delegate {
         const ImVec2 fieldsAt = ImGui::GetCursorScreenPos();
         field = mydear::NativeView("##field", ImVec2(240, 22), makeTextField);
         mydear::NativeView("##date", ImVec2(160, 22), makeDatePicker);
+        if (mydear::SmallButton("Open a file..."))
+            mydear::OpenFileDialog({{"Text", "txt,md"}, {"All files", "*"}},
+                                   [this](const std::string& path) { opened = path; });
+        if (!opened.empty())
+            ImGui::TextDisabled("%s", opened.c_str());
         if (mydear::SmallButton("Open a popup over them") || std::exchange(wantPopup, false))
             ImGui::OpenPopup("##over");
         ImGui::SetNextWindowPos(ImVec2(fieldsAt.x + 40, fieldsAt.y + 4), ImGuiCond_Appearing);

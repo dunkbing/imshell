@@ -14,6 +14,7 @@ add_library(mydear STATIC
     src/app.cpp
     src/button.cpp
     src/embedded.cpp
+    src/fonts.cpp
     src/image.cpp
     src/select.cpp
     src/spinner.cpp
@@ -23,12 +24,12 @@ add_library(mydear::mydear ALIAS mydear)
 
 # the platform shell. imgui core stays the host's; its platform backends are ours
 if(IOS)
-    target_sources(mydear PRIVATE src/ios/app.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
+    target_sources(mydear PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
                                   ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm)
-    set_source_files_properties(src/ios/app.mm src/apple/native_view.mm
+    set_source_files_properties(src/ios/app.mm src/ios/file_dialog.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(mydear PUBLIC "-framework UIKit" "-framework Metal" "-framework MetalKit"
-        "-framework QuartzCore" "-framework Foundation")
+        "-framework QuartzCore" "-framework Foundation" "-framework UniformTypeIdentifiers")
 elseif(APPLE)
     find_package(glfw3 CONFIG REQUIRED)
     target_sources(mydear PRIVATE
@@ -65,6 +66,7 @@ elseif(ANDROID)
     set(MYDEAR_GLUE_DIR ${ANDROID_NDK}/sources/android/native_app_glue)
     target_sources(mydear PRIVATE
         src/android/app.cpp
+        src/android/file_dialog.cpp
         src/touch.cpp
         src/native_view.cpp
         ${MYDEAR_GLUE_DIR}/android_native_app_glue.c
@@ -86,6 +88,14 @@ elseif(UNIX)
     )
     target_link_libraries(mydear PUBLIC PkgConfig::MYDEAR_GTK4 PkgConfig::MYDEAR_EPOXY)
 endif()
+
+# desktop file dialogs: native file dialog extended (vcpkg nativefiledialog-extended)
+if(NOT IOS AND NOT ANDROID)
+    find_package(nfd CONFIG REQUIRED)
+    target_sources(mydear PRIVATE src/file_dialog_nfd.cpp)
+    target_link_libraries(mydear PUBLIC nfd::nfd)
+endif()
+
 # auto-update (mydear/updater.hpp). the host packages the updater: on macos it sets
 # MYDEAR_SPARKLE_FRAMEWORK and embeds the framework, on windows it defines a WinSparkle target
 # and ships the dll; on linux mydear finds httplib, nlohmann_json and openssl

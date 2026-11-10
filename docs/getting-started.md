@@ -64,8 +64,8 @@ The same `main()` runs on macOS, Windows and Linux. On Android, `android_main` c
 
 ## Dependencies
 
-- macOS: GLFW (`find_package(glfw3)`), Metal, AppKit.
+- macOS: GLFW (`find_package(glfw3)`), Native File Dialog Extended (`find_package(nfd)`), Metal, AppKit.
 - iOS: UIKit, Metal, MetalKit.
-- Windows: GLFW (`find_package(glfw3)`), Direct3D 11, DWM.
-- Linux: GTK 4 and libepoxy (`pkg-config gtk4 epoxy`).
+- Windows: GLFW (`find_package(glfw3)`), Native File Dialog Extended (`find_package(nfd)`), Direct3D 11, DWM.
+- Linux: GTK 4 and libepoxy (`pkg-config gtk4 epoxy`), Native File Dialog Extended (`find_package(nfd)`).
 - With `-DMYDEAR_UPDATER=ON`: Sparkle (macOS), WinSparkle (Windows), or httplib, nlohmann_json and OpenSSL (Linux); see [Auto-update](auto-update.md).
