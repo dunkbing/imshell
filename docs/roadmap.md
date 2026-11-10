@@ -9,7 +9,7 @@ What comes next, roughly in order. Each item has an issue with the problem, the 
 3. ✅ **Safe-area insets and Android edge-to-edge** ([#14](https://github.com/dunkbing/mydear/issues/14)): `WorkPos`/`WorkSize` and `mydear::SafeArea()` keep clear of bars, notches and cutouts; the Android shell targets API 36.
 4. **iOS idles** ([#22](https://github.com/dunkbing/mydear/issues/22)): ✅ the Metal view pauses when nothing happens instead of drawing every display refresh.
 5. ✅ **Android survives activity recreation** ([#24](https://github.com/dunkbing/mydear/issues/24)): a system theme or overlay change closes the app today.
-6. **Skip identical frames** ([#20](https://github.com/dunkbing/mydear/issues/20)): ✅ macOS, iOS and Android; Windows and Linux to do. no render or present when the draw data did not change.
+6. **Skip identical frames** ([#20](https://github.com/dunkbing/mydear/issues/20)): ✅ macOS, iOS, Android and Windows; not Linux, where `GtkGLArea` does not keep the last frame. no render or present when the draw data did not change.
 
 ## Input and platform services
 

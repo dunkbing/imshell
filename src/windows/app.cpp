@@ -9,6 +9,7 @@
 #include "mydear/title_bar.hpp"
 
 #include <cstdio>
+#include <utility>
 #include <dwmapi.h>
 #include <windowsx.h>
 
@@ -319,13 +320,19 @@ namespace mydear {
     void App::renderFrame() {
         auto& d = *impl_;
         followTheme();
-        d.backend->beginFrame(Theme::Current()->colors.base);
+        d.backend->beginFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         d.delegate->frame();
         ImGui::Render();
-        d.backend->renderDrawData(ImGui::GetDrawData());
-        d.backend->present();
+        // an unchanged frame is not drawn or presented: the window keeps showing the last one
+        const ImVec4 base = Theme::Current()->colors.base;
+        const bool mustDraw = std::exchange(d.backend->mustDraw, false);
+        detail::frameSkipped() = detail::sameAsLastFrame(ImGui::GetDrawData(), base) && !mustDraw;
+        if (!detail::frameSkipped()) {
+            d.backend->renderDrawData(ImGui::GetDrawData(), base);
+            d.backend->present();
+        }
         detail::placeNativeViews();
         runBarAction();
     }

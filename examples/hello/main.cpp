@@ -31,6 +31,7 @@ struct Hello : mydear::Delegate {
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     ImVec2 sizeBefore;
     ImVec2 barButton;
+    float barEnd = 0; // the bar's free end, before the os buttons (windows draws them there)
     int barClicks = 0;
     void* field = nullptr;
     bool wantPopup = false;
@@ -44,6 +45,7 @@ struct Hello : mydear::Delegate {
             runProbe(f);
 
         const auto bar = mydear::BeginTitleBar();
+        barEnd = bar.pos.x + bar.size.x - bar.rightInset;
         if (mydear::SmallButton("Bar button"))
             ++barClicks;
         barButton = ImVec2((ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) / 2,
@@ -83,7 +85,7 @@ struct Hello : mydear::Delegate {
 
     void runProbe(int f) {
         auto& io = ImGui::GetIO();
-        const ImVec2 empty(io.DisplaySize.x - 40, mydear::TitleBarHeight() / 2);
+        const ImVec2 empty(barEnd - 40, mydear::TitleBarHeight() / 2);
         if (f == 10)
             sizeBefore = io.DisplaySize;
         if (f >= 10 && f <= 15 || f >= 50 && f <= 53) {

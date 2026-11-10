@@ -62,14 +62,14 @@ namespace mydear {
         return device_ && ImGui_ImplDX11_Init(device_, context_);
     }
 
-    void DX11Backend::beginFrame(const ImVec4 clearColor) {
+    void DX11Backend::beginFrame() {
         ImGui_ImplDX11_NewFrame();
+    }
+
+    void DX11Backend::renderDrawData(ImDrawData* drawData, const ImVec4 clearColor) {
         const float clear[4] = {clearColor.x, clearColor.y, clearColor.z, clearColor.w};
         context_->OMSetRenderTargets(1, &target_, nullptr);
         context_->ClearRenderTargetView(target_, clear);
-    }
-
-    void DX11Backend::renderDrawData(ImDrawData* drawData) {
         ImGui_ImplDX11_RenderDrawData(drawData);
     }
 
@@ -80,6 +80,7 @@ namespace mydear {
     void DX11Backend::resize() {
         if (!swapChain_)
             return;
+        mustDraw = true;
         cleanupRenderTarget();
         swapChain_->ResizeBuffers(0, 0, 0, DXGI_FORMAT_UNKNOWN, 0);
         createRenderTarget();
