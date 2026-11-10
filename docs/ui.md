@@ -42,7 +42,7 @@ Close them with ImGui's usual `EndPopup()` / `EndMenu()`. `FitScreen(size)` and 
 
 ## Fonts (`mydear/fonts.hpp`)
 
-Call `AddFont` from `Delegate::setup()`. The first file is the base font and the rest merge into it: icon fonts (`icons = true`: no oversampling, snapped to pixels, with the icon font's glyph `ranges`) and other scripts. With `systemCjk` (the default) the system's Chinese, Japanese and Korean font merges in last, so names and text in those scripts render; `SystemCjkFontPath()` says which one, or nothing when none is installed. That file is mapped rather than read (they are 20 MB and more), and the OS loads only the glyphs drawn. Font data is not copied, so files from `mydear_embed_fonts` work as they are:
+Call `AddFont` from `Delegate::setup()`. The first file is the base font and the rest merge into it: icon fonts (`icons = true`: no oversampling, snapped to pixels, with the icon font's glyph `ranges`) and other scripts. With `systemCjk` (the default) the system's Chinese, Japanese and Korean font merges in last, so names and text in those scripts render; `SystemCjkFontPath()` says which one, or nothing when none is installed. Without FreeType it skips variable fonts (CFF2 outlines, which stb_truetype cannot read): Android 13 and later ship Noto Sans CJK as one, so Android gets Noto Serif CJK. That file is mapped rather than read (they are 20 MB and more), and the OS loads only the glyphs drawn. Font data is not copied, so files from `mydear_embed_fonts` work as they are:
 
 ```cpp
 const EmbeddedFont* text = findEmbeddedFont("Inter-Regular");
