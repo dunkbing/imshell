@@ -7,12 +7,13 @@
 | Field | Default | Meaning |
 |---|---|---|
 | `title` | empty | window title |
+| `appName` | empty | names the app's data folder (`DataDir`), where `imgui.ini` is kept; empty = no `imgui.ini` |
 | `width`, `height` | 1280 × 800 | initial window size, in points |
 | `docking` | true | turns on `ImGuiConfigFlags_DockingEnable` |
 | `vsync` | true | wait for the display refresh |
 | `maxFps` | 120 | frame cap with vsync off; 0 = no cap |
 | `titleBar` | false | the app draws its own title bar ([Title bar](title-bar.md)) |
-| `titleBarHeight` | 28 | that bar's height, in points |
+| `titleBarHeight` | 0 | that bar's height, in points; 0 = the platform's own (28 macOS, 32 Windows, 36 Linux, 44 Android) |
 
 ## Delegate
 
@@ -23,10 +24,11 @@
 | `openFile(path)` | a file was dropped on the window or opened with the app |
 | `wantsFrames()` | before the loop sleeps; return true to keep drawing (default: `framesRequested()`) |
 | `shouldQuit()` | every loop; true closes the window |
+| `closeRequested()` | the user closes the window (close button, Cmd-Q, Alt-F4); return false to keep it open, e.g. to ask about unsaved work and quit later through `shouldQuit()` |
 
 ## The loop
 
-`run()` is the whole loop. It draws only when something happens: input, a resize, or a request to keep drawing. While idle it sleeps in the OS event wait, so an idle app uses no CPU.
+`mydear::Run(config, delegate)` is the whole app: it creates the window, runs the loop and tears down, and returns 1 if the window could not be made. It is `App::create`, `run` and `destroy`, which a host can call itself (DearSQL does, to keep the `App` as a member). `run()` is the whole loop. It draws only when something happens: input, a resize, or a request to keep drawing. A window in the background still draws at the idle rate; a minimized or fully covered one does not. While idle it sleeps in the OS event wait, so an idle app uses no CPU.
 
 Anything that animates calls `mydear::requestFrames()` (`mydear/frames.hpp`) to keep frames coming for a moment (250 ms by default); mydear's spinners already do. It is safe to call from any thread, and a request while the app is idle wakes the loop at once: call it whenever a worker hands the UI something to show. Otherwise an idle loop draws once a second (a heartbeat for producers that never ask).
 
@@ -34,7 +36,11 @@ A host that drives frames itself, such as the ImGui test engine, calls `pollEven
 
 ## Safe area
 
-`mydear::SafeArea()` (`mydear/app.hpp`) gives the edges system UI covers, in ImGui units (`x` left, `y` top, `z` right, `w` bottom): the status (and navigation) bar on iOS and Android, zero on desktops; the rest of what system UI covers is outside the ImGui display. The shells also hand it to ImGui (`Platform_GetWindowWorkAreaInsets`), so the main viewport's `WorkPos`/`WorkSize` leave it out from the next frame on; lay full-screen windows out from `SafeArea()` itself to avoid that frame of lag. On Android the title bar strip starts below the status bar, so put the content at `SafeArea().y + TitleBarHeight()`.
+`mydear::SafeArea()` (`mydear/app.hpp`) gives the edges system UI covers, in ImGui units (`x` left, `y` top, `z` right, `w` bottom): the status (and navigation) bar on iOS and Android, zero on desktops; the rest of what system UI covers is outside the ImGui display. The shells also hand it to ImGui (`Platform_GetWindowWorkAreaInsets`), so the main viewport's `WorkPos`/`WorkSize` leave it out from the next frame on; lay full-screen windows out from `ContentRect()` to avoid that frame of lag: the main viewport inside `SafeArea()` and below the title bar (on Android the bar starts below the status bar).
+
+## Data folder
+
+`mydear::DataDir(appName)` is the app's own folder for settings and data, created on first call: `~/Library/Application Support/<appName>` on macOS and iOS (inside the app's container there), `%APPDATA%\<appName>` on Windows, `$XDG_DATA_HOME/<appName>` or `~/.local/share/<appName>` on Linux, and the app's internal storage on Android. With `Config::appName` set, ImGui keeps `imgui.ini` there instead of the current directory (which is `/` for an app started from Finder).
 
 ## Handles
 
@@ -75,19 +81,13 @@ Text input goes through `UITextInput`, so IME and the space-bar cursor work. The
 #include "mydear/android.hpp"
 
 void android_main(android_app* state) {
-    static mydear::App app; // outlives a recreated activity
-    static bool started = false;
     mydear::SetAndroidApp(state);
-    if (!started && !(started = app.create(config, delegate)))
-        return;
-    app.run();
-    if (mydear::AndroidActivityRecreating())
-        return; // the next activity carries on
-    app.destroy();
+    static MyApp delegate; // outlives a recreated activity
+    mydear::Run(config, delegate);
 }
 ```
 
-A configuration change the manifest's `configChanges` cannot absorb (a system theme or overlay change, such as switching to three-button navigation) destroys the activity and starts a new one in the same process. `run()` then returns with `AndroidActivityRecreating()` true: return from `android_main` without tearing anything down, and the next `android_main`'s `SetAndroidApp` re-attaches the running shell (new glue thread, looper and window; the same ImGui and EGL contexts), so the app carries on where it was.
+A configuration change the manifest's `configChanges` cannot absorb (a system theme or overlay change, such as switching to three-button navigation) destroys the activity and starts a new one in the same process. `Run` then returns without tearing anything down, and the next `android_main`'s `SetAndroidApp` re-attaches the running shell (new glue thread, looper and window; the same ImGui and EGL contexts), so the app carries on where it was. A host that calls `create`, `run` and `destroy` itself keeps the `App` and the delegate alive the same way and skips `destroy` while `AndroidActivityRecreating()` is true.
 
 The activity must be `io.mydear.MydearActivity` (`android/io/mydear/MydearActivity.java`) or a subclass. It brings what the NDK cannot reach: typed characters, the soft keyboard, the clipboard and the document picker. The soft keyboard edits through a real `InputConnection` (an invisible editor view), so suggestions, swipe typing, composing and autocorrect work: the connection keeps a buffer of what was typed since the last tap, and each edit is sent to ImGui as the difference (backspaces, then the new text). ImGui draws no composing underline. Graphics are EGL with OpenGL ES 3, and ImGui works in dp (`DisplayFramebufferScale` is the screen density), like points on iOS. The activity is edge to edge on every Android version (the manifest targets API 36, where Play requires it): the ImGui area stops at the navigation bar, side cutouts and the soft keyboard, as on iOS (ImGui keeps popups inside it, and taps on the navigation bar go to the system); only the status bar lies inside it, as the safe area. The bar icons turn dark over a light theme. Back stays a key event (`enableOnBackInvokedCallback="false"`; target 36 would make it predictive back). The EGL context outlives the window, so textures survive the app going to the background.
 

@@ -1,3 +1,4 @@
+#include "../activity.hpp"
 #include "mydear/app.hpp"
 #include "../glfw_loop.hpp"
 #include "imgui_impl_glfw.h"
@@ -120,7 +121,7 @@ namespace mydear {
 
         gWindow = glfwGetCocoaWindow(d.window);
         gTitleBar = config.titleBar;
-        gBarHeight = config.titleBarHeight;
+        gBarHeight = config.titleBarHeight > 0 ? config.titleBarHeight : 28;
         if (config.titleBar) {
             NSWindow* w = glfwGetCocoaWindow(d.window);
             w.styleMask |= NSWindowStyleMaskFullSizeContentView;
@@ -165,6 +166,7 @@ namespace mydear {
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
+        detail::useIniFile(config);
         if (config.docking)
             ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         ImGui::StyleColorsDark();
@@ -201,7 +203,10 @@ namespace mydear {
 
     void App::run() {
         auto& d = *impl_;
-        detail::runGlfwLoop(d.window, *d.delegate, d.vsync, d.maxFps, [this] { renderFrame(); });
+        detail::runGlfwLoop(d.window, *d.delegate, d.vsync, d.maxFps, [this] { renderFrame(); }, [w = d.window] {
+            NSWindow* ns = glfwGetCocoaWindow(w);
+            return ns && (ns.occlusionState & NSWindowOcclusionStateVisible) != 0;
+        });
     }
 
     void App::destroy() {

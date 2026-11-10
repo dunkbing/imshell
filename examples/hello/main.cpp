@@ -19,7 +19,6 @@ void* makeDatePicker();
 void describeNativeView(void* view, char* out, int size);
 
 struct Hello : mydear::Delegate {
-    mydear::App* app = nullptr;
     int clicks = 0;
     // smoke tests: MYDEAR_HELLO_QUIT=<seconds> closes by itself, MYDEAR_HELLO_SHOT=<png>
     // saves a frame, MYDEAR_HELLO_PROBE=1 double-clicks the empty title bar (it should zoom)
@@ -35,6 +34,8 @@ struct Hello : mydear::Delegate {
 
     void frame() override {
         const int f = ImGui::GetFrameCount();
+        if (shot || probe)
+            mydear::requestFrames(); // the probe counts frames: no idling
         if (shot && f == 5)
             mydear::requestFrameCapture(shot, 2);
         if (probe)
@@ -51,9 +52,9 @@ struct Hello : mydear::Delegate {
         ImGui::TextDisabled("%s", title);
         mydear::EndTitleBar();
 
-        const float top = mydear::TitleBarHeight();
-        ImGui::SetNextWindowPos(ImVec2(0, top));
-        ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x, ImGui::GetIO().DisplaySize.y - top));
+        const mydear::Rect content = mydear::ContentRect();
+        ImGui::SetNextWindowPos(content.pos);
+        ImGui::SetNextWindowSize(content.size);
         ImGui::Begin("hello", nullptr, ImGuiWindowFlags_NoDecoration);
         if (mydear::Button("Click me", mydear::ButtonVariant::Primary))
             ++clicks;
@@ -81,7 +82,7 @@ struct Hello : mydear::Delegate {
         if (f >= 10 && f <= 15 || f >= 50 && f <= 53) {
 #if defined(__APPLE__) || defined(_WIN32)
             // the backend reads the real cursor while it thinks the pointer is outside
-            ImGui_ImplGlfw_CursorEnterCallback(app->glfwWindow(), 1);
+            ImGui_ImplGlfw_CursorEnterCallback(static_cast<GLFWwindow*>(ImGui::GetMainViewport()->PlatformHandle), 1);
 #endif
             io.AddMousePosEvent(f < 50 ? empty.x : barButton.x, f < 50 ? empty.y : barButton.y);
         }
@@ -113,8 +114,11 @@ struct Hello : mydear::Delegate {
     }
 
     bool shouldQuit() override {
-        return quitAfter && std::chrono::steady_clock::now() - start >
-                                std::chrono::seconds(std::atoi(quitAfter));
+        const bool quit = quitAfter && std::chrono::steady_clock::now() - start >
+                                           std::chrono::seconds(std::atoi(quitAfter));
+        if (quit)
+            std::printf("hello: %d frames\n", ImGui::GetFrameCount());
+        return quit;
     }
 };
 
@@ -122,15 +126,10 @@ int main() {
     mydear::Theme::Current() = &mydear::Theme::themeById("tokyo-night");
     mydear::Config config;
     config.title = "Hello mydear";
+    config.appName = "mydear hello"; // imgui.ini in DataDir("mydear hello")
     config.width = 480;
     config.height = 300;
     config.titleBar = true;
-    mydear::App app;
-    Hello hello;
-    hello.app = &app;
-    if (!app.create(config, hello))
-        return 1;
-    app.run();
-    app.destroy();
-    return 0;
+    static Hello hello; // android: outlives a recreated activity
+    return mydear::Run(config, hello);
 }

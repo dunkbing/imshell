@@ -1,3 +1,5 @@
+#include "../activity.hpp"
+#include "mydear/title_bar.hpp"
 #include "mydear/app.hpp"
 #include "mydear/ios.h"
 #include "mydear/themes.hpp"
@@ -616,6 +618,7 @@ namespace mydear {
         gApp = this;
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
+        detail::useIniFile(config);
         ImGuiIO& io = ImGui::GetIO();
         if (config.docking)
             io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
@@ -729,5 +732,29 @@ namespace mydear {
 
     void* App::nativeView() const {
         return (__bridge void*)gView;
+    }
+
+    // no title bar strip on ios (uikit has its own chrome): the same calls work, nothing shows
+    float TitleBarHeight() {
+        return 0;
+    }
+
+    TitleBar BeginTitleBar() {
+        TitleBar bar;
+        bar.pos = ImGui::GetMainViewport()->Pos;
+        bar.size = ImVec2(ImGui::GetMainViewport()->Size.x, 0);
+        ImGui::SetNextWindowPos(bar.pos);
+        ImGui::SetNextWindowSize(bar.size);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
+        ImGui::Begin("##mydear_title_bar", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
+                         ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings |
+                         ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDocking);
+        ImGui::PopStyleVar();
+        return bar;
+    }
+
+    void EndTitleBar() {
+        ImGui::End();
     }
 } // namespace mydear

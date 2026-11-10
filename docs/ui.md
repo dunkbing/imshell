@@ -36,6 +36,10 @@ Open menus through these so every menu gets the same padding (`kMenuPadding`):
 
 Close them with ImGui's usual `EndPopup()` / `EndMenu()`. `FitScreen(size)` and `CapToScreen()` keep dialogs inside small screens (iPhone, split view).
 
+## Alerts and prompts (`mydear/alert.hpp`)
+
+`Alert::show(title, message, buttons)` queues a modal with a message and buttons (one OK when there are none); `InputDialog::show(title, label, initial, confirmText, onConfirm, onCancel, validator)` queues a one-line text prompt, kept open while `validator` or `onConfirm` returns an error message. Both can be called from any thread and wake the loop. Call `Alert::render()` once a frame after the rest of the UI: it draws the front entry over every popup open that frame, so an alert raised from inside a dialog stacks on top of it instead of replacing it. Buttons sit cancel first, then destructive, then default; escape answers the cancel button (or the only one), return the default one, never a destructive one. The popup's ID is `<title>###mydear_alert`, so a test engine reaches a button as `//<title>###mydear_alert/<button>`.
+
 ## Images (`mydear/image.hpp`)
 
 `LoadTexture(bytes, size, create)` decodes a PNG with stb_image and hands the pixels to `create`, normally the app's `createTexture`.

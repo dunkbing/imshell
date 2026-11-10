@@ -10,6 +10,8 @@ endif()
 
 add_library(mydear STATIC
     src/activity.cpp
+    src/alert.cpp
+    src/app.cpp
     src/button.cpp
     src/embedded.cpp
     src/image.cpp

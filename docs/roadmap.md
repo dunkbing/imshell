@@ -18,6 +18,10 @@ What comes next, roughly in order. Each item has an issue with the problem, the 
 9. **Haptics** ([#18](https://github.com/dunkbing/mydear/issues/18)): `mydear::Haptic(kind)`.
 10. **Font loading with icon merging** ([#23](https://github.com/dunkbing/mydear/issues/23)).
 
+## App API
+
+14. **What a new app needs from the shell**: ✅ `Run(config, delegate)` on desktops and Android, `ContentRect()`, `DataDir(appName)` with `imgui.ini` there, `Delegate::closeRequested()`, platform-default title bar heights, the title bar calls on iOS, alerts and prompts (`alert.hpp`). Next: window size and position restored across launches (no position on Wayland), file dialogs (#16), fonts (#23), and a CMake helper for the bundle, icon and installer.
+
 ## Tooling
 
 11. **Frame capture everywhere** ([#17](https://github.com/dunkbing/mydear/issues/17)): `requestFrameCapture` beyond macOS, for docs and store screenshots.

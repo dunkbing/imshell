@@ -1,3 +1,4 @@
+#include "../activity.hpp"
 #include "mydear/app.hpp"
 #include "../glfw_loop.hpp"
 #include "../native_view.hpp"
@@ -268,7 +269,7 @@ namespace mydear {
         }
         gHwnd = glfwGetWin32Window(d.window);
         gTitleBar = config.titleBar;
-        gBarHeight = config.titleBarHeight;
+        gBarHeight = config.titleBarHeight > 0 ? config.titleBarHeight : 32;
 
         d.backend = std::make_unique<DX11Backend>(gHwnd);
         if (!d.backend->ok())
@@ -294,6 +295,7 @@ namespace mydear {
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
+        detail::useIniFile(config);
         if (config.docking)
             ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         ImGui::StyleColorsDark();
@@ -330,7 +332,8 @@ namespace mydear {
 
     void App::run() {
         auto& d = *impl_;
-        detail::runGlfwLoop(d.window, *d.delegate, d.vsync, d.maxFps, [this] { renderFrame(); });
+        detail::runGlfwLoop(d.window, *d.delegate, d.vsync, d.maxFps, [this] { renderFrame(); },
+                            [w = d.window] { return !glfwGetWindowAttrib(w, GLFW_ICONIFIED); });
     }
 
     void App::destroy() {

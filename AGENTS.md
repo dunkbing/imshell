@@ -13,6 +13,8 @@ A Dear ImGui toolkit for cross-platform apps, grown while building DearSQL (its 
 
 ## Platform shell
 
+- Shared by every shell (`src/app.cpp`): `DataDir`, `detail::useIniFile` (each `create()` calls it after `ImGui::CreateContext`), and `Run` (a static `App` so android keeps it across a recreated activity; not on ios). `closeRequested` is a glfw close callback in `glfw_loop.hpp` and gtk's `close-request` on linux. The glfw loop draws while the window is visible (macos `occlusionState`, windows not iconified), focused or not: a covered macos window must not draw, `nextDrawable` blocks. `src/alert.cpp` is the alert queue (`alert.hpp`), moved from DearSQL.
+
 `mydear::App` (`include/mydear/app.hpp`) is the window, the graphics backend, the imgui platform and renderer backends, the frame loop and input; the host implements `mydear::Delegate`. One implementation per platform under `src/<platform>/`:
 
 - macOS (`src/macos/`): glfw window without a gl context, metal through a `CAMetalLayer` (`metal_backend.mm`, also offscreen frame capture and ffmpeg recording), drag-and-drop and Finder's open-file event to `Delegate::openFile`. The loop idles after 2 s without input (waits grow to 0.2 s), never renders unfocused (`nextDrawable` blocks in the background), and sleeps out the frame with vsync off.
