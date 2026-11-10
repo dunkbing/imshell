@@ -509,6 +509,8 @@ namespace {
     return touch.type == UITouchTypeDirect;
 }
 - (BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer*)g {
+    if (touch::grabbing())
+        return NO; // a selection handle: the finger drags it
     if (g != pan_ || g.numberOfTouches != 1)
         return YES; // long press, two fingers, trackpad scroll
     // one finger on a splitter, column edge or text: drag it instead of scrolling
@@ -734,6 +736,7 @@ namespace mydear {
             ImGui_ImplMetal_NewFrame(pass);
             ImGui::NewFrame();
             impl_->delegate->frame();
+            touch::drawHandles();
             detail::drawComposingUnderline(gMarkedText.c_str());
             ImGui::Render();
             // the display link paces the view either way: an unchanged frame is not drawn

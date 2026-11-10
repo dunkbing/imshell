@@ -124,12 +124,4 @@ namespace mydear {
     // from android_main after SetAndroidApp, with a delegate that outlives it (static): a
     // recreated activity carries on in the same app. not on ios (see RunUIKit)
     int Run(const Config& config, Delegate& delegate);
-
-    // macos: render the next frame offscreen at `scale` and save it as a png (docs shots),
-    // without the title bar strip: its os buttons are native, not part of the frame
-    void requestFrameCapture(const char* path, float scale);
-    bool frameCapturePending();
-    // macos: every frame from here on, at `scale`, piped to ffmpeg as an mp4
-    bool startRecording(const char* path, float scale, int width, int height);
-    void stopRecording();
 } // namespace mydear

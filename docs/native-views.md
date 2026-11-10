@@ -49,7 +49,6 @@ A click on ImGui gives the keyboard back to the main window.
 
 - A native view can never sit *under* ImGui content.
 - It does not follow ImGui transforms or animations; it is a rectangle placed once per frame.
-- Frame captures and recordings don't include it.
 
 ## Tests
 

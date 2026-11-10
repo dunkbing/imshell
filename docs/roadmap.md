@@ -9,11 +9,11 @@ What comes next, roughly in order. Each item has an issue with the problem, the 
 3. ✅ **Safe-area insets and Android edge-to-edge** ([#14](https://github.com/dunkbing/mydear/issues/14)): `WorkPos`/`WorkSize` and `mydear::SafeArea()` keep clear of bars, notches and cutouts; the Android shell targets API 36.
 4. **iOS idles** ([#22](https://github.com/dunkbing/mydear/issues/22)): ✅ the Metal view pauses when nothing happens instead of drawing every display refresh.
 5. ✅ **Android survives activity recreation** ([#24](https://github.com/dunkbing/mydear/issues/24)): a system theme or overlay change closes the app today.
-6. **Skip identical frames** ([#20](https://github.com/dunkbing/mydear/issues/20)): ✅ macOS, iOS, Android and Windows (Windows not run yet); not Linux, where `GtkGLArea` does not keep the last frame. no render or present when the draw data did not change.
+6. **Skip identical frames** ([#20](https://github.com/dunkbing/mydear/issues/20)): ✅ macOS, iOS, Android and Windows; not Linux, where `GtkGLArea` does not keep the last frame. no render or present when the draw data did not change.
 
 ## Input and platform services
 
-7. **Native text input on Android** ([#15](https://github.com/dunkbing/mydear/issues/15)): ✅ an `InputConnection` for composition, suggestions and swipe typing; a composing underline; next selection handles and autofill.
+7. **Native text input on Android** ([#15](https://github.com/dunkbing/mydear/issues/15)): ✅ an `InputConnection` for composition, suggestions and swipe typing; a composing underline, selection handles, and a password keyboard for password fields; next password-manager autofill.
 8. **File dialogs** ([#16](https://github.com/dunkbing/mydear/issues/16)): ✅ asynchronous open and save on every platform, saves through the system on mobile.
 9. **Haptics** ([#18](https://github.com/dunkbing/mydear/issues/18)): ✅ `mydear::Haptic(kind)`.
 10. **Font loading with icon merging** ([#23](https://github.com/dunkbing/mydear/issues/23)): ✅ `AddFont`, with the system CJK font merged in.
@@ -24,7 +24,7 @@ What comes next, roughly in order. Each item has an issue with the problem, the 
 
 ## Tooling
 
-11. **Frame capture everywhere** ([#17](https://github.com/dunkbing/mydear/issues/17)): `requestFrameCapture` beyond macOS, for docs and store screenshots.
+11. **Frame capture everywhere** ([#17](https://github.com/dunkbing/mydear/issues/17)): not doing; screenshots and recordings are the host's tooling (see `docs/platform-shell.md`), so mydear has none.
 12. **Standalone build and smoke test** ([#19](https://github.com/dunkbing/mydear/issues/19)): ✅ (run on macOS; Windows and Linux written, not run yet) `hello` and its probe on every platform without a host.
     Also: draw background windows that are still visible (`occlusionState` on macOS), verified for app switching with the screen unlocked; the loop only draws focused windows today.
 

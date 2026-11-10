@@ -1,0 +1,203 @@
+// the browser shell: emscripten's glfw port (contrib.glfw3) on a full-page canvas, imgui's
+// opengl3 backend on webgl2, the browser's animation frames as the loop. single threaded, so
+// it runs on any static host (threads would need cross-origin isolation headers)
+#include "mydear/app.hpp"
+#include "../activity.hpp"
+#include "../frame_skip.hpp"
+#include "../native_view.hpp"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
+#include "mydear/file_dialog.hpp"
+#include "mydear/themes.hpp"
+#include "mydear/title_bar.hpp"
+
+#include <GLES3/gl3.h>
+#include <GLFW/emscripten_glfw3.h>
+#include <GLFW/glfw3.h>
+#include <emscripten.h>
+
+namespace {
+    GLFWwindow* gWindow = nullptr;
+    mydear::Delegate* gDelegate = nullptr;
+    bool gTitleBar = false;
+    float gBarHeight = 36;
+    mydear::App* gApp = nullptr; // run()'s, for the browser's frame callback
+} // namespace
+
+namespace mydear {
+    struct App::Impl {};
+
+    App::App() : impl_(std::make_unique<Impl>()) {}
+
+    App::~App() {
+        destroy();
+    }
+
+    bool App::create(const Config& config, Delegate& delegate) {
+        if (!glfwInit())
+            return false;
+        gDelegate = &delegate;
+        gTitleBar = config.titleBar;
+        gBarHeight = config.titleBarHeight > 0 ? config.titleBarHeight : 36;
+        glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);    // webgl2
+        glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE); // the canvas at the screen's density
+        gWindow =
+            glfwCreateWindow(config.width, config.height, config.title.c_str(), nullptr, nullptr);
+        if (!gWindow)
+            return false;
+        emscripten::glfw3::MakeCanvasResizable(gWindow, "window"); // the canvas follows the page
+        glfwMakeContextCurrent(gWindow);
+
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGuiIO& io = ImGui::GetIO();
+        if (config.docking)
+            io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        // shortcut: imgui.ini goes to emscripten's in-memory file system, so it is lost on
+        // reload; mount idbfs here if a host needs settings to survive
+        detail::useIniFile(config);
+        ImGui::StyleColorsDark();
+        Theme::ApplyTheme(Theme::Current()->colors);
+        delegate.setup();
+        ImGui_ImplGlfw_InitForOpenGL(gWindow, true);
+        io.BackendPlatformName = "mydear_web";
+        return ImGui_ImplOpenGL3_Init("#version 300 es");
+    }
+
+    bool App::pollEvents() {
+        glfwPollEvents();
+        return !glfwWindowShouldClose(gWindow);
+    }
+
+    void App::renderFrame() {
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        gDelegate->frame();
+        ImGui::Render();
+        const ImVec4 base = Theme::Current()->colors.base;
+        // a canvas not drawn to keeps showing its last frame, so an unchanged one costs no gpu
+        detail::frameSkipped() = detail::sameAsLastFrame(ImGui::GetDrawData(), base);
+        if (detail::frameSkipped())
+            return;
+        int w = 0, h = 0;
+        glfwGetFramebufferSize(gWindow, &w, &h);
+        glViewport(0, 0, w, h);
+        glClearColor(base.x, base.y, base.z, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    }
+
+    void App::run() {
+        // the browser calls back once per display refresh; this never returns (the page is the app)
+        // shortcut: a frame on every refresh while the page is visible (the browser pauses hidden
+        // tabs); idle like the desktop loop if a page's cpu use matters
+        gApp = this;
+        emscripten_set_main_loop(
+            [] {
+                if (gDelegate->shouldQuit()) {
+                    emscripten_cancel_main_loop();
+                    return;
+                }
+                glfwPollEvents();
+                gApp->renderFrame();
+            },
+            0, true);
+    }
+
+    void App::destroy() {
+        if (!gWindow)
+            return;
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+        glfwDestroyWindow(gWindow);
+        glfwTerminate();
+        gWindow = nullptr;
+        gDelegate = nullptr;
+    }
+
+    void App::setVSync(bool) {} // the browser paces frames
+    void App::setMaxFps(int) {}
+
+    ImTextureID App::createTexture(const uint8_t* rgba, const int width, const int height) {
+        if (!rgba || !gWindow)
+            return ImTextureID{};
+        GLuint texture = 0;
+        glGenTextures(1, &texture);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return static_cast<ImTextureID>(texture);
+    }
+
+    GLFWwindow* App::glfwWindow() const {
+        return gWindow;
+    }
+
+    void* App::nativeWindow() const {
+        return gWindow;
+    }
+
+    void* App::nativeView() const {
+        return gWindow;
+    }
+
+    // the title bar is a plain imgui strip at the top of the page, as on android
+    float TitleBarHeight() {
+        return gTitleBar ? gBarHeight : 0;
+    }
+
+    TitleBar BeginTitleBar() {
+        const ImGuiViewport* vp = ImGui::GetMainViewport();
+        TitleBar bar;
+        bar.pos = vp->Pos;
+        bar.size = ImVec2(vp->Size.x, TitleBarHeight());
+        bar.leftInset = bar.rightInset = Theme::Spacing::M;
+        ImGui::SetNextWindowPos(bar.pos);
+        ImGui::SetNextWindowSize(bar.size);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
+        ImGui::Begin("##mydear_title_bar", nullptr,
+                     ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
+                         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav |
+                         ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
+        ImGui::PopStyleVar(4);
+        ImGui::SetCursorScreenPos(ImVec2(
+            bar.pos.x + bar.leftInset, bar.pos.y + (bar.size.y - ImGui::GetFrameHeight()) * 0.5f));
+        return bar;
+    }
+
+    void EndTitleBar() {
+        ImGui::End();
+    }
+
+    // native views: none in the browser (a dom element over the canvas could be one later)
+    void* detail::nativeHost() {
+        return nullptr;
+    }
+    namespace detail {
+        void* nativeAttach(void*) {
+            return nullptr;
+        }
+        void nativePlace(void*, void*, const ImRect&, const ImRect&) {}
+        void nativeSetHidden(void*, bool) {}
+        void nativeRemove(void*) {}
+    } // namespace detail
+
+    // shortcut: no file dialogs in the browser yet (an <input type=file> into memfs and a
+    // download link for saves); the callbacks never run
+    void OpenFileDialog(const std::vector<FileFilter>&, FileDone, const std::string&) {}
+    void SaveFileDialog(const std::string&, const std::vector<FileFilter>&, FileDone) {}
+    void PickFolderDialog(FileDone) {}
+    std::string DocumentsDir() {
+        return "/home/web_user";
+    }
+} // namespace mydear

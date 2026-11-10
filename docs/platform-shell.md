@@ -32,7 +32,7 @@
 
 Anything that animates calls `mydear::requestFrames()` (`mydear/frames.hpp`) to keep frames coming for a moment (250 ms by default); mydear's spinners already do. It is safe to call from any thread, and a request while the app is idle wakes the loop at once: call it whenever a worker hands the UI something to show. Otherwise an idle loop draws once a second (a heartbeat for producers that never ask).
 
-On macOS, iOS, Android and Windows a frame whose draw data matches the last one is not drawn or presented (`src/frame_skip.cpp`, an exact copy of the last frame's buffers), so a busy loop with nothing moving costs the CPU work of the frame but no GPU work. A frame that uploads a texture, has a draw callback, or changes the display, scale or clear colour always draws, and so does every frame while `requestFrameCapture` is capturing. On Android a new or resized surface, or the system asking for a redraw, draws regardless, and the loop waits about one refresh (8 ms) after a skipped frame, since no `eglSwapBuffers` paced it. Linux draws every frame: `GtkGLArea` hands out a fresh buffer each frame, so a skipped frame would show garbage.
+On macOS, iOS, Android and Windows a frame whose draw data matches the last one is not drawn or presented (`src/frame_skip.cpp`, an exact copy of the last frame's buffers), so a busy loop with nothing moving costs the CPU work of the frame but no GPU work. A frame that uploads a texture, has a draw callback, or changes the display, scale or clear colour always draws. On Android a new or resized surface, or the system asking for a redraw, draws regardless, and the loop waits about one refresh (8 ms) after a skipped frame, since no `eglSwapBuffers` paced it. Linux draws every frame: `GtkGLArea` hands out a fresh buffer each frame, so a skipped frame would show garbage.
 
 A host that drives frames itself, such as the ImGui test engine, calls `pollEvents()` and `renderFrame()` in its own loop instead of `run()`.
 
@@ -51,9 +51,9 @@ A host that drives frames itself, such as the ImGui test engine, calls `pollEven
 - `nativeView()`: the view ImGui draws into: the window's content view on macOS, the `MTKView` on iOS, the `HWND` on Windows, the `GtkGLArea` on Linux.
 - `createTexture(rgba, w, h)`: upload pixels with the active backend; returns `ImTextureID{}` on failure.
 
-## Frame capture (macOS)
+## Screenshots and recordings
 
-`requestFrameCapture(path, scale)` renders the next frame offscreen and saves it as a PNG, without the title bar strip; `startRecording` / `stopRecording` pipe frames to `ffmpeg`. Native views are not part of the frame, so they don't appear.
+Not in mydear: they are host tooling. After `renderFrame()` the frame's `ImGui::GetDrawData()` is still valid until the next one, so a host can draw it again into its own offscreen texture with the platform's ImGui renderer and save or stream that (DearSQL's `tests/ui/frame_capture.mm` does it with Metal). Native views are not part of the draw data.
 
 ## iOS
 
@@ -71,6 +71,7 @@ Touch maps to ImGui like this:
 - a tap clicks;
 - a long press shows the edit menu over text, and right-clicks elsewhere;
 - a finger drag scrolls with momentum, unless the cursor under it is a resize or text cursor;
+- a text selection gets a handle under each end, and dragging one moves that end (the same on Android; not in password, read-only or word-wrapped fields, or a host's own editor);
 - a trackpad or mouse is a mouse.
 
 Text input goes through `UITextInput`, so IME and the space-bar cursor work. The soft keyboard follows `io.WantTextInput`, and the layout moves above it.
