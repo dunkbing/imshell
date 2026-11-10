@@ -24,8 +24,9 @@ namespace mydear {
             return device_ != nullptr;
         }
         bool initializeImGui();
-        void beginFrame(ImVec4 clearColor);
-        void renderDrawData(ImDrawData* drawData);
+        void beginFrame();
+        // clears to clearColor, then draws: only once the frame is known to differ
+        void renderDrawData(ImDrawData* drawData, ImVec4 clearColor);
         void present();
         void resize(); // the window's client area changed
         void shutdown();
