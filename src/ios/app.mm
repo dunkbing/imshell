@@ -22,6 +22,30 @@ namespace {
     CFTimeInterval gLastTime = 0;
     CGFloat gKeyboardInset = 0; // how much of the view the soft keyboard covers
     mydear::App* gApp = nullptr; // created from the root controller's loadView
+
+    // idle like the desktop loops: after kIdleAfter without input, a wake or a busy frame, the
+    // view stops its display link and draws only on setNeedsDisplay (input, requestFrames(),
+    // the heartbeat)
+    constexpr CFTimeInterval kIdleAfter = 2.0;
+    CFTimeInterval gLastBusy = 0;
+
+    void wake() { // main thread
+        gLastBusy = CACurrentMediaTime();
+        if (gView.paused) {
+            gView.paused = NO;
+            gView.enableSetNeedsDisplay = NO;
+        }
+    }
+
+    void settle(bool busy) { // after each frame
+        const CFTimeInterval now = CACurrentMediaTime();
+        if (busy)
+            gLastBusy = now;
+        if (!gView.paused && now - gLastBusy > kIdleAfter) {
+            gView.enableSetNeedsDisplay = YES;
+            gView.paused = YES;
+        }
+    }
 } // namespace
 
 // ---- the view: touches, the ipad pointer and keys become imgui input ----
@@ -156,6 +180,7 @@ namespace {
 }
 // a composition replaces what it sent last time
 - (void)setMarkedText:(NSString*)text selectedRange:(NSRange)range {
+    wake();
     for (; gMarked > 0; --gMarked)
         tapKey(ImGuiKey_Backspace);
     ImGui::GetIO().AddInputCharactersUTF8(text.UTF8String);
@@ -168,6 +193,7 @@ namespace {
     return @"";
 }
 - (void)replaceRange:(UITextRange*)range withText:(NSString*)text {
+    wake();
     [self insertText:text];
 }
 - (UITextPosition*)beginningOfDocument {
@@ -257,12 +283,14 @@ namespace {
     return YES;
 }
 - (void)insertText:(NSString*)text {
+    wake(); // the soft keyboard's keys do not pass through the window
     if ([text isEqualToString:@"\n"])
         tapKey(ImGuiKey_Enter);
     else
         ImGui::GetIO().AddInputCharactersUTF8(text.UTF8String);
 }
 - (void)deleteBackward {
+    wake();
     tapKey(ImGuiKey_Backspace);
 }
 // sql, not prose
@@ -428,6 +456,14 @@ namespace {
     self.view = container;
     gView = view;
     gQueue = [view.device newCommandQueue];
+    // requestFrames() from any thread; idle, a 1 s heartbeat for work that never asks for frames
+    mydear::detail::wakeLoopHook().store([] { dispatch_async(dispatch_get_main_queue(), ^{ wake(); }); });
+    [NSTimer scheduledTimerWithTimeInterval:1.0
+                                    repeats:YES
+                                      block:^(NSTimer*) {
+                                        if (gView.paused)
+                                            [gView setNeedsDisplay];
+                                      }];
 }
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -448,6 +484,7 @@ namespace {
 }
 // the ui lays out above the keyboard (a floating or undocked one covers nothing)
 - (void)keyboardFrame:(NSNotification*)note {
+    wake();
     if ([note.name isEqualToString:UIKeyboardWillHideNotification]) {
         gKeyboardInset = 0;
         return;
@@ -551,6 +588,7 @@ namespace {
     }
 }
 - (void)mtkView:(MTKView*)view drawableSizeWillChange:(CGSize)size {
+    wake(); // rotated or resized
 }
 - (BOOL)prefersStatusBarHidden {
     return NO;
@@ -563,6 +601,17 @@ namespace {
     Class gRootClass = nil;
 }
 
+// every touch, key and hover passes here: wake the idle view
+@interface MydearWindow : UIWindow
+@end
+
+@implementation MydearWindow
+- (void)sendEvent:(UIEvent*)event {
+    wake();
+    [super sendEvent:event];
+}
+@end
+
 @interface MydearSceneDelegate : UIResponder <UIWindowSceneDelegate>
 @property(strong, nonatomic) UIWindow* window;
 @end
@@ -571,7 +620,7 @@ namespace {
 - (void)scene:(UIScene*)scene
     willConnectToSession:(UISceneSession*)session
                  options:(UISceneConnectionOptions*)options {
-    self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene*)scene];
+    self.window = [[MydearWindow alloc] initWithWindowScene:(UIWindowScene*)scene];
     self.window.rootViewController =
         [[UINavigationController alloc] initWithRootViewController:[[gRootClass alloc] init]];
     [self.window makeKeyAndVisible];
@@ -685,6 +734,8 @@ namespace mydear {
             [commands commit];
             detail::placeNativeViews();
         }
+        settle(impl_->delegate->wantsFrames() || touch::animating() || detail::isImGuiUserActive() ||
+               ImGui::GetCurrentContext()->InputEventsQueue.Size > 0); // queued input: a frame each
     }
 
     void App::destroy() {

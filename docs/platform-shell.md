@@ -63,7 +63,7 @@ int main(int argc, char* argv[]) {
 }
 ```
 
-`MyViewController` is `MydearViewController` (`mydear/ios.h`) or a subclass that adds native chrome such as navigation items or key commands. It owns the Metal view and draws every display refresh. Create the `mydear::App` in its `loadView`, after calling `[super loadView]`. The controller sits in a `UINavigationController` whose bar stays hidden unless your subclass shows it.
+`MyViewController` is `MydearViewController` (`mydear/ios.h`) or a subclass that adds native chrome such as navigation items or key commands. It owns the Metal view and draws at the display refresh while something happens; after 2 s without input, `requestFrames()` or a busy frame it pauses the view, which then draws only on input, a `requestFrames()` call or a 1 s heartbeat, as the desktop loops do. Create the `mydear::App` in its `loadView`, after calling `[super loadView]`. The controller sits in a `UINavigationController` whose bar stays hidden unless your subclass shows it.
 
 Touch maps to ImGui like this:
 - a tap clicks;
