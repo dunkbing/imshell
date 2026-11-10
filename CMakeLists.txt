@@ -57,6 +57,21 @@ elseif(WIN32)
     )
     target_compile_definitions(mydear PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
     target_link_libraries(mydear PUBLIC glfw d3d11 dxgi dwmapi)
+elseif(ANDROID)
+    # NativeActivity through the ndk's glue; its entry point must survive static linking
+    enable_language(C)
+    set(MYDEAR_GLUE_DIR ${ANDROID_NDK}/sources/android/native_app_glue)
+    target_sources(mydear PRIVATE
+        src/android/app.cpp
+        src/native_view.cpp
+        ${MYDEAR_GLUE_DIR}/android_native_app_glue.c
+        ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_android.cpp
+        ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+    )
+    target_include_directories(mydear PUBLIC ${MYDEAR_GLUE_DIR})
+    target_link_libraries(mydear PUBLIC android EGL GLESv3 log)
+    target_link_options(mydear INTERFACE -u ANativeActivity_onCreate)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/MydearAndroid.cmake)
 elseif(UNIX)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(MYDEAR_GTK4 REQUIRED IMPORTED_TARGET gtk4)
@@ -73,7 +88,7 @@ endif()
 # and ships the dll; on linux mydear finds httplib, nlohmann_json and openssl
 option(MYDEAR_UPDATER "auto-update through sparkle, winsparkle or an appimage swap" OFF)
 set(MYDEAR_SPARKLE_FRAMEWORK "" CACHE PATH "macos: Sparkle.framework")
-if(NOT MYDEAR_UPDATER OR IOS)
+if(NOT MYDEAR_UPDATER OR IOS OR ANDROID)
     target_sources(mydear PRIVATE src/updater_none.cpp)
 elseif(APPLE)
     target_sources(mydear PRIVATE src/macos/updater.mm)
@@ -102,7 +117,10 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/MydearEmbed.cmake)
 option(MYDEAR_BUILD_EXAMPLES "Build the examples" OFF)
 if(MYDEAR_BUILD_EXAMPLES AND NOT IOS AND NOT WIN32)
     file(GLOB MYDEAR_IMGUI_CORE ${MYDEAR_IMGUI_DIR}/imgui*.cpp)
-    if(APPLE)
+    if(ANDROID)
+        add_library(mydear_hello SHARED examples/hello/main.cpp examples/hello/native_android.cpp ${MYDEAR_IMGUI_CORE})
+        mydear_android_apk(mydear_hello PACKAGE io.mydear.hello LABEL "Hello mydear")
+    elseif(APPLE)
         add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_macos.mm ${MYDEAR_IMGUI_CORE})
         set_source_files_properties(examples/hello/native_macos.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     else()
