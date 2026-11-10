@@ -667,6 +667,7 @@ namespace mydear {
             else if (ImGui::IsMouseClicked(1))
                 gBarAction = BarAction::Menu;
         }
+        ImGui::Dummy(ImVec2(0, 0)); // an empty bar: imgui wants an item after the cursor is set
         ImGui::End();
     }
 

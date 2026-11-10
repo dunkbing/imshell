@@ -279,6 +279,7 @@ namespace mydear {
             else if (ImGui::IsMouseClicked(0))
                 gBarAction = BarAction::Drag;
         }
+        ImGui::Dummy(ImVec2(0, 0)); // an empty bar: imgui wants an item after the cursor is set
         ImGui::End();
     }
 
