@@ -13,7 +13,7 @@ A Dear ImGui toolkit for cross-platform apps, grown while building DearSQL (its 
 
 ## Platform shell
 
-- Shared by every shell (`src/app.cpp`): `DataDir`, `detail::useIniFile` (each `create()` calls it after `ImGui::CreateContext`), and `Run` (a static `App` so android keeps it across a recreated activity; not on ios). `closeRequested` is a glfw close callback in `glfw_loop.hpp` and gtk's `close-request` on linux. The glfw loop draws while the window is visible (macos `occlusionState`, windows not iconified), focused or not: a covered macos window must not draw, `nextDrawable` blocks. `src/alert.cpp` is the alert queue (`alert.hpp`), moved from DearSQL.
+- Shared by every shell (`src/app.cpp`): `DataDir`, `detail::useIniFile` (each `create()` calls it after `ImGui::CreateContext`), and `Run` (a static `App` so android keeps it across a recreated activity; not on ios). `closeRequested` is a glfw close callback in `glfw_loop.hpp` and gtk's `close-request` on linux. The linux close button drawn by mydear asks the delegate too. `src/alert.cpp` is the alert queue (`alert.hpp`), moved from DearSQL.
 
 `mydear::App` (`include/mydear/app.hpp`) is the window, the graphics backend, the imgui platform and renderer backends, the frame loop and input; the host implements `mydear::Delegate`. One implementation per platform under `src/<platform>/`:
 

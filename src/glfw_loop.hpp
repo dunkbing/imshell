@@ -20,11 +20,9 @@ namespace mydear::detail {
     // full speed while the user works or something animates; after kIdleAfterSeconds without
     // either, the wait between frames grows to kMaxWaitSeconds. vsync and maxFps are read
     // every frame, so setVSync / setMaxFps apply at once
-    // visible(): the window shows on screen (not minimized or covered); an unfocused window
-    // still draws, at the idle rate unless something asks for frames
-    template <class Render, class Visible>
+    template <class Render>
     void runGlfwLoop(GLFWwindow* window, Delegate& delegate, const bool& vsync, const int& maxFps,
-                     Render render, Visible visible) {
+                     Render render) {
         wakeLoopHook().store([] { glfwPostEmptyEvent(); });
         // the close button, cmd-q, alt-f4: the delegate may keep the window open
         static Delegate* closing;
@@ -57,9 +55,9 @@ namespace mydear::detail {
             if (nowFocused && !wasFocused)
                 lastInput = glfwGetTime();
             wasFocused = nowFocused;
-            // never render a hidden window: on macos CAMetalLayer nextDrawable blocks while it
-            // is covered or minimized, which makes switching apps sluggish
-            if (!visible())
+            // never render unfocused: on macos CAMetalLayer nextDrawable blocks while the
+            // window is in the background, which makes switching apps sluggish
+            if (!nowFocused)
                 continue;
 
             render();

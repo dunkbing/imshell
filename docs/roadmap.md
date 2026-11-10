@@ -26,6 +26,7 @@ What comes next, roughly in order. Each item has an issue with the problem, the 
 
 11. **Frame capture everywhere** ([#17](https://github.com/dunkbing/mydear/issues/17)): `requestFrameCapture` beyond macOS, for docs and store screenshots.
 12. **Standalone build and smoke test** ([#19](https://github.com/dunkbing/mydear/issues/19)): `hello` and its probe on every platform without a host.
+    Also: draw background windows that are still visible (`occlusionState` on macOS), verified for app switching with the screen unlocked; the loop only draws focused windows today.
 
 ## Long term
 

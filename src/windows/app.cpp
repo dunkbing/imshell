@@ -332,8 +332,7 @@ namespace mydear {
 
     void App::run() {
         auto& d = *impl_;
-        detail::runGlfwLoop(d.window, *d.delegate, d.vsync, d.maxFps, [this] { renderFrame(); },
-                            [w = d.window] { return !glfwGetWindowAttrib(w, GLFW_ICONIFIED); });
+        detail::runGlfwLoop(d.window, *d.delegate, d.vsync, d.maxFps, [this] { renderFrame(); });
     }
 
     void App::destroy() {

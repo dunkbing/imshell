@@ -22,7 +22,8 @@ namespace mydear {
 #if defined(__ANDROID__)
         fs::path root = detail::androidFilesDir();
 #elif defined(_WIN32)
-        fs::path root = env("APPDATA");
+        const wchar_t* appData = _wgetenv(L"APPDATA"); // wide: a non-ascii user name
+        fs::path root = appData ? fs::path(appData) : fs::path();
 #elif defined(__APPLE__)
         fs::path root = env("HOME").empty() ? fs::path() : env("HOME") / "Library" / "Application Support";
 #else
@@ -32,16 +33,19 @@ namespace mydear {
 #endif
         if (root.empty() || appName.empty())
             return {};
-        const fs::path dir = root / fs::u8path(appName);
+        const fs::path dir = root / fs::path(reinterpret_cast<const char8_t*>(appName.c_str()));
         std::error_code ec;
         fs::create_directories(dir, ec);
-        return fs::is_directory(dir, ec) ? dir.string() : std::string();
+        if (!fs::is_directory(dir, ec))
+            return {};
+        const std::u8string u8 = dir.u8string(); // utf-8, as imgui wants file names
+        return std::string(u8.begin(), u8.end());
     }
 
     void detail::useIniFile(const Config& config) {
         static std::string path; // imgui keeps the pointer
         const std::string dir = config.appName.empty() ? std::string() : DataDir(config.appName);
-        path = dir.empty() ? std::string() : (std::filesystem::path(dir) / "imgui.ini").string();
+        path = dir.empty() ? std::string() : dir + "/imgui.ini";
         ImGui::GetIO().IniFilename = path.empty() ? nullptr : path.c_str();
     }
 

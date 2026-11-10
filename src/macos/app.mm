@@ -203,10 +203,7 @@ namespace mydear {
 
     void App::run() {
         auto& d = *impl_;
-        detail::runGlfwLoop(d.window, *d.delegate, d.vsync, d.maxFps, [this] { renderFrame(); }, [w = d.window] {
-            NSWindow* ns = glfwGetCocoaWindow(w);
-            return ns && (ns.occlusionState & NSWindowOcclusionStateVisible) != 0;
-        });
+        detail::runGlfwLoop(d.window, *d.delegate, d.vsync, d.maxFps, [this] { renderFrame(); });
     }
 
     void App::destroy() {

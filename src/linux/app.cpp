@@ -410,7 +410,7 @@ namespace mydear {
                 } else {
                     dl->AddLine({m.x - 4, m.y - 4}, {m.x + 4, m.y + 4}, text, 1.5f);
                     dl->AddLine({m.x + 4, m.y - 4}, {m.x - 4, m.y + 4}, text, 1.5f);
-                    if (clicked)
+                    if (clicked && (!gDelegate || gDelegate->closeRequested()))
                         gShouldClose = true;
                 }
                 x += kButtonSide + kButtonGap;
