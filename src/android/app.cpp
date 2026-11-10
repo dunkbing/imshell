@@ -337,7 +337,9 @@ namespace {
     bool animating() {
         // shortcut: an open picker keeps frames coming until it answers (seconds, while hidden)
         return gTouch == Touch::Pending || std::hypot(gFling.x, gFling.y) > kFlingStop || gLift ||
-               gPickDone;
+               gPickDone ||
+               // imgui trickles queued input one event per frame: typed text needs frames
+               (GImGui && GImGui->InputEventsQueue.Size > 0);
     }
 } // namespace
 
@@ -465,8 +467,10 @@ namespace mydear {
 
         // a text field wants the keyboard
         static bool keyboard = false;
-        if (io.WantTextInput != keyboard) {
-            keyboard = io.WantTextInput;
+        // PlatformImeData.WantVisible: a custom editor that wants the keyboard (ios does the same)
+        const bool wants = io.WantTextInput || GImGui->PlatformImeData.WantVisible;
+        if (wants != keyboard) {
+            keyboard = wants;
             showKeyboard(keyboard);
         }
 
@@ -493,12 +497,11 @@ namespace mydear {
 
     void App::run() {
         while (!gDelegate->shouldQuit()) {
-            const bool busy = gDelegate->wantsFrames() || animating();
-            // idle: wake every 200 ms to notice work that wants frames (a load finishing)
-            if (pump(busy ? 0 : 200))
+            // idle: a frame every 200 ms, like the desktop loops, so work finishing on another
+            // thread shows up without asking for frames
+            if (pump(gDelegate->wantsFrames() || animating() ? 0 : 200))
                 break;
-            if (busy || gDelegate->wantsFrames() || animating())
-                renderFrame();
+            renderFrame();
         }
     }
 
