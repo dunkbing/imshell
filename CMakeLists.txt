@@ -128,7 +128,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/MydearEmbed.cmake)
 
 # examples are hosts too: each compiles its own imgui core
 option(MYDEAR_BUILD_EXAMPLES "Build the examples" OFF)
-if(MYDEAR_BUILD_EXAMPLES AND NOT IOS AND NOT WIN32)
+if(MYDEAR_BUILD_EXAMPLES AND NOT IOS)
     file(GLOB MYDEAR_IMGUI_CORE ${MYDEAR_IMGUI_DIR}/imgui*.cpp)
     if(ANDROID)
         add_library(mydear_hello SHARED examples/hello/main.cpp examples/hello/native_android.cpp ${MYDEAR_IMGUI_CORE})
@@ -136,6 +136,8 @@ if(MYDEAR_BUILD_EXAMPLES AND NOT IOS AND NOT WIN32)
     elseif(APPLE)
         add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_macos.mm ${MYDEAR_IMGUI_CORE})
         set_source_files_properties(examples/hello/native_macos.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    elseif(WIN32)
+        add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_windows.cpp ${MYDEAR_IMGUI_CORE})
     else()
         add_executable(mydear_hello examples/hello/main.cpp examples/hello/native_linux.cpp ${MYDEAR_IMGUI_CORE})
     endif()
@@ -151,4 +153,12 @@ if(MYDEAR_BUILD_TESTS)
     target_include_directories(mydear_touch_test PRIVATE src ${MYDEAR_IMGUI_DIR})
     target_compile_features(mydear_touch_test PRIVATE cxx_std_20)
     add_test(NAME mydear_touch_test COMMAND mydear_touch_test)
+    # the smoke test: hello drives its own window (title bar, native views, the close veto) and
+    # prints "probe: ok"; needs a desktop session
+    if(TARGET mydear_hello AND NOT ANDROID)
+        add_test(NAME mydear_hello_smoke COMMAND mydear_hello)
+        set_tests_properties(mydear_hello_smoke PROPERTIES
+            ENVIRONMENT "MYDEAR_HELLO_PROBE=1;MYDEAR_HELLO_QUIT=20"
+            PASS_REGULAR_EXPRESSION "probe: ok" FAIL_REGULAR_EXPRESSION "probe: FAILED")
+    endif()
 endif()

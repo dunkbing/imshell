@@ -25,6 +25,7 @@ void describeNativeView(void* view, char* out, int size) {
 }
 
 // the probe closes the window the way the close button does (windowShouldClose:)
-void closeLikeUser() {
+bool closeLikeUser() {
     [NSApp.windows.firstObject performClose:nil];
+    return true;
 }

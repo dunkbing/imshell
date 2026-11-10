@@ -22,4 +22,6 @@ void android_main(android_app* state) {
     main();
 }
 
-void closeLikeUser() {}
+bool closeLikeUser() {
+    return false; // shortcut: no user-like close here yet
+}

@@ -22,4 +22,6 @@ void describeNativeView(void* view, char* out, int size) {
                   r.size.height, gtk_widget_get_visible(clip) ? "shown" : "hidden");
 }
 
-void closeLikeUser() {}
+bool closeLikeUser() {
+    return false; // shortcut: no user-like close here yet
+}
