@@ -1,6 +1,6 @@
 #!/bin/sh
 # builds the site into site/dist: the astro pages plus the components gallery compiled to
-# webassembly (into public/gallery). needs emscripten (emcmake), bun and MYDEAR_IMGUI_DIR
+# webassembly (into public/gallery, committed: cloudflare builds only the astro part). needs emscripten (emcmake), bun and MYDEAR_IMGUI_DIR
 # usage: MYDEAR_IMGUI_DIR=/path/to/imgui site/build.sh [wasm-build-dir]
 set -eu
 cd "$(dirname "$0")/.."

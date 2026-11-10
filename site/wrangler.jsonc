@@ -1,5 +1,5 @@
-// cloudflare workers static assets, like dearsql.dev: site/build.sh, then `bunx wrangler deploy`
-// from site/ (the gallery is compiled with emscripten locally, so the build is not cloudflare's)
+// cloudflare workers static assets, like dearsql.dev, built by cloudflare from the repo (root
+// site/, bun run build). the gallery wasm is committed in public/gallery: refresh it with build.sh
 {
   "name": "mydear",
   "compatibility_date": "2026-11-10",
