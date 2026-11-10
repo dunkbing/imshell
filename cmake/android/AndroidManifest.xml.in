@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- shortcut: enableOnBackInvokedCallback=false keeps back a key event for the native loop
+     (target 36 makes predictive back the default); later android versions drop the opt-out -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="@APK_PACKAGE@" android:versionCode="@APK_VERSION_CODE@" android:versionName="@APK_VERSION@">
     <uses-sdk android:minSdkVersion="@APK_MIN_SDK@" android:targetSdkVersion="36" />
 @APK_PERMISSIONS_XML@
     <application android:label="@APK_LABEL@" android:hasCode="true" android:extractNativeLibs="true"
-        android:theme="@android:style/Theme.Material.NoActionBar">
+        android:theme="@android:style/Theme.Material.NoActionBar"
+        android:enableOnBackInvokedCallback="false">
         <activity android:name="@APK_ACTIVITY@" android:exported="true"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|density|uiMode"
             android:windowSoftInputMode="adjustResize">

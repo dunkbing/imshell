@@ -78,9 +78,22 @@ public class MydearActivity extends NativeActivity {
                     next[3] = Math.max(next[3], c.getSafeInsetBottom());
                 }
             }
-            insets = next;
+            if (!java.util.Arrays.equals(next, insets)) {
+                insets = next;
+                wakeLoop();
+            }
             return v.onApplyWindowInsets(in);
         });
+    }
+
+    // wakes the native loop (registered by the shell); before that the loop is not asleep yet
+    private native void wake();
+
+    private void wakeLoop() {
+        try {
+            wake();
+        } catch (UnsatisfiedLinkError e) {
+        }
     }
 
     public int[] windowInsets() {
@@ -179,6 +192,7 @@ public class MydearActivity extends NativeActivity {
                 @Override
                 public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
                     edits.offer(item.getItemId());
+                    wakeLoop();
                     mode.finish();
                     return true;
                 }
@@ -234,9 +248,13 @@ public class MydearActivity extends NativeActivity {
         Uri uri = result == RESULT_OK && data != null ? data.getData() : null;
         if (uri == null) {
             picked.offer("");
+            wakeLoop();
             return;
         }
-        new Thread(() -> picked.offer(copy(uri))).start();
+        new Thread(() -> {
+            picked.offer(copy(uri));
+            wakeLoop();
+        }).start();
     }
 
     private String copy(Uri uri) {

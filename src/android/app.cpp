@@ -92,6 +92,39 @@ namespace {
             ImGui::GetIO().AddInputCharacter(static_cast<unsigned>(c));
     }
 
+
+    // MydearActivity.wake(): java hands the loop something (a toolbar pick, a picked file,
+    // new insets) without a native event, so it wakes the looper itself
+    void JNICALL nativeWake(JNIEnv*, jobject) {
+        if (gAndroid)
+            ALooper_wake(gAndroid->looper);
+    }
+
+    // through the activity's class loader: the glue thread's FindClass sees only system classes
+    void registerWake() {
+        jobject activity = gAndroid->activity->clazz;
+        jclass activityClass = gEnv->GetObjectClass(activity);
+        jmethodID getLoader =
+            gEnv->GetMethodID(activityClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
+        jobject loader = gEnv->CallObjectMethod(activity, getLoader);
+        jclass loaderClass = gEnv->FindClass("java/lang/ClassLoader");
+        jmethodID loadClass =
+            gEnv->GetMethodID(loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+        jstring name = gEnv->NewStringUTF("io.mydear.MydearActivity");
+        auto cls = static_cast<jclass>(gEnv->CallObjectMethod(loader, loadClass, name));
+        if (gEnv->ExceptionCheck()) {
+            gEnv->ExceptionClear(); // not a MydearActivity
+        } else {
+            const JNINativeMethod wake{"wake", "()V", reinterpret_cast<void*>(nativeWake)};
+            if (gEnv->RegisterNatives(cls, &wake, 1) != JNI_OK)
+                gEnv->ExceptionClear();
+            gEnv->DeleteLocalRef(cls);
+        }
+        gEnv->DeleteLocalRef(name);
+        gEnv->DeleteLocalRef(loaderClass);
+        gEnv->DeleteLocalRef(loader);
+        gEnv->DeleteLocalRef(activityClass);
+    }
     void callVoid(const char* name) {
         if (jmethodID m = method(name, "()V"))
             gEnv->CallVoidMethod(gAndroid->activity->clazz, m);
@@ -211,12 +244,14 @@ namespace {
         gEnv->DeleteLocalRef(a);
     }
 
-    // the imgui display (pixels): the whole window above the keyboard. the bars and cutouts
-    // inside it are the safe area
+    // the imgui display (pixels): clear of the navigation bar, side cutouts and the keyboard,
+    // like ios (imgui clamps popups to the display, and taps there go to the system). only
+    // the status bar stays inside it, as the safe area
     ARect visibleRect() {
         const int w = ANativeWindow_getWidth(gAndroid->window);
         const int h = ANativeWindow_getHeight(gAndroid->window);
-        return ARect{0, 0, w, std::max(h - gInsets[4], 1)};
+        const int right = std::max(w - gInsets[2], gInsets[0] + 1);
+        return ARect{gInsets[0], 0, right, std::max(h - std::max(gInsets[3], gInsets[4]), 1)};
     }
 
     // dark bar icons when the theme is light
@@ -377,6 +412,7 @@ namespace mydear {
         gAndroid->onAppCmd = onCmd;
         gAndroid->onInputEvent = onInput;
         gAndroid->activity->vm->AttachCurrentThread(&gEnv, nullptr);
+        registerWake();
         gDensity = std::max(AConfiguration_getDensity(gAndroid->config), 1) / 160.0f;
 
         // the window arrives a few events after start
@@ -429,9 +465,7 @@ namespace mydear {
         readInsets();
         ImGuiIO& io = ImGui::GetIO();
         const ARect visible = visibleRect();
-        // the keyboard already shrank the display: its edge needs no bottom inset
-        detail::safeArea() = ImVec4(gInsets[0] / gDensity, gInsets[1] / gDensity, gInsets[2] / gDensity,
-                                    std::max(gInsets[3] - gInsets[4], 0) / gDensity);
+        detail::safeArea() = ImVec4(0, gInsets[1] / gDensity, 0, 0);
         io.DisplaySize = ImVec2(std::max(visible.right - visible.left, 1) / gDensity,
                                 std::max(visible.bottom - visible.top, 1) / gDensity);
         io.DisplayFramebufferScale = ImVec2(gDensity, gDensity);
