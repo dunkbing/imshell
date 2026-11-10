@@ -7,6 +7,7 @@
 #include "mydear/themes.hpp"
 #include "mydear/title_bar.hpp"
 #include "../native_view.hpp"
+#include "../touch.hpp"
 
 #include "imgui_impl_android.h"
 #include "imgui_impl_opengl3.h"
@@ -28,6 +29,7 @@
 #include <string>
 
 namespace {
+    namespace touch = mydear::touch; // the shared one-finger model (src/touch.cpp)
     android_app* gAndroid = nullptr;
     mydear::Delegate* gDelegate = nullptr;
 
@@ -86,10 +88,54 @@ namespace {
         static jmethodID m = method("pollChar", "()I");
         if (!m)
             return;
-        while (const jint c = gEnv->CallIntMethod(gAndroid->activity->clazz, m))
-            ImGui::GetIO().AddInputCharacter(static_cast<unsigned>(c));
+        ImGuiIO& io = ImGui::GetIO();
+        while (const jint c = gEnv->CallIntMethod(gAndroid->activity->clazz, m)) {
+            if (c > 0) {
+                io.AddInputCharacter(static_cast<unsigned>(c));
+                continue;
+            }
+            // the soft keyboard's edits, in order with its characters
+            const ImGuiKey key = c == -1   ? ImGuiKey_Backspace
+                                 : c == -2 ? ImGuiKey_Delete
+                                           : ImGuiKey_Enter;
+            io.AddKeyEvent(key, true);
+            io.AddKeyEvent(key, false);
+        }
     }
 
+
+    // MydearActivity.wake(): java hands the loop something (a toolbar pick, a picked file,
+    // new insets) without a native event, so it wakes the looper itself
+    void JNICALL nativeWake(JNIEnv*, jobject) {
+        if (gAndroid)
+            ALooper_wake(gAndroid->looper);
+    }
+
+    // through the activity's class loader: the glue thread's FindClass sees only system classes
+    void registerWake() {
+        jobject activity = gAndroid->activity->clazz;
+        jclass activityClass = gEnv->GetObjectClass(activity);
+        jmethodID getLoader =
+            gEnv->GetMethodID(activityClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
+        jobject loader = gEnv->CallObjectMethod(activity, getLoader);
+        jclass loaderClass = gEnv->FindClass("java/lang/ClassLoader");
+        jmethodID loadClass =
+            gEnv->GetMethodID(loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+        jstring name = gEnv->NewStringUTF("io.mydear.MydearActivity");
+        auto cls = static_cast<jclass>(gEnv->CallObjectMethod(loader, loadClass, name));
+        if (gEnv->ExceptionCheck()) {
+            gEnv->ExceptionClear(); // not a MydearActivity
+        } else {
+            const JNINativeMethod wake{"wake", "()V", reinterpret_cast<void*>(nativeWake)};
+            if (gEnv->RegisterNatives(cls, &wake, 1) != JNI_OK)
+                gEnv->ExceptionClear();
+            gEnv->DeleteLocalRef(cls);
+        }
+        gEnv->DeleteLocalRef(name);
+        gEnv->DeleteLocalRef(loaderClass);
+        gEnv->DeleteLocalRef(loader);
+        gEnv->DeleteLocalRef(activityClass);
+    }
     void callVoid(const char* name) {
         if (jmethodID m = method(name, "()V"))
             gEnv->CallVoidMethod(gAndroid->activity->clazz, m);
@@ -189,40 +235,50 @@ namespace {
         return gContext != EGL_NO_CONTEXT && makeSurface();
     }
 
-    // ---- touch ----
+    // ---- touch (the shared engine, src/touch.cpp) ----
 
-    enum class Touch { None, Pending, Pressed, Scrolling };
-    Touch gTouch = Touch::None;
-    int32_t gPointer = -1;
-    ImVec2 gStart, gLast;
-    double gStartTime = 0, gLastMoveTime = 0;
-    ImVec2 gVelocity, gFling; // dp per second
-    bool gLift = false;       // move the touch cursor away after the next frame (no stuck hover)
+    int32_t gPointer = -1; // the finger driving the mouse
 
-    constexpr float kSlop = 8;               // dp before a touch becomes a drag
-    constexpr double kLongPress = 0.5;       // seconds
-    constexpr float kFlingStop = 20;         // dp per second
+    // window pixels: left, top, right, bottom covered by system bars and cutouts, then the
+    // keyboard's height (MydearActivity.windowInsets)
+    int gInsets[5] = {};
+    // what the current activity was told; a recreated one starts over
+    int gLightBars = -1;
+    bool gKeyboardShown = false;
+    bool gRecreating = false; // the activity went away only to come back (configuration change)
 
-    void touchAt(ImVec2 p) {
-        ImGuiIO& io = ImGui::GetIO();
-        io.AddMouseSourceEvent(ImGuiMouseSource_TouchScreen);
-        io.AddMousePosEvent(p.x, p.y);
+    void readInsets() {
+        static jmethodID m = method("windowInsets", "()[I");
+        if (!m)
+            return;
+        auto a = static_cast<jintArray>(gEnv->CallObjectMethod(gAndroid->activity->clazz, m));
+        if (!a)
+            return;
+        if (gEnv->GetArrayLength(a) == 5)
+            gEnv->GetIntArrayRegion(a, 0, 5, gInsets);
+        gEnv->DeleteLocalRef(a);
     }
 
-    void scrollBy(ImVec2 d) {
-        const float font = std::max(ImGui::GetFontSize(), 1.0f);
-        ImGui::GetIO().AddMouseWheelEvent(d.x / (2.0f * font), d.y / (5.0f * font));
-    }
-
-    // the visible part of the window: no system bars, no keyboard (pixels)
+    // the imgui display (pixels): clear of the navigation bar, side cutouts and the keyboard,
+    // like ios (imgui clamps popups to the display, and taps there go to the system). only
+    // the status bar stays inside it, as the safe area
     ARect visibleRect() {
         const int w = ANativeWindow_getWidth(gAndroid->window);
         const int h = ANativeWindow_getHeight(gAndroid->window);
-        const ARect r = gAndroid->contentRect;
-        if (r.right <= r.left || r.bottom <= r.top)
-            return ARect{0, 0, w, h};
-        return ARect{std::max(r.left, 0), std::max(r.top, 0), std::min(r.right, w),
-                     std::min(r.bottom, h)};
+        const int right = std::max(w - gInsets[2], gInsets[0] + 1);
+        return ARect{gInsets[0], 0, right, std::max(h - std::max(gInsets[3], gInsets[4]), 1)};
+    }
+
+    // dark bar icons when the theme is light
+    void followTheme() {
+        int& light = gLightBars;
+        const ImVec4 bg = ImGui::GetStyle().Colors[ImGuiCol_WindowBg];
+        const int now = 0.299f * bg.x + 0.587f * bg.y + 0.114f * bg.z > 0.5f;
+        if (now == light)
+            return;
+        light = now;
+        if (jmethodID m = method("setLightBars", "(Z)V"))
+            gEnv->CallVoidMethod(gAndroid->activity->clazz, m, static_cast<jboolean>(now));
     }
 
     ImVec2 pointerAt(const AInputEvent* e, size_t i) {
@@ -232,84 +288,30 @@ namespace {
     }
 
     void touchEvent(const AInputEvent* e) {
-        ImGuiIO& io = ImGui::GetIO();
         const int32_t action = AMotionEvent_getAction(e) & AMOTION_EVENT_ACTION_MASK;
-        const size_t index = (AMotionEvent_getAction(e) & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >>
-                             AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT;
         const double now = nowSeconds();
         switch (action) {
-        case AMOTION_EVENT_ACTION_DOWN: {
+        case AMOTION_EVENT_ACTION_DOWN:
             hideEditMenu(); // a touch elsewhere dismisses the text toolbar
-            gFling = ImVec2(0, 0);
-            gLift = false;
+            if (gKeyboardShown)
+                callVoid("resetInput"); // the caret may move: the keyboard starts a new word
             gPointer = AMotionEvent_getPointerId(e, 0);
-            gStart = gLast = pointerAt(e, 0);
-            gStartTime = gLastMoveTime = now;
-            gVelocity = ImVec2(0, 0);
-            gTouch = Touch::Pending;
-            touchAt(gStart); // hover only: the cursor shape says what lies under the finger
+            touch::down(pointerAt(e, 0), now);
             break;
-        }
-        case AMOTION_EVENT_ACTION_MOVE: {
-            size_t i = 0;
-            for (; i < AMotionEvent_getPointerCount(e); ++i)
+        case AMOTION_EVENT_ACTION_MOVE:
+            for (size_t i = 0; i < AMotionEvent_getPointerCount(e); ++i)
                 if (AMotionEvent_getPointerId(e, i) == gPointer)
-                    break;
-            if (i == AMotionEvent_getPointerCount(e))
-                break;
-            const ImVec2 p = pointerAt(e, i);
-            if (gTouch == Touch::Pending &&
-                std::hypot(p.x - gStart.x, p.y - gStart.y) > kSlop) {
-                const ImGuiMouseCursor cursor = ImGui::GetMouseCursor();
-                if (cursor == ImGuiMouseCursor_Arrow || cursor == ImGuiMouseCursor_Hand) {
-                    gTouch = Touch::Scrolling;
-                    gLast = gStart;
-                } else { // a splitter, column edge or text: drag it
-                    gTouch = Touch::Pressed;
-                    touchAt(gStart);
-                    io.AddMouseButtonEvent(0, true);
-                }
-            }
-            if (gTouch == Touch::Scrolling) {
-                const ImVec2 d(p.x - gLast.x, p.y - gLast.y);
-                touchAt(p); // scroll the window under the finger
-                scrollBy(d);
-                const float dt = static_cast<float>(std::max(now - gLastMoveTime, 1e-3));
-                gVelocity = ImVec2(d.x / dt * 0.5f + gVelocity.x * 0.5f,
-                                   d.y / dt * 0.5f + gVelocity.y * 0.5f);
-            } else if (gTouch == Touch::Pressed) {
-                touchAt(p);
-            }
-            gLast = p;
-            gLastMoveTime = now;
+                    touch::move(pointerAt(e, i), now);
             break;
-        }
         case AMOTION_EVENT_ACTION_UP:
-            if (gTouch == Touch::Pending) { // a tap
-                touchAt(gStart);
-                io.AddMouseButtonEvent(0, true);
-                io.AddMouseButtonEvent(0, false);
-            } else if (gTouch == Touch::Pressed) {
-                io.AddMouseButtonEvent(0, false);
-            } else if (gTouch == Touch::Scrolling && now - gLastMoveTime < 0.1) {
-                gFling = gVelocity;
-            }
-            gTouch = Touch::None;
+            touch::up(now, true); // no hover on a touch screen: nothing stays highlighted
             gPointer = -1;
-            gLift = true;
             break;
         case AMOTION_EVENT_ACTION_CANCEL:
-            if (gTouch == Touch::Pressed) {
-                io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
-                io.AddMouseButtonEvent(0, false);
-            }
-            gTouch = Touch::None;
+            touch::cancel();
             gPointer = -1;
             break;
-        case AMOTION_EVENT_ACTION_POINTER_DOWN:
-            (void)index; // ponytail: one finger drives the mouse; no pinch or two-finger scroll
-            break;
-        default:
+        default: // shortcut: one finger drives the mouse; no pinch or two-finger scroll yet (#13)
             break;
         }
     }
@@ -378,7 +380,7 @@ namespace {
     // what keeps the loop drawing without input
     bool animating() {
         // shortcut: an open picker keeps frames coming until it answers (seconds, while hidden)
-        return gTouch == Touch::Pending || std::hypot(gFling.x, gFling.y) > kFlingStop || gLift ||
+        return touch::animating() ||
                gPickDone ||
                // imgui trickles queued input one event per frame: typed text needs frames
                (GImGui && GImGui->InputEventsQueue.Size > 0);
@@ -388,6 +390,26 @@ namespace {
 namespace mydear {
     void SetAndroidApp(android_app* app) {
         gAndroid = app;
+        if (!gRecreating)
+            return;
+        // the next activity after a recreation: same process, imgui context and egl context;
+        // a new glue thread, looper, java activity and window
+        gRecreating = false;
+        gLightBars = -1;
+        gKeyboardShown = false;
+        gEditMenu = false;
+        gAndroid->onAppCmd = onCmd;
+        gAndroid->onInputEvent = onInput;
+        gAndroid->activity->vm->AttachCurrentThread(&gEnv, nullptr);
+        registerWake();
+        gDensity = std::max(AConfiguration_getDensity(gAndroid->config), 1) / 160.0f;
+        while (!gAndroid->window) // APP_CMD_INIT_WINDOW makes the surface current here
+            if (pump(-1))
+                return; // gone again: run() returns at once
+    }
+
+    bool AndroidActivityRecreating() {
+        return gRecreating;
     }
 
     android_app* AndroidApp() {
@@ -427,6 +449,7 @@ namespace mydear {
         gAndroid->onAppCmd = onCmd;
         gAndroid->onInputEvent = onInput;
         gAndroid->activity->vm->AttachCurrentThread(&gEnv, nullptr);
+        registerWake();
         gDensity = std::max(AConfiguration_getDensity(gAndroid->config), 1) / 160.0f;
 
         // the window arrives a few events after start
@@ -446,6 +469,7 @@ namespace mydear {
         io.IniFilename = nullptr; // the host saves what it wants (activity->internalDataPath)
         io.MouseDoubleClickMaxDist = 20.0f;
         ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
+        pio.Platform_GetWindowWorkAreaInsets = [](ImGuiViewport*) { return detail::safeArea(); };
         pio.Platform_GetClipboardTextFn = [](ImGuiContext*) -> const char* {
             static std::string text;
             text = callString("getClipboard");
@@ -475,8 +499,10 @@ namespace mydear {
     void App::renderFrame() {
         if (gSurface == EGL_NO_SURFACE || !gGlReady)
             return;
+        readInsets();
         ImGuiIO& io = ImGui::GetIO();
         const ARect visible = visibleRect();
+        detail::safeArea() = ImVec4(0, gInsets[1] / gDensity, 0, 0);
         io.DisplaySize = ImVec2(std::max(visible.right - visible.left, 1) / gDensity,
                                 std::max(visible.bottom - visible.top, 1) / gDensity);
         io.DisplayFramebufferScale = ImVec2(gDensity, gDensity);
@@ -488,9 +514,7 @@ namespace mydear {
         pollChars();
         pollPicked();
         pollEdits();
-        if (gTouch == Touch::Pending && now - gStartTime > kLongPress) {
-            gTouch = Touch::None;
-            touchAt(gStart);
+        if (touch::longPressDue(now)) {
             callVoid("longPressFeedback");
             // the finger has hovered since it landed, so the cursor says what is under it
             if (ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput) {
@@ -500,21 +524,15 @@ namespace mydear {
                     io.AddMouseButtonEvent(0, true);
                     io.AddMouseButtonEvent(0, false);
                 }
+                const ImVec2 at = touch::start();
                 const ARect r = visibleRect();
-                showEditMenu(static_cast<int>(gStart.x * gDensity) + r.left,
-                             static_cast<int>(gStart.y * gDensity) + r.top);
+                showEditMenu(static_cast<int>(at.x * gDensity) + r.left,
+                             static_cast<int>(at.y * gDensity) + r.top);
             } else { // anything else: a right click (context menus)
-                io.AddMouseButtonEvent(1, true);
-                io.AddMouseButtonEvent(1, false);
+                touch::rightClick();
             }
         }
-        if (std::hypot(gFling.x, gFling.y) > kFlingStop) { // a flick coasts, slowing down
-            touchAt(gLast);
-            scrollBy(ImVec2(gFling.x * io.DeltaTime, gFling.y * io.DeltaTime));
-            const float decay = std::pow(0.998f, io.DeltaTime * 1000.0f);
-            gFling = ImVec2(gFling.x * decay, gFling.y * decay);
-        }
-        const bool lift = gLift && gTouch == Touch::None && std::hypot(gFling.x, gFling.y) <= kFlingStop;
+        touch::coast(io.DeltaTime);
 
         ImGui::GetStyle().TouchExtraPadding = ImVec2(Theme::Spacing::S, 0.0f);
         ImGui_ImplOpenGL3_NewFrame();
@@ -523,7 +541,8 @@ namespace mydear {
         ImGui::Render();
 
         // a text field wants the keyboard
-        static bool keyboard = false;
+        followTheme();
+        bool& keyboard = gKeyboardShown;
         // PlatformImeData.WantVisible: a custom editor that wants the keyboard (ios does the same)
         const bool wants = io.WantTextInput || GImGui->PlatformImeData.WantVisible;
         if (wants != keyboard) {
@@ -546,28 +565,44 @@ namespace mydear {
         eglSwapBuffers(gDisplay, gSurface);
         detail::placeNativeViews();
 
-        if (lift) { // the finger is gone: nothing stays hovered
-            io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
-            gLift = false;
-        }
+        touch::takeLift(); // the finger is gone: nothing stays hovered
     }
 
     void App::run() {
+        // requestFrames() from any thread wakes the looper (latched: a wake before the poll counts)
+        detail::wakeLoopHook().store([] {
+            if (gAndroid)
+                ALooper_wake(gAndroid->looper);
+        });
         while (!gDelegate->shouldQuit()) {
-            // idle: a frame every 200 ms, like the desktop loops, so work finishing on another
-            // thread shows up without asking for frames
             // no surface (backgrounded, a picker on top): nothing drains, so sleep
             const bool drawing = gSurface != EGL_NO_SURFACE &&
                                  (gDelegate->wantsFrames() || animating());
-            if (pump(drawing ? 0 : 200))
+            // shortcut: idle, a 1 s heartbeat frame for work on other threads that never asks
+            // for frames; drop it once hosts always call requestFrames()
+            if (pump(drawing ? 0 : 1000))
                 break;
             renderFrame();
+        }
+        detail::wakeLoopHook().store(nullptr);
+        // destroyed only to be recreated (a configuration change configChanges cannot cover,
+        // such as an overlay or system colours): keep the process, imgui and the egl context,
+        // let this glue thread go. the next android_main's SetAndroidApp picks them up
+        if (gAndroid->destroyRequested) {
+            jmethodID m = method("isChangingConfigurations", "()Z");
+            gRecreating = m && gEnv->CallBooleanMethod(gAndroid->activity->clazz, m);
+        }
+        if (gRecreating) {
+            dropSurface(); // the context is current on no thread now
+            gAndroid->activity->vm->DetachCurrentThread();
+            gEnv = nullptr;
+            gAndroid = nullptr; // freed by the glue once android_main returns
         }
     }
 
     void App::destroy() {
-        if (!gDelegate)
-            return;
+        if (!gDelegate || gRecreating)
+            return; // recreating: the next activity still needs all of it
         detail::dropNativeViews();
         if (gGlReady) {
             ImGui_ImplOpenGL3_Shutdown();
@@ -632,8 +667,10 @@ namespace mydear {
     TitleBar BeginTitleBar() {
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         TitleBar bar;
-        bar.pos = vp->Pos;
-        bar.size = ImVec2(vp->Size.x, TitleBarHeight());
+        // below the status bar and clear of side cutouts (landscape)
+        const ImVec4 safe = SafeArea();
+        bar.pos = ImVec2(vp->Pos.x + safe.x, vp->Pos.y + safe.y);
+        bar.size = ImVec2(vp->Size.x - safe.x - safe.z, TitleBarHeight());
         bar.leftInset = bar.rightInset = Theme::Spacing::M;
         ImGui::SetNextWindowPos(bar.pos);
         ImGui::SetNextWindowSize(bar.size);

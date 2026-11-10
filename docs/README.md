@@ -7,5 +7,6 @@
 - [Auto-update](auto-update.md): Sparkle, WinSparkle or an AppImage swap, behind one call.
 - [UI toolkit](ui.md): themes, widgets, menus, images and embedded files.
 - [Platforms](platforms.md): what each platform supports and how they differ.
+- [Roadmap](roadmap.md): what comes next, with the issues.
 
 The repository's `README.md` is the short version; these pages go into how each part behaves.

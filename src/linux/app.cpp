@@ -91,7 +91,7 @@ namespace mydear {
         }
 
         // follow the frame clock while the user works or something animates; stop it when
-        // idle (noteInput and a 200 ms timer start it again)
+        // idle (noteInput, requestFrames and a 1 s heartbeat start it again)
         gboolean onTick(GtkWidget*, GdkFrameClock*, gpointer) {
             if (gShouldClose) {
                 gTick = 0;
@@ -556,9 +556,20 @@ namespace mydear {
         gtk_window_present(GTK_WINDOW(gWindow));
         gWasActive = gtk_window_is_active(GTK_WINDOW(gWindow));
         noteInput();
-        // an idle app still wakes this often, to notice work that wants frames
+        // requestFrames() from any thread: an idle source on the main context starts the tick
+        detail::wakeLoopHook().store([] {
+            g_idle_add(
+                [](gpointer) -> gboolean {
+                    if (gDelegate && gDelegate->wantsFrames())
+                        ensureTick();
+                    return G_SOURCE_REMOVE;
+                },
+                nullptr);
+        });
+        // shortcut: a 1 s heartbeat for work on other threads that never asks for frames;
+        // drop it once hosts always call requestFrames() when they hand the ui something
         const guint timer = g_timeout_add(
-            200,
+            1000,
             [](gpointer) -> gboolean {
                 if (gDelegate && gDelegate->wantsFrames())
                     ensureTick();
@@ -572,6 +583,7 @@ namespace mydear {
                 g_main_context_iteration(nullptr, TRUE);
         }
         g_source_remove(timer);
+        detail::wakeLoopHook().store(nullptr);
         if (gTick) {
             gtk_widget_remove_tick_callback(gArea, gTick);
             gTick = 0;

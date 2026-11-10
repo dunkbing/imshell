@@ -79,6 +79,19 @@ namespace mydear {
         std::unique_ptr<Impl> impl_;
     };
 
+    namespace detail {
+        inline ImVec4& safeArea() { // set by the shell before each frame
+            static ImVec4 insets;
+            return insets;
+        }
+    } // namespace detail
+    // the edges system ui covers (status and navigation bars, a notch, a camera cutout) in
+    // imgui units: x left, y top, z right, w bottom; zero on desktops. imgui gets the same, so
+    // the main viewport's WorkPos/WorkSize leave it out (from the next frame on)
+    inline ImVec4 SafeArea() {
+        return detail::safeArea();
+    }
+
     // macos: render the next frame offscreen at `scale` and save it as a png (docs shots),
     // without the title bar strip: its os buttons are native, not part of the frame
     void requestFrameCapture(const char* path, float scale);

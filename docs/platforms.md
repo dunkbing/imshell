@@ -5,6 +5,7 @@
 | Window and loop | GLFW | UIKit (`RunUIKit`) | GLFW | GTK4, its frame clock | NativeActivity, `android_main` |
 | Graphics | Metal | Metal | Direct3D 11 | OpenGL 3.3 (`GtkGLArea`) | OpenGL ES 3 (EGL) |
 | Title bar | ImGui bar, native traffic lights | none (use the navigation bar) | ImGui bar and caption buttons, snap layouts | ImGui bar, window buttons drawn by mydear in GTK's layout | ImGui strip at the top, no OS buttons |
+| Safe area (`SafeArea()`, `WorkPos`/`WorkSize`) | zero | top (status and navigation bar); the display stops above the home indicator and keyboard | zero | zero | top (status bar), edge to edge; the display stops at the navigation bar, side cutouts and keyboard |
 | Native views | `NSView` | `UIView` | child `HWND` | `GtkWidget` (overlay) | — |
 | Frame capture, recording | yes | no | no | no | no |
 | Text input | GLFW keys and chars | `UITextInput` (IME, soft keyboard) | GLFW keys and chars | GTK keys and chars (no IME yet) | typed characters through the activity, soft keyboard (no IME composition yet) |

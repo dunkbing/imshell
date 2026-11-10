@@ -28,9 +28,13 @@
 
 `run()` is the whole loop. It draws only when something happens: input, a resize, or a request to keep drawing. While idle it sleeps in the OS event wait, so an idle app uses no CPU.
 
-Anything that animates calls `mydear::requestFrames()` (`mydear/frames.hpp`) to keep frames coming for a moment (250 ms by default); mydear's spinners already do. It is safe to call from any thread.
+Anything that animates calls `mydear::requestFrames()` (`mydear/frames.hpp`) to keep frames coming for a moment (250 ms by default); mydear's spinners already do. It is safe to call from any thread, and a request while the app is idle wakes the loop at once: call it whenever a worker hands the UI something to show. Otherwise an idle loop draws once a second (a heartbeat for producers that never ask).
 
 A host that drives frames itself, such as the ImGui test engine, calls `pollEvents()` and `renderFrame()` in its own loop instead of `run()`.
+
+## Safe area
+
+`mydear::SafeArea()` (`mydear/app.hpp`) gives the edges system UI covers, in ImGui units (`x` left, `y` top, `z` right, `w` bottom): the status (and navigation) bar on iOS and Android, zero on desktops; the rest of what system UI covers is outside the ImGui display. The shells also hand it to ImGui (`Platform_GetWindowWorkAreaInsets`), so the main viewport's `WorkPos`/`WorkSize` leave it out from the next frame on; lay full-screen windows out from `SafeArea()` itself to avoid that frame of lag. On Android the title bar strip starts below the status bar, so put the content at `SafeArea().y + TitleBarHeight()`.
 
 ## Handles
 
@@ -71,17 +75,23 @@ Text input goes through `UITextInput`, so IME and the space-bar cursor work. The
 #include "mydear/android.hpp"
 
 void android_main(android_app* state) {
+    static mydear::App app; // outlives a recreated activity
+    static bool started = false;
     mydear::SetAndroidApp(state);
-    mydear::App app;
-    if (app.create(config, delegate))
-        app.run();
+    if (!started && !(started = app.create(config, delegate)))
+        return;
+    app.run();
+    if (mydear::AndroidActivityRecreating())
+        return; // the next activity carries on
     app.destroy();
 }
 ```
 
-The activity must be `io.mydear.MydearActivity` (`android/io/mydear/MydearActivity.java`) or a subclass. It brings what the NDK cannot reach: typed characters, the soft keyboard, the clipboard and the document picker. Graphics are EGL with OpenGL ES 3, and ImGui works in dp (`DisplayFramebufferScale` is the screen density), like points on iOS. The ImGui area is the window minus the system bars and the soft keyboard. The EGL context outlives the window, so textures survive the app going to the background.
+A configuration change the manifest's `configChanges` cannot absorb (a system theme or overlay change, such as switching to three-button navigation) destroys the activity and starts a new one in the same process. `run()` then returns with `AndroidActivityRecreating()` true: return from `android_main` without tearing anything down, and the next `android_main`'s `SetAndroidApp` re-attaches the running shell (new glue thread, looper and window; the same ImGui and EGL contexts), so the app carries on where it was.
 
-Touch works as on iOS. A long press over text selects the word under the finger and shows the system's floating text toolbar (Cut, Copy, Paste, Select all, sent to ImGui as Ctrl chords); anywhere else it right-clicks. Both give the long-press haptic tick. A mouse or trackpad is a mouse. Hardware keys go through `imgui_impl_android`.
+The activity must be `io.mydear.MydearActivity` (`android/io/mydear/MydearActivity.java`) or a subclass. It brings what the NDK cannot reach: typed characters, the soft keyboard, the clipboard and the document picker. The soft keyboard edits through a real `InputConnection` (an invisible editor view), so suggestions, swipe typing, composing and autocorrect work: the connection keeps a buffer of what was typed since the last tap, and each edit is sent to ImGui as the difference (backspaces, then the new text). ImGui draws no composing underline. Graphics are EGL with OpenGL ES 3, and ImGui works in dp (`DisplayFramebufferScale` is the screen density), like points on iOS. The activity is edge to edge on every Android version (the manifest targets API 36, where Play requires it): the ImGui area stops at the navigation bar, side cutouts and the soft keyboard, as on iOS (ImGui keeps popups inside it, and taps on the navigation bar go to the system); only the status bar lies inside it, as the safe area. The bar icons turn dark over a light theme. Back stays a key event (`enableOnBackInvokedCallback="false"`; target 36 would make it predictive back). The EGL context outlives the window, so textures survive the app going to the background.
+
+Touch works as on iOS, through the same touch engine (`src/touch.cpp`): iOS feeds it from its gesture recognizers, Android from raw motion events. A long press over text selects the word under the finger and shows the system's floating text toolbar (Cut, Copy, Paste, Select all, sent to ImGui as Ctrl chords); anywhere else it right-clicks. Both give the long-press haptic tick. A mouse or trackpad is a mouse. Hardware keys go through `imgui_impl_android`.
 
 `mydear::PickFile(mimeTypes, intoDir, done)` opens the system document picker. The picked file is copied into `intoDir`, because apps can't open another app's files by path, and `done` gets the copy's path a frame or two later. It is not called when the picker is cancelled.
 
