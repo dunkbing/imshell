@@ -146,8 +146,12 @@ public class MydearActivity extends NativeActivity {
         return c == null ? 0 : c;
     }
 
-    public void showKeyboard(boolean show) {
+    // the field kind the editor opens the keyboard for (onCreateInputConnection reads it)
+    private volatile boolean passwordField = false;
+
+    public void showKeyboard(boolean show, boolean password) {
         composing = "";
+        passwordField = password;
         runOnUiThread(() -> {
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             if (show) {
@@ -198,10 +202,15 @@ public class MydearActivity extends NativeActivity {
 
         @Override
         public InputConnection onCreateInputConnection(EditorInfo info) {
-            info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
-                | InputType.TYPE_TEXT_FLAG_AUTO_CORRECT;
             info.imeOptions = EditorInfo.IME_FLAG_NO_ENTER_ACTION | EditorInfo.IME_FLAG_NO_FULLSCREEN
                 | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+            if (passwordField) { // no suggestions, no learning, no autocorrect
+                info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD;
+                info.imeOptions |= EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
+            } else {
+                info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                    | InputType.TYPE_TEXT_FLAG_AUTO_CORRECT;
+            }
             return new Connection(this);
         }
     }
