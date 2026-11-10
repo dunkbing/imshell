@@ -4,6 +4,7 @@
 // (and coasts), a drag on a resize or text cursor drags, a long press right-clicks
 #include "../activity.hpp"
 #include "mydear/android.hpp"
+#include "mydear/haptics.hpp"
 #include "mydear/app.hpp"
 #include "mydear/themes.hpp"
 #include "mydear/title_bar.hpp"
@@ -516,7 +517,7 @@ namespace mydear {
         pollPicked();
         pollEdits();
         if (touch::longPressDue(now)) {
-            callVoid("longPressFeedback");
+            mydear::PlayHaptic(mydear::Haptic::LongPress);
             // the finger has hovered since it landed, so the cursor says what is under it
             if (ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput) {
                 // like an android text field: a double click selects the word (and focuses
@@ -718,4 +719,9 @@ namespace mydear {
 
 std::string mydear::detail::androidFilesDir() {
     return gAndroid && gAndroid->activity->internalDataPath ? gAndroid->activity->internalDataPath : "";
+}
+
+void mydear::PlayHaptic(const Haptic kind) {
+    if (jmethodID m = method("haptic", "(I)V"))
+        gEnv->CallVoidMethod(gAndroid->activity->clazz, m, static_cast<jint>(kind));
 }
