@@ -15,6 +15,10 @@ namespace mydear {
         // acquires the drawable and starts the imgui frame (metal + glfw)
         void beginFrame(ImVec4 clearColor);
         void renderDrawData(ImDrawData* drawData);
+        // frame capture or recording: every frame must draw
+        bool capturing() const;
+        // skip the drawing and the present: the window keeps showing the last frame
+        void dropFrame();
         void present();
         void shutdown();
         void getFramebufferSize(int& width, int& height);

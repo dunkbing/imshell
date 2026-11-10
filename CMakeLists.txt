@@ -15,6 +15,7 @@ add_library(mydear STATIC
     src/button.cpp
     src/embedded.cpp
     src/fonts.cpp
+    src/frame_skip.cpp
     src/image.cpp
     src/select.cpp
     src/spinner.cpp
@@ -156,6 +157,10 @@ if(MYDEAR_BUILD_TESTS)
     target_include_directories(mydear_touch_test PRIVATE src ${MYDEAR_IMGUI_DIR})
     target_compile_features(mydear_touch_test PRIVATE cxx_std_20)
     add_test(NAME mydear_touch_test COMMAND mydear_touch_test)
+    add_executable(mydear_frame_skip_test tests/frame_skip_test.cpp src/frame_skip.cpp ${MYDEAR_TEST_IMGUI})
+    target_include_directories(mydear_frame_skip_test PRIVATE src ${MYDEAR_IMGUI_DIR})
+    target_compile_features(mydear_frame_skip_test PRIVATE cxx_std_20)
+    add_test(NAME mydear_frame_skip_test COMMAND mydear_frame_skip_test)
     # the smoke test: hello drives its own window (title bar, native views, the close veto) and
     # prints "probe: ok"; needs a desktop session
     if(TARGET mydear_hello AND NOT ANDROID)

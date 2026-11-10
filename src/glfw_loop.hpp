@@ -2,6 +2,7 @@
 
 // the desktop frame loop over glfw, shared by the macos and windows shells
 #include "activity.hpp"
+#include "frame_skip.hpp"
 #include "mydear/app.hpp"
 
 #include <GLFW/glfw3.h>
@@ -61,6 +62,11 @@ namespace mydear::detail {
                 continue;
 
             render();
+            // nothing changed, so nothing was presented and vsync did not pace this frame
+            if (frameSkipped()) {
+                frameSkipped() = false;
+                glfwWaitEventsTimeout(kMinWaitSeconds);
+            }
 
             // without vsync nothing paces the loop: sleep out the rest of the frame
             if (!vsync && maxFps > 0) {
