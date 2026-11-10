@@ -88,3 +88,15 @@ On Linux, GTK 4 and libepoxy come from the system (`pkg-config`). Instead of the
 `ctest` runs two tests:
 - `mydear_touch_test`: the touch engine on a bare ImGui context, no window.
 - `mydear_hello_smoke`: the example in a real window, which needs a desktop session. With `MYDEAR_HELLO_PROBE=1` it drives itself: it double-clicks the title bar (the window should zoom), clicks a button in the bar, checks that a native view shows and hides under a popup, and closes the window the way the user would, expecting the first close to be refused (`closeRequested`) and the second to go through. It prints `probe: ok`, or `probe: FAILED:` and what failed.
+
+## The web
+
+The same app runs in a browser through [Emscripten](https://emscripten.org) (`brew install emscripten`, or emsdk). No vcpkg is needed: GLFW comes from Emscripten's `contrib.glfw3` port, fetched on the first build, and the graphics are WebGL 2.
+
+```sh
+emcmake cmake -S . -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release \
+  -DMYDEAR_IMGUI_DIR=/path/to/imgui -DMYDEAR_BUILD_EXAMPLES=ON
+cmake --build build-web
+```
+
+That gives `mydear_hello.html` with its `.js` and `.wasm`; serve the folder with any static file server (a page opened from `file://` cannot load the wasm). A host's own target links `mydear` the same way and sets `SUFFIX .html`; `examples/web_shell.html` is a page to start from (`--shell-file`): a canvas filling the page and a loading line. See [Platforms](platforms.md) for what differs on the web.
