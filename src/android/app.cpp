@@ -2,14 +2,16 @@
 // opengl3 renderer. imgui works in dp (DisplayFramebufferScale = density), like points on ios.
 // touch follows the ios shell: a tap clicks, a drag on empty space or a plain button scrolls
 // (and coasts), a drag on a resize or text cursor drags, a long press right-clicks
-#include "../activity.hpp"
-#include "mydear/android.hpp"
-#include "mydear/haptics.hpp"
 #include "mydear/app.hpp"
-#include "mydear/themes.hpp"
-#include "mydear/title_bar.hpp"
+#include "../activity.hpp"
+#include "../frame_skip.hpp"
+#include "../ime.hpp"
 #include "../native_view.hpp"
 #include "../touch.hpp"
+#include "mydear/android.hpp"
+#include "mydear/haptics.hpp"
+#include "mydear/themes.hpp"
+#include "mydear/title_bar.hpp"
 
 #include "imgui_impl_android.h"
 #include "imgui_impl_opengl3.h"
@@ -29,6 +31,7 @@
 #include <cmath>
 #include <functional>
 #include <string>
+#include <utility>
 
 namespace {
     namespace touch = mydear::touch; // the shared one-finger model (src/touch.cpp)
@@ -105,7 +108,6 @@ namespace {
         }
     }
 
-
     // MydearActivity.wake(): java hands the loop something (a toolbar pick, a picked file,
     // new insets) without a native event, so it wakes the looper itself
     void JNICALL nativeWake(JNIEnv*, jobject) {
@@ -167,10 +169,10 @@ namespace {
             return;
         ImGuiIO& io = ImGui::GetIO();
         while (const jint c = gEnv->CallIntMethod(gAndroid->activity->clazz, m)) {
-            const ImGuiKey key = c == 'X' ? ImGuiKey_X
-                               : c == 'C' ? ImGuiKey_C
-                               : c == 'V' ? ImGuiKey_V
-                                          : ImGuiKey_A;
+            const ImGuiKey key = c == 'X'   ? ImGuiKey_X
+                                 : c == 'C' ? ImGuiKey_C
+                                 : c == 'V' ? ImGuiKey_V
+                                            : ImGuiKey_A;
             io.AddKeyEvent(ImGuiMod_Ctrl, true);
             io.AddKeyEvent(key, true);
             io.AddKeyEvent(key, false);
@@ -224,10 +226,18 @@ namespace {
     bool initEgl() {
         gDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
         eglInitialize(gDisplay, nullptr, nullptr);
-        const EGLint attribs[] = {EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT, EGL_SURFACE_TYPE,
-                                  EGL_WINDOW_BIT,      EGL_RED_SIZE,       8,
-                                  EGL_GREEN_SIZE,      8,                  EGL_BLUE_SIZE,
-                                  8,                   EGL_ALPHA_SIZE,     8,
+        const EGLint attribs[] = {EGL_RENDERABLE_TYPE,
+                                  EGL_OPENGL_ES3_BIT,
+                                  EGL_SURFACE_TYPE,
+                                  EGL_WINDOW_BIT,
+                                  EGL_RED_SIZE,
+                                  8,
+                                  EGL_GREEN_SIZE,
+                                  8,
+                                  EGL_BLUE_SIZE,
+                                  8,
+                                  EGL_ALPHA_SIZE,
+                                  8,
                                   EGL_NONE};
         EGLint count = 0;
         if (!eglChooseConfig(gDisplay, attribs, &gConfig, 1, &count) || count == 0)
@@ -247,6 +257,9 @@ namespace {
     // what the current activity was told; a recreated one starts over
     int gLightBars = -1;
     bool gKeyboardShown = false;
+    // the next frame draws even when it matches the last: a new or resized surface, or the
+    // system asked for a redraw (an undrawn surface keeps its last frame otherwise)
+    bool gMustDraw = true;
     bool gRecreating = false; // the activity went away only to come back (configuration change)
 
     void readInsets() {
@@ -353,11 +366,18 @@ namespace {
         case APP_CMD_INIT_WINDOW:
             if (gContext != EGL_NO_CONTEXT)
                 makeSurface();
+            gMustDraw = true;
+            break;
+        case APP_CMD_WINDOW_RESIZED:
+        case APP_CMD_WINDOW_REDRAW_NEEDED:
+        case APP_CMD_CONTENT_RECT_CHANGED:
+            gMustDraw = true;
             break;
         case APP_CMD_TERM_WINDOW:
             dropSurface();
             break;
         case APP_CMD_CONFIG_CHANGED:
+            gMustDraw = true;
             gDensity = std::max(AConfiguration_getDensity(app->config), 1) / 160.0f;
             break;
         default:
@@ -369,7 +389,8 @@ namespace {
     bool pump(int timeoutMs) {
         int events = 0;
         android_poll_source* source = nullptr;
-        while (ALooper_pollOnce(timeoutMs, nullptr, &events, reinterpret_cast<void**>(&source)) >= 0) {
+        while (ALooper_pollOnce(timeoutMs, nullptr, &events, reinterpret_cast<void**>(&source)) >=
+               0) {
             if (source)
                 source->process(gAndroid, source);
             if (gAndroid->destroyRequested)
@@ -382,8 +403,7 @@ namespace {
     // what keeps the loop drawing without input
     bool animating() {
         // shortcut: an open picker keeps frames coming until it answers (seconds, while hidden)
-        return touch::animating() ||
-               gPickDone ||
+        return touch::animating() || gPickDone ||
                // imgui trickles queued input one event per frame: typed text needs frames
                (GImGui && GImGui->InputEventsQueue.Size > 0);
     }
@@ -509,8 +529,8 @@ namespace mydear {
                                 std::max(visible.bottom - visible.top, 1) / gDensity);
         io.DisplayFramebufferScale = ImVec2(gDensity, gDensity);
         const double now = nowSeconds();
-        io.DeltaTime = gLastTime > 0 ? static_cast<float>(std::max(now - gLastTime, 1e-4))
-                                     : 1.0f / 60.0f;
+        io.DeltaTime =
+            gLastTime > 0 ? static_cast<float>(std::max(now - gLastTime, 1e-4)) : 1.0f / 60.0f;
         gLastTime = now;
 
         pollChars();
@@ -540,6 +560,8 @@ namespace mydear {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui::NewFrame();
         gDelegate->frame();
+        if (gKeyboardShown)
+            detail::drawComposingUnderline(callString("composing").c_str());
         ImGui::Render();
 
         // a text field wants the keyboard
@@ -554,17 +576,22 @@ namespace mydear {
 
         const int fullW = ANativeWindow_getWidth(gAndroid->window);
         const int fullH = ANativeWindow_getHeight(gAndroid->window);
-        glViewport(0, 0, fullW, fullH);
         const ImVec4 base = ImGui::GetStyle().Colors[ImGuiCol_WindowBg];
-        glClearColor(base.x, base.y, base.z, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
         // the frame covers the whole window with imgui's origin at the visible rect: the
         // system bars and the keyboard area stay clear
         ImDrawData* draw = ImGui::GetDrawData();
         draw->DisplayPos = ImVec2(-visible.left / gDensity, -visible.top / gDensity);
         draw->DisplaySize = ImVec2(fullW / gDensity, fullH / gDensity);
-        ImGui_ImplOpenGL3_RenderDrawData(draw);
-        eglSwapBuffers(gDisplay, gSurface);
+        // an unchanged frame is not drawn or swapped: the surface keeps showing the last one
+        const bool mustDraw = std::exchange(gMustDraw, false);
+        detail::frameSkipped() = detail::sameAsLastFrame(draw, base) && !mustDraw;
+        if (!detail::frameSkipped()) {
+            glViewport(0, 0, fullW, fullH);
+            glClearColor(base.x, base.y, base.z, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            ImGui_ImplOpenGL3_RenderDrawData(draw);
+            eglSwapBuffers(gDisplay, gSurface);
+        }
         detail::placeNativeViews();
 
         touch::takeLift(); // the finger is gone: nothing stays hovered
@@ -578,11 +605,12 @@ namespace mydear {
         });
         while (!gDelegate->shouldQuit()) {
             // no surface (backgrounded, a picker on top): nothing drains, so sleep
-            const bool drawing = gSurface != EGL_NO_SURFACE &&
-                                 (gDelegate->wantsFrames() || animating());
+            const bool drawing =
+                gSurface != EGL_NO_SURFACE && (gDelegate->wantsFrames() || animating());
             // shortcut: idle, a 1 s heartbeat frame for work on other threads that never asks
             // for frames; drop it once hosts always call requestFrames()
-            if (pump(drawing ? 0 : 1000))
+            // a skipped frame did not wait for vsync in eglSwapBuffers: wait about one refresh
+            if (pump(drawing ? (detail::frameSkipped() ? 8 : 0) : 1000))
                 break;
             renderFrame();
         }
@@ -685,8 +713,8 @@ namespace mydear {
                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav |
                          ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
         ImGui::PopStyleVar(4);
-        ImGui::SetCursorScreenPos(ImVec2(bar.pos.x + bar.leftInset,
-                                         bar.pos.y + (bar.size.y - ImGui::GetFrameHeight()) * 0.5f));
+        ImGui::SetCursorScreenPos(ImVec2(
+            bar.pos.x + bar.leftInset, bar.pos.y + (bar.size.y - ImGui::GetFrameHeight()) * 0.5f));
         return bar;
     }
 
@@ -718,7 +746,8 @@ namespace mydear {
 } // namespace mydear
 
 std::string mydear::detail::androidFilesDir() {
-    return gAndroid && gAndroid->activity->internalDataPath ? gAndroid->activity->internalDataPath : "";
+    return gAndroid && gAndroid->activity->internalDataPath ? gAndroid->activity->internalDataPath
+                                                            : "";
 }
 
 void mydear::PlayHaptic(const Haptic kind) {
