@@ -1,6 +1,7 @@
 #include "../activity.hpp"
 #include "mydear/title_bar.hpp"
 #include "mydear/app.hpp"
+#include "mydear/haptics.hpp"
 #include "mydear/ios.h"
 #include "mydear/themes.hpp"
 #include "../native_view.hpp"
@@ -494,7 +495,7 @@ namespace {
 - (void)longPress:(UILongPressGestureRecognizer*)g {
     if (g.state != UIGestureRecognizerStateBegan)
         return;
-    [[[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight] impactOccurred];
+    mydear::PlayHaptic(mydear::Haptic::LongPress);
     touch::cancel(); // a press in progress lets go away from its target
     const CGPoint p = [g locationInView:gView];
     touch::hover(vec(p));

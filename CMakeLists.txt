@@ -24,9 +24,9 @@ add_library(mydear::mydear ALIAS mydear)
 
 # the platform shell. imgui core stays the host's; its platform backends are ours
 if(IOS)
-    target_sources(mydear PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
+    target_sources(mydear PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/apple/haptics.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
                                   ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_metal.mm)
-    set_source_files_properties(src/ios/app.mm src/ios/file_dialog.mm src/apple/native_view.mm
+    set_source_files_properties(src/ios/app.mm src/ios/file_dialog.mm src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(mydear PUBLIC "-framework UIKit" "-framework Metal" "-framework MetalKit"
         "-framework QuartzCore" "-framework Foundation" "-framework UniformTypeIdentifiers")
@@ -36,6 +36,7 @@ elseif(APPLE)
         src/macos/app.mm
         src/macos/metal_backend.mm
         src/macos/native_button.mm
+        src/apple/haptics.mm
         src/apple/native_view.mm
         src/native_view.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
@@ -43,7 +44,7 @@ elseif(APPLE)
     )
     # arc for both: they share MetalBackend, whose id members must be owned one way
     set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm src/macos/native_button.mm
-                                src/apple/native_view.mm
+                                src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(mydear PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
@@ -54,6 +55,7 @@ elseif(WIN32)
         src/windows/app.cpp
         src/windows/dx11_backend.cpp
         src/windows/native_view.cpp
+        src/haptics_none.cpp
         src/native_view.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_dx11.cpp
@@ -83,6 +85,7 @@ elseif(UNIX)
     pkg_check_modules(MYDEAR_EPOXY REQUIRED IMPORTED_TARGET epoxy)
     target_sources(mydear PRIVATE
         src/linux/app.cpp
+        src/haptics_none.cpp
         src/native_view.cpp
         ${MYDEAR_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
     )

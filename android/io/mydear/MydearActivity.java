@@ -326,9 +326,20 @@ public class MydearActivity extends NativeActivity {
 
     // the system's floating text toolbar at (x, y), window pixels. a pick lands in pollEdit as
     // the letter of its shortcut: 'X' cut, 'C' copy, 'V' paste, 'A' select all
-    // the long-press tick other apps give
-    public void longPressFeedback() {
-        runOnUiThread(() -> getWindow().getDecorView().performHapticFeedback(HapticFeedbackConstants.LONG_PRESS));
+    // mydear::Haptic in order: tap, selection, long press, success, warning, error
+    public void haptic(int kind) {
+        final int api = Build.VERSION.SDK_INT;
+        final int[] constants = {
+            HapticFeedbackConstants.VIRTUAL_KEY,
+            HapticFeedbackConstants.CLOCK_TICK,
+            HapticFeedbackConstants.LONG_PRESS,
+            api >= 30 ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.VIRTUAL_KEY,
+            HapticFeedbackConstants.LONG_PRESS,
+            api >= 30 ? HapticFeedbackConstants.REJECT : HapticFeedbackConstants.LONG_PRESS,
+        };
+        if (kind < 0 || kind >= constants.length)
+            return;
+        runOnUiThread(() -> getWindow().getDecorView().performHapticFeedback(constants[kind]));
     }
 
     public void showEditMenu(int x, int y) {

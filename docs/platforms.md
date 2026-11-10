@@ -10,6 +10,7 @@
 | Frame capture, recording | yes | no | no | no | no |
 | Text input | GLFW keys and chars | `UITextInput` (IME, soft keyboard) | GLFW keys and chars | GTK keys and chars (no IME yet) | an `InputConnection` through the activity (suggestions, composing, swipe typing), hardware keys |
 | Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) | — (`PickFile` copies one in) |
+| Haptics (`PlayHaptic`) | Force Touch trackpad | taptic engine | — | — | vibrator |
 | Auto-update (`MYDEAR_UPDATER`) | Sparkle | — (App Store) | WinSparkle | AppImage swap, SHA-256 checked | — (the store) |
 
 ## Keyboard shortcuts

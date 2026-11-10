@@ -63,6 +63,10 @@ mydear::AddFont({{text->data, text->size}, {icons->data, icons->size, kIcons, tr
 
 On iOS the documents folder shows in the Files app under the app's name. Filters become content types (iOS) or MIME types (Android, from a short table; anything else allows any file). On the desktops, link Native File Dialog Extended (vcpkg `nativefiledialog-extended`); mydear finds it with `find_package(nfd)`.
 
+## Haptics (`mydear/haptics.hpp`)
+
+`PlayHaptic(kind)` gives a short vibration, from the UI thread. Kinds: `Tap` (a button or toggle), `Selection` (a value ticks over), `LongPress`, `Success`, `Warning`, `Error`. iOS uses UIKit's feedback generators, Android `performHapticFeedback` (success and error are their own patterns from Android 11), and macOS the trackpad's feedback performer, felt only on a Force Touch trackpad while the finger is down. Windows and Linux do nothing. The system setting wins: with haptics turned off, nothing plays. The shells already play `LongPress` when a long press takes hold.
+
 ## Images (`mydear/image.hpp`)
 
 `LoadTexture(bytes, size, create)` decodes a PNG with stb_image and hands the pixels to `create`, normally the app's `createTexture`.
