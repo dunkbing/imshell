@@ -499,7 +499,10 @@ namespace mydear {
         while (!gDelegate->shouldQuit()) {
             // idle: a frame every 200 ms, like the desktop loops, so work finishing on another
             // thread shows up without asking for frames
-            if (pump(gDelegate->wantsFrames() || animating() ? 0 : 200))
+            // no surface (backgrounded, a picker on top): nothing drains, so sleep
+            const bool drawing = gSurface != EGL_NO_SURFACE &&
+                                 (gDelegate->wantsFrames() || animating());
+            if (pump(drawing ? 0 : 200))
                 break;
             renderFrame();
         }
