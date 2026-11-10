@@ -147,6 +147,7 @@ public class MydearActivity extends NativeActivity {
     }
 
     public void showKeyboard(boolean show) {
+        composing = "";
         runOnUiThread(() -> {
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             if (show) {
@@ -159,8 +160,17 @@ public class MydearActivity extends NativeActivity {
         });
     }
 
+    // the ime's composing word, for the native side to underline under the caret; empty when
+    // nothing composes or the composition is not at the end of what was typed
+    private volatile String composing = "";
+
+    public String composing() {
+        return composing;
+    }
+
     // the caret moved under the keyboard (a tap): it must not keep editing the old word
     public void resetInput() {
+        composing = "";
         runOnUiThread(() -> {
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             imm.restartInput(editor);
@@ -173,8 +183,7 @@ public class MydearActivity extends NativeActivity {
 
     // the keyboard's editor: an invisible view whose InputConnection turns the keyboard's
     // edits into characters and keys for imgui, which keeps the real text
-    // shortcut: the ime sees only what was typed since the last reset (a tap restarts it), and
-    // imgui draws no composing underline; mirror imgui's text here if that is not enough
+    // shortcut: the ime sees only what was typed since the last reset (a tap restarts it)
     private final class Editor extends View {
         Editor(Context context) {
             super(context);
@@ -226,6 +235,8 @@ public class MydearActivity extends NativeActivity {
             if (erase > 0 || same < now.length())
                 wakeLoop();
             sent = now;
+            int cs = getComposingSpanStart(e), ce = getComposingSpanEnd(e);
+            composing = e != null && cs >= 0 && ce > cs && ce == now.length() ? now.substring(cs, ce) : "";
             return ok;
         }
 

@@ -1,5 +1,6 @@
 #include "../activity.hpp"
 #include "../frame_skip.hpp"
+#include "../ime.hpp"
 #include "mydear/title_bar.hpp"
 #include "mydear/app.hpp"
 #include "mydear/haptics.hpp"
@@ -164,6 +165,7 @@ namespace {
     MydearTextRange* gRange = [MydearTextRange new];
     CGPoint gCursor; // floating cursor, as far as arrows have moved it
     int gMarked = 0; // characters of an ime composition already sent
+    std::string gMarkedText; // that composition, underlined under the caret
 } // namespace
 
 @interface MydearView : MTKView <UITextInput>
@@ -187,9 +189,11 @@ namespace {
         tapKey(ImGuiKey_Backspace);
     ImGui::GetIO().AddInputCharactersUTF8(text.UTF8String);
     gMarked = (int)text.length;
+    gMarkedText = text.UTF8String;
 }
 - (void)unmarkText {
     gMarked = 0;
+    gMarkedText.clear();
 }
 - (NSString*)textInRange:(UITextRange*)range {
     return @"";
@@ -286,6 +290,7 @@ namespace {
 }
 - (void)insertText:(NSString*)text {
     wake(); // the soft keyboard's keys do not pass through the window
+    gMarkedText.clear();
     if ([text isEqualToString:@"\n"])
         tapKey(ImGuiKey_Enter);
     else
@@ -729,6 +734,7 @@ namespace mydear {
             ImGui_ImplMetal_NewFrame(pass);
             ImGui::NewFrame();
             impl_->delegate->frame();
+            detail::drawComposingUnderline(gMarkedText.c_str());
             ImGui::Render();
             // the display link paces the view either way: an unchanged frame is not drawn
             if (detail::sameAsLastFrame(ImGui::GetDrawData(), base)) {

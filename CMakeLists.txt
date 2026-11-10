@@ -16,6 +16,7 @@ add_library(mydear STATIC
     src/embedded.cpp
     src/fonts.cpp
     src/frame_skip.cpp
+    src/ime.cpp
     src/image.cpp
     src/select.cpp
     src/spinner.cpp
@@ -191,6 +192,10 @@ if(MYDEAR_BUILD_TESTS)
     target_include_directories(mydear_frame_skip_test PRIVATE src ${MYDEAR_IMGUI_DIR})
     target_compile_features(mydear_frame_skip_test PRIVATE cxx_std_20)
     add_test(NAME mydear_frame_skip_test COMMAND mydear_frame_skip_test)
+    add_executable(mydear_ime_test tests/ime_test.cpp src/ime.cpp ${MYDEAR_TEST_IMGUI})
+    target_include_directories(mydear_ime_test PRIVATE src ${MYDEAR_IMGUI_DIR})
+    target_compile_features(mydear_ime_test PRIVATE cxx_std_20)
+    add_test(NAME mydear_ime_test COMMAND mydear_ime_test)
     add_executable(mydear_components_test tests/components_test.cpp src/components.cpp src/button.cpp ${MYDEAR_TEST_IMGUI})
     target_include_directories(mydear_components_test PRIVATE include ${MYDEAR_IMGUI_DIR})
     target_compile_features(mydear_components_test PRIVATE cxx_std_20)

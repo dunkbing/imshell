@@ -3,6 +3,8 @@
 // touch follows the ios shell: a tap clicks, a drag on empty space or a plain button scrolls
 // (and coasts), a drag on a resize or text cursor drags, a long press right-clicks
 #include "../activity.hpp"
+#include "../frame_skip.hpp"
+#include "../ime.hpp"
 #include "mydear/android.hpp"
 #include "mydear/haptics.hpp"
 #include "mydear/app.hpp"
@@ -29,6 +31,7 @@
 #include <cmath>
 #include <functional>
 #include <string>
+#include <utility>
 
 namespace {
     namespace touch = mydear::touch; // the shared one-finger model (src/touch.cpp)
@@ -247,6 +250,9 @@ namespace {
     // what the current activity was told; a recreated one starts over
     int gLightBars = -1;
     bool gKeyboardShown = false;
+    // the next frame draws even when it matches the last: a new or resized surface, or the
+    // system asked for a redraw (an undrawn surface keeps its last frame otherwise)
+    bool gMustDraw = true;
     bool gRecreating = false; // the activity went away only to come back (configuration change)
 
     void readInsets() {
@@ -353,11 +359,18 @@ namespace {
         case APP_CMD_INIT_WINDOW:
             if (gContext != EGL_NO_CONTEXT)
                 makeSurface();
+            gMustDraw = true;
+            break;
+        case APP_CMD_WINDOW_RESIZED:
+        case APP_CMD_WINDOW_REDRAW_NEEDED:
+        case APP_CMD_CONTENT_RECT_CHANGED:
+            gMustDraw = true;
             break;
         case APP_CMD_TERM_WINDOW:
             dropSurface();
             break;
         case APP_CMD_CONFIG_CHANGED:
+            gMustDraw = true;
             gDensity = std::max(AConfiguration_getDensity(app->config), 1) / 160.0f;
             break;
         default:
@@ -540,6 +553,8 @@ namespace mydear {
         ImGui_ImplOpenGL3_NewFrame();
         ImGui::NewFrame();
         gDelegate->frame();
+        if (gKeyboardShown)
+            detail::drawComposingUnderline(callString("composing").c_str());
         ImGui::Render();
 
         // a text field wants the keyboard
@@ -554,17 +569,22 @@ namespace mydear {
 
         const int fullW = ANativeWindow_getWidth(gAndroid->window);
         const int fullH = ANativeWindow_getHeight(gAndroid->window);
-        glViewport(0, 0, fullW, fullH);
         const ImVec4 base = ImGui::GetStyle().Colors[ImGuiCol_WindowBg];
-        glClearColor(base.x, base.y, base.z, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
         // the frame covers the whole window with imgui's origin at the visible rect: the
         // system bars and the keyboard area stay clear
         ImDrawData* draw = ImGui::GetDrawData();
         draw->DisplayPos = ImVec2(-visible.left / gDensity, -visible.top / gDensity);
         draw->DisplaySize = ImVec2(fullW / gDensity, fullH / gDensity);
-        ImGui_ImplOpenGL3_RenderDrawData(draw);
-        eglSwapBuffers(gDisplay, gSurface);
+        // an unchanged frame is not drawn or swapped: the surface keeps showing the last one
+        const bool mustDraw = std::exchange(gMustDraw, false);
+        detail::frameSkipped() = detail::sameAsLastFrame(draw, base) && !mustDraw;
+        if (!detail::frameSkipped()) {
+            glViewport(0, 0, fullW, fullH);
+            glClearColor(base.x, base.y, base.z, 1);
+            glClear(GL_COLOR_BUFFER_BIT);
+            ImGui_ImplOpenGL3_RenderDrawData(draw);
+            eglSwapBuffers(gDisplay, gSurface);
+        }
         detail::placeNativeViews();
 
         touch::takeLift(); // the finger is gone: nothing stays hovered
@@ -582,7 +602,8 @@ namespace mydear {
                                  (gDelegate->wantsFrames() || animating());
             // shortcut: idle, a 1 s heartbeat frame for work on other threads that never asks
             // for frames; drop it once hosts always call requestFrames()
-            if (pump(drawing ? 0 : 1000))
+            // a skipped frame did not wait for vsync in eglSwapBuffers: wait about one refresh
+            if (pump(drawing ? (detail::frameSkipped() ? 8 : 0) : 1000))
                 break;
             renderFrame();
         }
