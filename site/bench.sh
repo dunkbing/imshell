@@ -35,7 +35,8 @@ firstFrame() {
     printf '%s\n' "${runs[@]}" | sort -n | sed -n 6p
 }
 
-# at rest: the physical footprint 3 s after launch, then the cpu used over the next 10 s
+# at rest: the physical footprint 3 s after launch, then the cpu used over the next 10 s (the
+# gallery never idles: its skeleton and progress bar redraw every frame)
 cputime() { ps -o time= -p "$1" | awk -F'[:.]' '{ printf "%.2f", $1 * 60 + $2 + $3 / 100 }'; }
 rest() {
     "$BUILD/$1" >/dev/null 2>&1 &
@@ -64,6 +65,7 @@ read -r galleryMem galleryCpu <<<"$(rest mydear_gallery)"
 wasm=$(transfer mydear_gallery.wasm)
 js=$(transfer mydear_gallery.js)
 
+mkdir -p "$(dirname "$OUT")"
 cat >"$OUT" <<EOF
 {
   "date": "$(date +%F)",
@@ -71,7 +73,7 @@ cat >"$OUT" <<EOF
   "machine": "$(sysctl -n machdep.cpu.brand_string), $(($(sysctl -n hw.memsize) / 1073741824)) GB",
   "os": "macOS $(sw_vers -productVersion)",
   "hello": { "sizeMB": $helloSize, "firstFrameMs": $frameMs, "memoryMB": $helloMem, "idleCpu": $helloCpu },
-  "gallery": { "sizeMB": $gallerySize, "memoryMB": $galleryMem, "idleCpu": $galleryCpu },
+  "gallery": { "sizeMB": $gallerySize, "memoryMB": $galleryMem, "animatingCpu": $galleryCpu },
   "web": { "wasmKB": $((wasm / 1024)), "jsKB": $((js / 1024)) }
 }
 EOF

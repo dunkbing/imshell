@@ -27,7 +27,7 @@ const features = [
 
 const stats = [
   [`${bench.hello.firstFrameMs} ms`, "launch to first frame"],
-  [`${bench.gallery.idleCpu} %`, "CPU while idle"],
+  [`${bench.hello.idleCpu} %`, "CPU while idle"],
   [`${bench.hello.sizeMB} MB`, "the whole app"],
   [`${bench.web.wasmKB + bench.web.jsKB} KB`, "gallery in the browser"],
 ];
@@ -138,8 +138,8 @@ target_link_libraries(app PRIVATE mydear::mydear) # + mydear::components, option
           <tbody>
             {[
               ["Executable, stripped", `${bench.hello.sizeMB} MB`, `${bench.gallery.sizeMB} MB`],
-              ["Memory at rest", `${bench.hello.memoryMB} MB`, `${bench.gallery.memoryMB} MB`],
-              ["CPU at rest", `${bench.hello.idleCpu} %`, `${bench.gallery.idleCpu} %`],
+              ["Memory", `${bench.hello.memoryMB} MB`, `${bench.gallery.memoryMB} MB`],
+              ["CPU", `${bench.hello.idleCpu} % idle`, `${bench.gallery.animatingCpu} % animating`],
               ["Launch to first frame", `${bench.hello.firstFrameMs} ms`, ""],
             ].map(([what, hello, gallery]) => (
               <tr class="border-b border-surface1 last:border-b-0">
@@ -152,7 +152,7 @@ target_link_libraries(app PRIVATE mydear::mydear) # + mydear::components, option
         </table>
       </div>
       <p class="text-xs text-subtext0 mt-3">
-        {bench.machine}, {bench.os}, mydear {bench.commit}, {bench.date}. <code>hello</code> is the app above; <code>gallery</code> has every component and the code editor. Release builds with Dear ImGui, mydear and GLFW linked in, stripped. First frame: from launching <code>hello</code> until it has drawn its first frame and quit, the median of 11 runs. At rest: the physical footprint 3 s after launch, and the CPU used over the next 10 s, the window focused and left alone. In the browser: the gallery's <code>.wasm</code> and <code>.js</code> as this site serves them (brotli), {bench.web.wasmKB} + {bench.web.jsKB} KB. Windows, Linux and the phones are not measured yet. <code>site/bench.sh</code> measures it again.
+        {bench.machine}, {bench.os}, mydear {bench.commit}, {bench.date}. <code>hello</code> is the repo's example app: a title bar, buttons and two native views (a text field and a date picker). <code>gallery</code> has every component and the code editor, and never idles: its loading skeleton and progress bar redraw every frame, so its CPU is the cost of animating. Release builds with Dear ImGui, mydear and GLFW linked in, stripped. First frame: from launching <code>hello</code> until it has drawn its first frame and quit, the median of 11 runs. Memory: the physical footprint 3 s after launch. CPU: the time used over the next 10 s, the window focused and left alone. In the browser: the gallery's <code>.wasm</code> and <code>.js</code> as this site serves them (brotli), {bench.web.wasmKB} + {bench.web.jsKB} KB. Windows, Linux and the phones are not measured yet. <code>site/bench.sh</code> measures it again.
       </p>
     </section>
   </main>
