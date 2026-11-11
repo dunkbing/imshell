@@ -79,16 +79,19 @@ namespace imshell::Clipboard {
             return f;
         }
 
-        // "HTML Format" is the html after a header of byte offsets (StartHTML:0000000105 ...)
+        // "HTML Format" is the html after a header of byte offsets (StartHTML:0000000105 ...); the
+        // fragment is what was copied (what other platforms hold), the rest a wrapper document
         std::string htmlFrom(const std::string& cf) {
             auto offset = [&](const char* key) -> size_t {
                 const size_t at = cf.find(key);
                 return at == cf.npos ? cf.npos : std::strtoul(cf.c_str() + at + std::strlen(key), nullptr, 10);
             };
-            const size_t start = offset("StartHTML:"), end = offset("EndHTML:");
+            size_t start = offset("StartFragment:"), end = offset("EndFragment:");
+            if (start >= cf.size())
+                start = offset("StartHTML:"), end = offset("EndHTML:");
             if (start >= cf.size())
                 return {};
-            std::string html = cf.substr(start, end > start && end <= cf.size() ? end - start : cf.npos);
+            std::string html = cf.substr(start, end >= start && end <= cf.size() ? end - start : cf.npos);
             return html.substr(0, html.find('\0'));
         }
         std::string htmlTo(const std::string& html) {

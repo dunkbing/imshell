@@ -25,8 +25,8 @@ int main() {
     Clipboard::Write({{{{"text/plain", "hi"}, {"text/html", "<b>hi</b>"}}}});
     items = Clipboard::Read();
     check(items.size() == 1 && items[0].get("text/plain") == "hi", "an item keeps its text");
-    check(items.size() == 1 && items[0].get("text/html").find("<b>hi</b>") != std::string::npos,
-          "an item keeps its html");
+    check(items.size() == 1 && items[0].get("text/html") == "<b>hi</b>",
+          "an item keeps its html (the fragment, not the wrapper)");
 
     // a 2x2 red picture
     const unsigned char red[] = {
