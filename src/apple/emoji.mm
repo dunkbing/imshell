@@ -50,8 +50,7 @@ namespace imshell::detail {
 
         void bakedDestroy(ImFontAtlas*, ImFontConfig*, ImFontBaked*, void*) {}
 
-        // skin tones (U+1F3FB to U+1F3FF) colour the emoji before them; imgui does not join the
-        // two, so the tone's own square is left out rather than drawn beside it
+        // the tones' glyphs (see IsSkinTone): drawn with no width
         bool isSkinTone(CTFontRef font, CGGlyph glyph) {
             static const std::vector<CGGlyph> tones = [font] {
                 std::vector<CGGlyph> out;
@@ -103,7 +102,7 @@ namespace imshell::detail {
             std::memset(pixels, 0, static_cast<size_t>(w) * h * 4);
             CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
             CGContextRef context = CGBitmapContextCreate(pixels, w, h, 8, w * 4, space,
-                                                         kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big);
+                                                         static_cast<uint32_t>(kCGImageAlphaPremultipliedLast) | static_cast<uint32_t>(kCGBitmapByteOrder32Big));
             CGContextSetInterpolationQuality(context, kCGInterpolationHigh);
             CGContextTranslateCTM(context, -left, -bottom);
             CGContextScaleCTM(context, scale, scale);
@@ -111,28 +110,7 @@ namespace imshell::detail {
             CTFontDrawGlyphs(font, &glyph, &origin, 1, context);
             CGContextRelease(context);
             CGColorSpaceRelease(space);
-            // imgui blends straight alpha
-            for (int i = 0; i < w * h; ++i) {
-                unsigned char* p = pixels + i * 4;
-                if (p[3] != 0 && p[3] != 255)
-                    for (int c = 0; c < 3; ++c)
-                        p[c] = static_cast<unsigned char>(std::min(255, p[c] * 255 / p[3]));
-            }
-
-            const ImFontAtlasRectId id = ImFontAtlasPackAddRect(atlas, w, h);
-            if (id == ImFontAtlasRectId_Invalid)
-                return false;
-            ImTextureRect* rect = ImFontAtlasPackGetRect(atlas, id);
-            // on the text's baseline: its bottom row at `bottom` pixels below it
-            out->X0 = static_cast<float>(left) / density;
-            out->X1 = static_cast<float>(left + w) / density;
-            out->Y0 = static_cast<float>(-(bottom + h)) / density + baked->Ascent;
-            out->Y1 = static_cast<float>(-bottom) / density + baked->Ascent;
-            out->Visible = true;
-            out->Colored = true;
-            out->PackId = id;
-            ImFontAtlasBakedSetFontGlyphBitmap(atlas, baked, src, out, rect, pixels, ImTextureFormat_RGBA32, w * 4);
-            return true;
+            return PutEmojiGlyph(atlas, src, baked, out, pixels, w, h, left, bottom, density);
         }
     } // namespace
 

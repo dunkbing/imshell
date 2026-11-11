@@ -2,6 +2,6 @@
 
 namespace imshell::detail {
     const ImFontLoader* EmojiLoader() {
-        return nullptr; // shortcut: macos and ios only; freetype with the system's colour font elsewhere
+        return nullptr; // shortcut: windows (directwrite) and the web (a canvas) draw no emoji yet
     }
 } // namespace imshell::detail
