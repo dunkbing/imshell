@@ -220,8 +220,11 @@ namespace mydear {
         const bool isFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
         cursorBlinkTimer_ += ImGui::GetIO().DeltaTime;
 
-        // not while an imgui text field (the find bar) is active: it reads the same char queue
-        if (isFocused && !ImGui::GetIO().WantTextInput)
+        // not while an imgui text field (the find bar) is active: it reads the same char queue.
+        // io.WantTextInput cannot tell: this editor sets it too, for the ime
+        const ImGuiContext& g = *ImGui::GetCurrentContext();
+        const bool fieldActive = g.ActiveId != 0 && g.ActiveId == g.InputTextState.ID;
+        if (isFocused && !fieldActive)
             handleKeyboardInput();
         if (ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)) {
             ImGui::SetMouseCursor(ImGuiMouseCursor_TextInput);
@@ -329,10 +332,11 @@ namespace mydear {
         }
         if (isFocused && !readOnly_) {
             renderCursor(drawList);
-            // asks for the soft keyboard and places the ime the way imgui's text fields do,
-            // minus WantTextInput, which would switch off the input handling above
+            // asks for the soft keyboard and places the ime the way imgui's text fields do; with
+            // WantTextInput the shells underline a composition here and global shortcuts stand back
             ImGuiPlatformImeData& ime = ImGui::GetCurrentContext()->PlatformImeData;
             ime.WantVisible = true;
+            ime.WantTextInput = true;
             ime.InputPos = ImVec2(getScreenX(cursorIndex_),
                                   textOrigin_.y + getLineFromPos(cursorIndex_) * lineHeight_);
             ime.InputLineHeight = lineHeight_;

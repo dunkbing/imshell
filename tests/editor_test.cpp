@@ -335,6 +335,29 @@ namespace {
     }
 
     // everything drawn at once, two editors in one window: no duplicated id, no imgui assert
+    void ime() {
+        // a focused editor is a text field to the platform: the ime and the soft keyboard follow
+        // its caret and the shells underline a composition there
+        TextEditor e;
+        start(e, "ab");
+        const ImGuiPlatformImeData& data = GImGui->PlatformImeData;
+        CHECK(data.WantTextInput && data.WantVisible && data.InputLineHeight > 0);
+        CHECK(ImGui::GetIO().WantTextInput);
+        type("c"); // its own flag does not keep it from typing
+        CHECK_TEXT(e, "abc");
+        // an imgui field (the find bar) has the characters while it is active
+        key(ImGuiKey_F, ImGuiMod_Ctrl);
+        type("zz");
+        CHECK_TEXT(e, "abc");
+        key(ImGuiKey_Escape);
+        frames();
+        type("d");
+        CHECK_TEXT(e, "abcd");
+        e.SetReadOnly(true); // nothing to type into: no keyboard
+        frames();
+        CHECK(!GImGui->PlatformImeData.WantTextInput);
+    }
+
     void everything() {
         TextEditor e, other;
         e.SetPlaceholder("type here");
@@ -383,6 +406,7 @@ int main() {
     undo();
     highlighting();
     completion();
+    ime();
     everything();
     ImGui::DestroyContext();
     if (failures) {
