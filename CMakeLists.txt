@@ -227,7 +227,7 @@ endif()
 
 # pictures and files from the clipboard: macos only so far
 if(NOT APPLE OR IOS)
-    target_sources(imshell PRIVATE src/clipboard_none.cpp)
+    target_sources(imshell PRIVATE src/clipboard_text.cpp)
 endif()
 
 # the touch engine's test: a bare imgui context, no platform
@@ -240,11 +240,11 @@ if(IMSHELL_BUILD_TESTS)
     target_compile_features(imshell_touch_test PRIVATE cxx_std_20)
     add_test(NAME imshell_touch_test COMMAND imshell_touch_test)
     if(APPLE AND NOT IOS)
-        add_executable(imshell_clipboard_test tests/clipboard_test.mm src/macos/clipboard.mm)
+        add_executable(imshell_clipboard_test tests/clipboard_test.mm src/macos/clipboard.mm src/clipboard.cpp)
         set_source_files_properties(tests/clipboard_test.mm src/macos/clipboard.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
         target_include_directories(imshell_clipboard_test PRIVATE include)
         target_compile_features(imshell_clipboard_test PRIVATE cxx_std_20)
-        target_link_libraries(imshell_clipboard_test PRIVATE "-framework AppKit")
+        target_link_libraries(imshell_clipboard_test PRIVATE "-framework AppKit" "-framework UniformTypeIdentifiers")
         add_test(NAME imshell_clipboard_test COMMAND imshell_clipboard_test)
     endif()
     add_executable(imshell_frame_skip_test tests/frame_skip_test.cpp src/frame_skip.cpp ${IMSHELL_TEST_IMGUI})

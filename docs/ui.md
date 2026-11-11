@@ -65,15 +65,25 @@ On iOS the documents folder shows in the Files app under the app's name. Filters
 
 ## Clipboard (`imshell/clipboard.hpp`)
 
-One read and one write per kind of content, in `imshell::Clipboard`, from the UI thread:
+Shaped like the web's Clipboard API, in `imshell::Clipboard`, from the UI thread:
 
 ```cpp
-std::string text = Clipboard::ReadText();      Clipboard::WriteText("hi");
-std::string png  = Clipboard::ReadImage();     Clipboard::WriteImage(png);   // png bytes
-std::vector<std::string> paths = Clipboard::ReadFiles();                     // copied in the file manager
+std::vector<Clipboard::Item> items = Clipboard::Read();
+std::string text = Clipboard::ReadText();
+Clipboard::Write({{{{"text/plain", "hi"}, {"text/html", "<b>hi</b>"}}}});
+Clipboard::WriteText("hi");
 ```
 
-A read returns empty when the clipboard holds none of that kind, so a paste handler tries them in order: files, then a picture, then text. Text works everywhere (it is ImGui's clipboard). Pictures and files are macOS only so far: the other platforms read empty and ignore a written picture.
+An `Item` is one thing on the clipboard in each format it is offered in: `item.data` maps a mime type to its bytes, `item.has(type)` and `item.get(type)` look one up (empty when absent), and `item.file()` is the path when the item is a file copied in the file manager (from its `text/uri-list`). There is usually one item; copied files give one each. A paste handler:
+
+```cpp
+for (const auto& item : Clipboard::Read()) {
+    if (!item.file().empty())        attach(item.file());
+    else if (item.has("image/png"))  attachPng(item.get("image/png"));
+}
+```
+
+On macOS every pasteboard format that has a mime type is read and written (`text/plain`, `text/html`, `text/rtf`, `image/png`, `image/tiff`, `application/pdf`, `text/uri-list`, ...), and a picture is always offered as `image/png` (a screenshot arrives as TIFF). The other platforms carry `text/plain` only so far, through ImGui.
 
 ## Haptics (`imshell/haptics.hpp`)
 
