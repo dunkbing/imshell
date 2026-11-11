@@ -24,6 +24,7 @@ namespace imshell::Markdown {
             float fontSize = 0.0f;
         };
         Scope gScope;
+        bool gEmojiMerged = false; // into rich_md's faces, once per context
 
         // one read-only editor per code block, for colours and selection; dropped once its
         // block has not been drawn for a while
@@ -208,13 +209,20 @@ namespace imshell::Markdown {
         RichMd::RenderRaw(markdown);
         ImGui::PopID();
         gScope = saved;
-        // the faces rich_md added (it loads them as it needs them): colour emoji in them too
-        for (ImFont* font : ImGui::GetIO().Fonts->Fonts)
-            MergeEmoji(font);
+        // colour emoji in the faces rich_md loaded (they exist once it has rendered), not in the
+        // host's own fonts, which chose with AddFont's `emoji`
+        if (!gEmojiMerged) {
+            gEmojiMerged = true;
+            MergeEmoji(RichMd::GetCodeFont().font);
+            for (const bool bold : {false, true})
+                for (const bool italic : {false, true})
+                    MergeEmoji(RichMd::GetFont(RichMd::MarkdownFontSpec(italic, bold)).font);
+        }
     }
 
     void Shutdown() {
         codeViews().clear();
+        gEmojiMerged = false;
         if (RichMd::GetCurrentContext())
             RichMd::DestroyContext();
     }

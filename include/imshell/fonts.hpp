@@ -23,7 +23,8 @@ namespace imshell {
 
     // the first file is the base, the rest merge into it; null if the base fails to load.
     // systemCjk merges SystemCjkFontPath() last (mapped, not read: those files are 20+ mb).
-    // emoji merges the system's colour emoji (macos and ios so far); emoji past U+FFFF need
+    // emoji merges the system's colour emoji (apple; linux and android when built with freetype;
+    // none on windows and the web yet); emoji past U+FFFF need
     // imgui built with IMGUI_USE_WCHAR32 (the IMSHELL_WCHAR32 option)
     ImFont* AddFont(std::span<const FontFile> files, float size = 16.0f, bool systemCjk = true, bool emoji = true);
     inline ImFont* AddFont(std::initializer_list<FontFile> files, float size = 16.0f, bool systemCjk = true,

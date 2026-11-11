@@ -1,13 +1,16 @@
 // imshell::Markdown on a bare imgui context, no window: a document is drawn for a few frames,
-// the code block reaches the highlighter hook, and Render works again after Shutdown. the
+// the code block reaches the highlighter hook, colour emoji go into its faces only, and Render
+// works again after Shutdown. the
 // renderer loads its fonts on demand, so the context says its backend takes textures and the
 // frame loop below plays that backend. built with -DIMSHELL_BUILD_TESTS=ON and imgui_rich_md
 #define STB_IMAGE_IMPLEMENTATION // imgui_rich_md's, which src/image.cpp has in an app
 #include "stb_image.h"
 
+#include "emoji.hpp"
 #include "imshell/markdown.hpp"
 
 #include "imgui.h"
+#include "imgui_rich_md/rich_md.h"
 
 #include <cstdio>
 #include <string>
@@ -30,6 +33,14 @@ namespace {
                                  "- one\n- two\n\n"
                                  "| a | b |\n|---|---|\n| 1 | 2 |\n\n"
                                  "```cpp\nint x = 1;\n```\n";
+
+    // how many of the font's sources are the colour emoji
+    int emojiSources(const ImFont* font) {
+        int n = 0;
+        for (const ImFontConfig* source : font->Sources)
+            n += source->FontLoader != nullptr && source->FontLoader == imshell::detail::EmojiLoader();
+        return n;
+    }
 
     // what a renderer backend does with the atlas textures
     void textures(bool destroy) {
@@ -85,12 +96,18 @@ int main() {
                                        },
                                    .run = [](const std::string&, const std::string&) {}});
     imshell::Markdown::Configure(options);
+    ImFont* hostFont = io.Fonts->AddFontDefault(); // the app's own: markdown leaves it alone
 
     frames();
     CHECK(made == 1); // one block, asked once
     CHECK(language == "cpp");
     CHECK(highlighted == "int x = 1;");
     CHECK(asked == "cpp"); // the action's predicate
+    // colour emoji go into the markdown's faces, once each, never into the app's fonts
+    const int expected = imshell::detail::EmojiLoader() ? 1 : 0;
+    CHECK(emojiSources(RichMd::GetCodeFont().font) == expected);
+    CHECK(emojiSources(RichMd::GetFont(RichMd::MarkdownFontSpec(true, true)).font) == expected);
+    CHECK(emojiSources(hostFont) == 0);
 
     imshell::Markdown::Shutdown();
     frames();

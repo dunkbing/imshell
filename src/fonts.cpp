@@ -5,7 +5,6 @@
 
 #include <cstdint>
 #include <map>
-#include <set>
 #include <vector>
 #include <cstring>
 #include <filesystem>
@@ -156,10 +155,14 @@ namespace imshell {
     } // namespace
 
     void MergeEmoji(ImFont* font) {
-        static std::set<ImFont*> merged;
         const ImFontLoader* loader = font ? detail::EmojiLoader() : nullptr;
-        if (!loader || !merged.insert(font).second)
+        if (!loader)
             return;
+        // once per font: asked of the font itself, so a font made again at the same address
+        // (after the atlas was cleared) still gets them
+        for (const ImFontConfig* source : font->Sources)
+            if (source->FontLoader == loader)
+                return;
         static unsigned char none = 0; // the loader reads the system font itself
         ImFontConfig config;
         config.FontLoader = loader;

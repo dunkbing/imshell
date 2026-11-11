@@ -11,7 +11,7 @@
 | Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) | — (`PickFile` copies one in) | — |
 | File dialogs | NFD | document picker | NFD | NFD | document picker | — (the callbacks never run yet) |
 | Skips identical frames | yes | yes | no | no | no | yes |
-| Colour emoji (`AddFont`, `MergeEmoji`) | CoreText | CoreText | — | FreeType + Noto Color Emoji | FreeType + Noto Color Emoji | — |
+| Colour emoji (`AddFont`, `MergeEmoji`) | CoreText | CoreText | — | FreeType + Noto Color Emoji (FreeType from the system) | FreeType + Noto Color Emoji, when the build has FreeType (the NDK has none) | — |
 | Haptics (`PlayHaptic`) | Force Touch trackpad | taptic engine | — | — | vibrator | — |
 | Auto-update (`IMSHELL_UPDATER`) | Sparkle | — (App Store) | WinSparkle | AppImage swap, SHA-256 checked | — (the store) | — (reload the page) |
 
