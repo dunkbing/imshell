@@ -34,6 +34,24 @@ add_library(imshell STATIC
 )
 add_library(imshell::imshell ALIAS imshell)
 
+# 32-bit characters in imgui: emoji and other text past U+FFFF (16-bit ImWchar shows them as
+# "?"). it changes imgui's structs, so every file that includes imgui.h must see it: the
+# host's own imgui sources get it through linking imshell
+option(IMSHELL_WCHAR32 "Build Dear ImGui with IMGUI_USE_WCHAR32 (emoji past U+FFFF)" OFF)
+if(IMSHELL_WCHAR32)
+    target_compile_definitions(imshell PUBLIC IMGUI_USE_WCHAR32)
+    add_compile_definitions(IMGUI_USE_WCHAR32) # imshell's own targets that do not link it (tests)
+endif()
+
+# colour emoji merged into AddFont's font: the platform's text engine draws them
+if(APPLE)
+    target_sources(imshell PRIVATE src/apple/emoji.mm)
+    set_source_files_properties(src/apple/emoji.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    target_link_libraries(imshell PUBLIC "-framework CoreText")
+else()
+    target_sources(imshell PRIVATE src/emoji_none.cpp)
+endif()
+
 # optional components (imshell/components.hpp): a host links imshell::components to use them
 add_library(imshell_components STATIC src/components.cpp)
 add_library(imshell::components ALIAS imshell_components)
@@ -60,6 +78,9 @@ if(TARGET imgui_rich_md)
     add_library(imshell_markdown STATIC src/markdown.cpp)
     add_library(imshell::markdown ALIAS imshell_markdown)
     target_link_libraries(imshell_markdown PUBLIC imshell_editor PRIVATE imgui_rich_md)
+    if(IMSHELL_WCHAR32)
+        target_compile_definitions(imgui_rich_md PUBLIC IMGUI_USE_WCHAR32)
+    endif()
 endif()
 
 # optional node editor (imshell/node_editor.hpp): imgui-node-editor, themed

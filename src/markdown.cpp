@@ -1,5 +1,7 @@
 #include "imshell/markdown.hpp"
 
+#include "imshell/fonts.hpp"
+
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "imshell/themes.hpp"
@@ -206,6 +208,9 @@ namespace imshell::Markdown {
         RichMd::RenderRaw(markdown);
         ImGui::PopID();
         gScope = saved;
+        // the faces rich_md added (it loads them as it needs them): colour emoji in them too
+        for (ImFont* font : ImGui::GetIO().Fonts->Fonts)
+            MergeEmoji(font);
     }
 
     void Shutdown() {
