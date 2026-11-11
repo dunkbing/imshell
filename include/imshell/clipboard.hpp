@@ -7,8 +7,9 @@
 // the system clipboard, shaped like the web's Clipboard API: Read and Write take items
 // that carry their content once per format, ReadText and WriteText are the plain-text
 // shortcuts. ui thread.
-// macos reads and writes every format that has a mime type; the other platforms do
-// text/plain only so far
+// every format that has a mime type on macos, ios, linux and windows; text, html and urls on
+// android (pictures read, not written); text on the web. linux and windows hold one set of
+// formats: Write keeps the first item, and files from every item
 namespace imshell::Clipboard {
     // one thing on the clipboard, in each format it is offered in
     struct Item {

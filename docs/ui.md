@@ -83,7 +83,13 @@ for (const auto& item : Clipboard::Read()) {
 }
 ```
 
-On macOS every pasteboard format that has a mime type is read and written (`text/plain`, `text/html`, `text/rtf`, `image/png`, `image/tiff`, `application/pdf`, `text/uri-list`, ...), and a picture is always offered as `image/png` (a screenshot arrives as TIFF). The other platforms carry `text/plain` only so far, through ImGui.
+Per platform:
+
+- **macOS and iOS**: every pasteboard format that has a mime type is read and written (`text/plain`, `text/html`, `text/rtf`, `image/png`, `image/tiff`, `application/pdf`, `text/uri-list`, ...), and a picture is always offered as `image/png` (a macOS screenshot arrives as TIFF, an iOS photo as JPEG or HEIC).
+- **Linux**: every format GTK offers with a mime type (`text/plain;charset=utf-8` reads as `text/plain`). The clipboard holds one set of formats, so `Write` keeps the first item, and files from all items as one list (also offered as `x-special/gnome-copied-files`, which file managers paste). A read waits for the owner up to a second per format.
+- **Windows**: `text/plain`, `text/html` (the CF_HTML header added and removed), `text/rtf`, `image/png` (also written as a bitmap for apps that paste only those, and a copied bitmap is read as PNG), copied files (CF_HDROP, one item each) and any format registered under a mime type name. One set of formats, as on Linux.
+- **Android**: text, HTML and URLs both ways; a copied picture (a `content://` URL) is read with its bytes and as PNG, but pictures and files are not written, since another app could only read them through a content provider of the app's own.
+- **The web**: `text/plain` only, through ImGui.
 
 ## Haptics (`imshell/haptics.hpp`)
 

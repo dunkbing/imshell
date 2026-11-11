@@ -2,7 +2,8 @@
 
 #include "imgui.h"
 
-// the platforms with no clipboard code of their own yet: text only, through imgui
+// plain text through imgui's own clipboard hooks, which the shell fills (linux, windows,
+// android, the web). Read and Write are the platform's, except on the web: text only there
 namespace imshell::Clipboard {
     std::string ReadText() {
         const char* text = ImGui::GetClipboardText();
@@ -11,6 +12,7 @@ namespace imshell::Clipboard {
     void WriteText(const std::string& text) {
         ImGui::SetClipboardText(text.c_str());
     }
+#ifdef __EMSCRIPTEN__
     std::vector<Item> Read() {
         const std::string text = ReadText();
         return text.empty() ? std::vector<Item>{} : std::vector<Item>{{{{"text/plain", text}}}};
@@ -23,4 +25,5 @@ namespace imshell::Clipboard {
             }
         }
     }
+#endif
 } // namespace imshell::Clipboard

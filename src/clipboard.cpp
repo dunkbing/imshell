@@ -1,5 +1,6 @@
 #include "imshell/clipboard.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 
 namespace imshell::Clipboard {
@@ -23,6 +24,12 @@ namespace imshell::Clipboard {
         if (path.size() > 1 && path.back() == '/') {
             path.pop_back(); // a folder's url ends in one
         }
+#ifdef _WIN32
+        if (path.size() > 2 && path[2] == ':') {
+            path.erase(0, 1); // /C:/a -> C:\a
+        }
+        std::replace(path.begin(), path.end(), '/', '\\');
+#endif
         return slash == std::string::npos ? "" : path;
     }
 } // namespace imshell::Clipboard

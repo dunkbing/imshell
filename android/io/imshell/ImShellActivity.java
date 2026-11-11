@@ -343,6 +343,100 @@ public class ImShellActivity extends NativeActivity {
         cm.setPrimaryClip(ClipData.newPlainText("text", text));
     }
 
+    // imshell::Clipboard::Read and Write: items as [mime, bytes, mime, bytes, ..., "" (next item)]
+    private static final java.nio.charset.Charset UTF8 = java.nio.charset.StandardCharsets.UTF_8;
+
+    public byte[][] readClipboard() {
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        ClipData clip = cm.getPrimaryClip();
+        java.util.ArrayList<byte[]> out = new java.util.ArrayList<>();
+        for (int i = 0; clip != null && i < clip.getItemCount(); ++i) {
+            ClipData.Item item = clip.getItemAt(i);
+            if (item.getText() != null)
+                addPart(out, "text/plain", item.getText().toString().getBytes(UTF8));
+            if (item.getHtmlText() != null)
+                addPart(out, "text/html", item.getHtmlText().getBytes(UTF8));
+            Uri uri = item.getUri();
+            if (uri != null) {
+                addPart(out, "text/uri-list", uri.toString().getBytes(UTF8));
+                // a copied picture's bytes, and always as png
+                String type = "content".equals(uri.getScheme()) ? getContentResolver().getType(uri) : null;
+                if (type != null && type.startsWith("image/")) {
+                    byte[] bytes = readUri(uri);
+                    if (bytes != null) {
+                        addPart(out, type, bytes);
+                        if (!type.equals("image/png")) {
+                            android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                            java.io.ByteArrayOutputStream png = new java.io.ByteArrayOutputStream();
+                            if (bitmap != null && bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, png))
+                                addPart(out, "image/png", png.toByteArray());
+                        }
+                    }
+                }
+            }
+            out.add(new byte[0]);
+        }
+        return out.toArray(new byte[0][]);
+    }
+
+    private static void addPart(java.util.ArrayList<byte[]> out, String mime, byte[] bytes) {
+        out.add(mime.getBytes(UTF8));
+        out.add(bytes);
+    }
+
+    private byte[] readUri(Uri uri) {
+        try (InputStream in = getContentResolver().openInputStream(uri)) {
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            byte[] buf = new byte[1 << 16];
+            for (int n; (n = in.read(buf)) > 0;)
+                bytes.write(buf, 0, n);
+            return bytes.toByteArray();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // text, html and urls; pictures and files need a content provider of the app's own to be
+    // offered to other apps, so they are left out
+    public void writeClipboard(byte[][] parts) {
+        java.util.ArrayList<ClipData.Item> items = new java.util.ArrayList<>();
+        java.util.LinkedHashSet<String> mimes = new java.util.LinkedHashSet<>();
+        String text = null, html = null, uri = null;
+        for (int i = 0; i <= parts.length; ) {
+            String mime = i < parts.length ? new String(parts[i], UTF8) : "";
+            if (mime.isEmpty()) { // the end of an item
+                if (html != null)
+                    items.add(new ClipData.Item(text != null ? text : html, html));
+                else if (text != null)
+                    items.add(new ClipData.Item(text));
+                else if (uri != null && !uri.startsWith("file:"))
+                    items.add(new ClipData.Item(Uri.parse(uri)));
+                text = html = uri = null;
+                i += 1;
+                continue;
+            }
+            String value = new String(parts[i + 1], UTF8);
+            if (mime.equals("text/plain")) {
+                text = value;
+                mimes.add(android.content.ClipDescription.MIMETYPE_TEXT_PLAIN);
+            } else if (mime.equals("text/html")) {
+                html = value;
+                mimes.add(android.content.ClipDescription.MIMETYPE_TEXT_HTML);
+            } else if (mime.equals("text/uri-list")) {
+                uri = value.split("\\r?\\n", 2)[0];
+                mimes.add(android.content.ClipDescription.MIMETYPE_TEXT_URILIST);
+            }
+            i += 2;
+        }
+        if (items.isEmpty())
+            return;
+        ClipData clip = new ClipData(new android.content.ClipDescription("imshell", mimes.toArray(new String[0])), items.get(0));
+        for (int i = 1; i < items.size(); ++i)
+            clip.addItem(items.get(i));
+        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        cm.setPrimaryClip(clip);
+    }
+
 
     // the system's floating text toolbar at (x, y), window pixels. a pick lands in pollEdit as
     // the letter of its shortcut: 'X' cut, 'C' copy, 'V' paste, 'A' select all

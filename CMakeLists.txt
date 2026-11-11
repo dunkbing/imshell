@@ -88,9 +88,9 @@ if(EMSCRIPTEN) # before UNIX, which emscripten's toolchain also sets
     target_link_options(imshell PUBLIC --use-port=contrib.glfw3 -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=2
                                       -sALLOW_MEMORY_GROWTH=1)
 elseif(IOS)
-    target_sources(imshell PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/apple/haptics.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
+    target_sources(imshell PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/ios/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
                                   ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_metal.mm)
-    set_source_files_properties(src/ios/app.mm src/ios/file_dialog.mm src/apple/haptics.mm src/apple/native_view.mm
+    set_source_files_properties(src/ios/app.mm src/ios/file_dialog.mm src/ios/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell PUBLIC "-framework UIKit" "-framework Metal" "-framework MetalKit"
         "-framework QuartzCore" "-framework Foundation" "-framework UniformTypeIdentifiers")
@@ -118,6 +118,7 @@ elseif(WIN32)
     find_package(glfw3 CONFIG REQUIRED)
     target_sources(imshell PRIVATE
         src/windows/app.cpp
+        src/windows/clipboard.cpp
         src/windows/dx11_backend.cpp
         src/windows/native_view.cpp
         src/haptics_none.cpp
@@ -126,7 +127,7 @@ elseif(WIN32)
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_dx11.cpp
     )
     target_compile_definitions(imshell PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-    target_link_libraries(imshell PUBLIC glfw d3d11 dxgi dwmapi)
+    target_link_libraries(imshell PUBLIC glfw d3d11 dxgi dwmapi shell32 shlwapi ole32 windowscodecs)
 elseif(ANDROID)
     # NativeActivity through the ndk's glue; its entry point must survive static linking
     enable_language(C)
@@ -150,6 +151,7 @@ elseif(UNIX)
     pkg_check_modules(IMSHELL_EPOXY REQUIRED IMPORTED_TARGET epoxy)
     target_sources(imshell PRIVATE
         src/linux/app.cpp
+        src/linux/clipboard.cpp
         src/haptics_none.cpp
         src/native_view.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
@@ -225,8 +227,9 @@ if(IMSHELL_BUILD_EXAMPLES AND NOT IOS)
     endif()
 endif()
 
-# pictures and files from the clipboard: macos only so far
-if(NOT APPLE OR IOS)
+# ReadText and WriteText through imgui's hooks where the shell fills them (and Read and Write
+# on the web, text only)
+if(NOT APPLE)
     target_sources(imshell PRIVATE src/clipboard_text.cpp)
 endif()
 
@@ -245,6 +248,25 @@ if(IMSHELL_BUILD_TESTS)
         target_include_directories(imshell_clipboard_test PRIVATE include)
         target_compile_features(imshell_clipboard_test PRIVATE cxx_std_20)
         target_link_libraries(imshell_clipboard_test PRIVATE "-framework AppKit" "-framework UniformTypeIdentifiers")
+        add_test(NAME imshell_clipboard_test COMMAND imshell_clipboard_test)
+    elseif(IOS) # run in the simulator: xcrun simctl spawn booted imshell_clipboard_test
+        add_executable(imshell_clipboard_test tests/clipboard_test_ios.mm src/ios/clipboard.mm src/clipboard.cpp)
+        set_source_files_properties(tests/clipboard_test_ios.mm src/ios/clipboard.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+        target_include_directories(imshell_clipboard_test PRIVATE include)
+        target_compile_features(imshell_clipboard_test PRIVATE cxx_std_20)
+        target_link_libraries(imshell_clipboard_test PRIVATE "-framework UIKit" "-framework UniformTypeIdentifiers")
+    elseif(WIN32) # replaces what is on the clipboard
+        add_executable(imshell_clipboard_test tests/clipboard_test_win.cpp src/windows/clipboard.cpp src/clipboard.cpp)
+        target_include_directories(imshell_clipboard_test PRIVATE include)
+        target_compile_features(imshell_clipboard_test PRIVATE cxx_std_20)
+        target_compile_definitions(imshell_clipboard_test PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+        target_link_libraries(imshell_clipboard_test PRIVATE shell32 shlwapi ole32 windowscodecs)
+        add_test(NAME imshell_clipboard_test COMMAND imshell_clipboard_test)
+    elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN) # needs a display (xvfb-run); replaces what is on the clipboard
+        add_executable(imshell_clipboard_test tests/clipboard_test_gtk.cpp src/linux/clipboard.cpp src/clipboard.cpp)
+        target_include_directories(imshell_clipboard_test PRIVATE include)
+        target_compile_features(imshell_clipboard_test PRIVATE cxx_std_20)
+        target_link_libraries(imshell_clipboard_test PRIVATE PkgConfig::IMSHELL_GTK4)
         add_test(NAME imshell_clipboard_test COMMAND imshell_clipboard_test)
     endif()
     add_executable(imshell_frame_skip_test tests/frame_skip_test.cpp src/frame_skip.cpp ${IMSHELL_TEST_IMGUI})
