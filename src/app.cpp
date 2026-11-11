@@ -1,19 +1,19 @@
 // what every shell shares: the data folder, imgui.ini and Run()
-#include "mydear/app.hpp"
-#include "mydear/image.hpp"
+#include "imshell/app.hpp"
+#include "imshell/image.hpp"
 #include "activity.hpp"
 
 #include <cstdlib>
 #include <filesystem>
 #include <system_error>
 #ifdef __ANDROID__
-#include "mydear/android.hpp"
+#include "imshell/android.hpp"
 #endif
 #ifdef __APPLE__
 #include <TargetConditionals.h>
 #endif
 
-namespace mydear {
+namespace imshell {
     std::string DataDir(const std::string& appName) {
         namespace fs = std::filesystem;
         const auto env = [](const char* name) {
@@ -81,4 +81,4 @@ namespace mydear {
         return 0;
     }
 #endif
-} // namespace mydear
+} // namespace imshell

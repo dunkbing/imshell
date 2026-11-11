@@ -1,4 +1,4 @@
-// sameAsLastFrame against a bare imgui context. built with -DMYDEAR_BUILD_TESTS=ON (ctest)
+// sameAsLastFrame against a bare imgui context. built with -DIMSHELL_BUILD_TESTS=ON (ctest)
 #include "frame_skip.hpp"
 
 #include "imgui.h"
@@ -25,7 +25,7 @@ namespace {
         ImGui::TextUnformatted(label);
         ImGui::End();
         ImGui::Render();
-        const bool same = mydear::detail::sameAsLastFrame(ImGui::GetDrawData(), bg);
+        const bool same = imshell::detail::sameAsLastFrame(ImGui::GetDrawData(), bg);
         for (ImTextureData* t : ImGui::GetPlatformIO().Textures)
             t->SetStatus(ImTextureStatus_OK); // what a renderer does after uploading
         return same;

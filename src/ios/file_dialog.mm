@@ -4,14 +4,14 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 #include "../native_view.hpp"
-#include "mydear/alert.hpp"
-#include "mydear/file_dialog.hpp"
+#include "imshell/alert.hpp"
+#include "imshell/file_dialog.hpp"
 
-@interface MydearPickerDelegate : NSObject <UIDocumentPickerDelegate>
+@interface ImShellPickerDelegate : NSObject <UIDocumentPickerDelegate>
 @property(nonatomic, copy) void (^done)(NSURL*);
 @end
 
-@implementation MydearPickerDelegate
+@implementation ImShellPickerDelegate
 - (void)documentPicker:(UIDocumentPickerViewController*)picker
     didPickDocumentsAtURLs:(NSArray<NSURL*>*)urls {
     self.done(urls.firstObject);
@@ -21,7 +21,7 @@
 }
 @end
 
-namespace mydear {
+namespace imshell {
     namespace {
         UIViewController* topController() {
             for (UIScene* scene in UIApplication.sharedApplication.connectedScenes) {
@@ -90,7 +90,7 @@ namespace mydear {
             return types.count ? types : @[ UTTypeItem ];
         }
 
-        MydearPickerDelegate* gPicking = nil; // the picker holds its delegate weakly
+        ImShellPickerDelegate* gPicking = nil; // the picker holds its delegate weakly
     } // namespace
 
     std::string DocumentsDir() {
@@ -114,7 +114,7 @@ namespace mydear {
         UIDocumentPickerViewController* picker =
             [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:contentTypes(filters)
                                                                         asCopy:NO];
-        gPicking = [MydearPickerDelegate new];
+        gPicking = [ImShellPickerDelegate new];
         __block FileDone callback = std::move(done);
         gPicking.done = ^(NSURL* url) {
           gPicking = nil;
@@ -137,4 +137,4 @@ namespace mydear {
     void PickFolderDialog(FileDone done) {
         done(DocumentsDir());
     }
-} // namespace mydear
+} // namespace imshell

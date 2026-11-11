@@ -3,14 +3,14 @@
 // the desktop frame loop over glfw, shared by the macos and windows shells
 #include "activity.hpp"
 #include "frame_skip.hpp"
-#include "mydear/app.hpp"
+#include "imshell/app.hpp"
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <chrono>
 #include <thread>
 
-namespace mydear::detail {
+namespace imshell::detail {
     constexpr double kIdleAfterSeconds = 2.0; // no input for this long: start idling
     constexpr double kMinWaitSeconds = 1.0 / 120.0;
     // requestFrames() wakes the loop (glfwPostEmptyEvent); an idle app still wakes this often
@@ -80,4 +80,4 @@ namespace mydear::detail {
         }
         wakeLoopHook().store(nullptr);
     }
-} // namespace mydear::detail
+} // namespace imshell::detail

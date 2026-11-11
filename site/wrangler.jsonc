@@ -1,7 +1,7 @@
 // cloudflare workers static assets, like dearsql.dev. workers builds runs cloudflare-build.sh
 // (emscripten and imgui fetched there, then build.sh), then wrangler deploy
 {
-  "name": "mydear",
+  "name": "imshell",
   "compatibility_date": "2026-11-10",
   // wrangler preview (pull request builds) needs the block, even empty
   "previews": {},

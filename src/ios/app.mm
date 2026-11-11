@@ -1,11 +1,11 @@
 #include "../activity.hpp"
 #include "../frame_skip.hpp"
 #include "../ime.hpp"
-#include "mydear/title_bar.hpp"
-#include "mydear/app.hpp"
-#include "mydear/haptics.hpp"
-#include "mydear/ios.h"
-#include "mydear/themes.hpp"
+#include "imshell/title_bar.hpp"
+#include "imshell/app.hpp"
+#include "imshell/haptics.hpp"
+#include "imshell/ios.h"
+#include "imshell/themes.hpp"
 #include "../native_view.hpp"
 #include "../touch.hpp"
 
@@ -24,7 +24,7 @@ namespace {
     id<MTLCommandQueue> gQueue = nil;
     CFTimeInterval gLastTime = 0;
     CGFloat gKeyboardInset = 0; // how much of the view the soft keyboard covers
-    mydear::App* gApp = nullptr; // created from the root controller's loadView
+    imshell::App* gApp = nullptr; // created from the root controller's loadView
 
     // idle like the desktop loops: after kIdleAfter without input, a wake or a busy frame, the
     // view stops its display link and draws only on setNeedsDisplay (input, requestFrames(),
@@ -54,7 +54,7 @@ namespace {
 // ---- the view: touches, the ipad pointer and keys become imgui input ----
 
 namespace {
-    namespace touch = mydear::touch; // the shared one-finger model (src/touch.cpp)
+    namespace touch = imshell::touch; // the shared one-finger model (src/touch.cpp)
 
     ImVec2 vec(CGPoint p) {
         return ImVec2(static_cast<float>(p.x), static_cast<float>(p.y));
@@ -141,16 +141,16 @@ namespace {
 // UITextInput over a document of one position: it exists for the keyboard's hold-space
 // trackpad, whose floating cursor turns into arrow keys. imgui keeps the real text
 // ponytail: no positions, so no loupe or selection handles; those need the real text here
-@interface MydearTextPosition : UITextPosition
+@interface ImShellTextPosition : UITextPosition
 @end
-@implementation MydearTextPosition
+@implementation ImShellTextPosition
 @end
 
-@interface MydearTextRange : UITextRange
+@interface ImShellTextRange : UITextRange
 @end
-@implementation MydearTextRange
+@implementation ImShellTextRange
 - (UITextPosition*)start {
-    static MydearTextPosition* p = [MydearTextPosition new];
+    static ImShellTextPosition* p = [ImShellTextPosition new];
     return p;
 }
 - (UITextPosition*)end {
@@ -162,17 +162,17 @@ namespace {
 @end
 
 namespace {
-    MydearTextRange* gRange = [MydearTextRange new];
+    ImShellTextRange* gRange = [ImShellTextRange new];
     CGPoint gCursor; // floating cursor, as far as arrows have moved it
     int gMarked = 0; // characters of an ime composition already sent
     std::string gMarkedText; // that composition, underlined under the caret
 } // namespace
 
-@interface MydearView : MTKView <UITextInput>
+@interface ImShellView : MTKView <UITextInput>
 @property(nonatomic) BOOL keyboardWanted;
 @end
 
-@implementation MydearView
+@implementation ImShellView
 @synthesize inputDelegate, markedTextStyle;
 - (UITextRange*)selectedTextRange {
     return gRange;
@@ -385,11 +385,11 @@ namespace {
         io.AddMouseButtonEvent((event.buttonMask & UIEventButtonMaskSecondary) ? 1 : 0, true);
         return;
     }
-    mydear::touch::fling(ImVec2(0, 0)); // a touch stops a flick
-    if (mydear::touch::state() != mydear::touch::State::None)
+    imshell::touch::fling(ImVec2(0, 0)); // a touch stops a flick
+    if (imshell::touch::state() != imshell::touch::State::None)
         return; // one finger drives the mouse
     // hover only: the cursor shape tells the pan what lies under the finger
-    mydear::touch::down(vec(p), CACurrentMediaTime());
+    imshell::touch::down(vec(p), CACurrentMediaTime());
 }
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     UITouch* touch = touches.anyObject;
@@ -398,7 +398,7 @@ namespace {
         ImGui::GetIO().AddMousePosEvent(p.x, p.y);
         return;
     }
-    mydear::touch::follow(vec(p));
+    imshell::touch::follow(vec(p));
 }
 - (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     UITouch* touch = touches.anyObject;
@@ -409,28 +409,28 @@ namespace {
         return;
     }
     // a tap clicks, a press lets go; the cursor stays (the ipad pointer hovers anyway)
-    mydear::touch::up(CACurrentMediaTime(), false);
+    imshell::touch::up(CACurrentMediaTime(), false);
 }
 - (void)touchesCancelled:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
     if (touches.anyObject.type == UITouchTypeIndirectPointer) {
-        mydear::touch::releaseAway();
+        imshell::touch::releaseAway();
         return;
     }
-    mydear::touch::cancel();
+    imshell::touch::cancel();
 }
 @end
 
 
 // ---- the controller: owns the view and draws each frame ----
 
-@implementation MydearViewController {
+@implementation ImShellViewController {
     UIPanGestureRecognizer* pan_;
     UILongPressGestureRecognizer* longPress_;
     UIEditMenuInteraction* editMenu_;
 }
 
 - (void)loadView {
-    MydearView* view = [[MydearView alloc] initWithFrame:UIScreen.mainScreen.bounds
+    ImShellView* view = [[ImShellView alloc] initWithFrame:UIScreen.mainScreen.bounds
                                                   device:MTLCreateSystemDefaultDevice()];
     view.delegate = self;
     view.preferredFramesPerSecond = 120;
@@ -464,7 +464,7 @@ namespace {
     gView = view;
     gQueue = [view.device newCommandQueue];
     // requestFrames() from any thread; idle, a 1 s heartbeat for work that never asks for frames
-    mydear::detail::wakeLoopHook().store([] { dispatch_async(dispatch_get_main_queue(), ^{ wake(); }); });
+    imshell::detail::wakeLoopHook().store([] { dispatch_async(dispatch_get_main_queue(), ^{ wake(); }); });
     [NSTimer scheduledTimerWithTimeInterval:1.0
                                     repeats:YES
                                       block:^(NSTimer*) {
@@ -540,7 +540,7 @@ namespace {
 - (void)longPress:(UILongPressGestureRecognizer*)g {
     if (g.state != UIGestureRecognizerStateBegan)
         return;
-    mydear::PlayHaptic(mydear::Haptic::LongPress);
+    imshell::PlayHaptic(imshell::Haptic::LongPress);
     touch::cancel(); // a press in progress lets go away from its target
     const CGPoint p = [g locationInView:gView];
     touch::hover(vec(p));
@@ -588,7 +588,7 @@ namespace {
         return;
     gApp->renderFrame();
     // show the soft keyboard while a text field wants it
-    MydearView* v = (MydearView*)view;
+    ImShellView* v = (ImShellView*)view;
     const BOOL want =
         ImGui::GetIO().WantTextInput || ImGui::GetCurrentContext()->PlatformImeData.WantVisible;
     if (want != v.keyboardWanted) {
@@ -611,49 +611,49 @@ namespace {
 }
 
 // every touch, key and hover passes here: wake the idle view
-@interface MydearWindow : UIWindow
+@interface ImShellWindow : UIWindow
 @end
 
-@implementation MydearWindow
+@implementation ImShellWindow
 - (void)sendEvent:(UIEvent*)event {
     wake();
     [super sendEvent:event];
 }
 @end
 
-@interface MydearSceneDelegate : UIResponder <UIWindowSceneDelegate>
+@interface ImShellSceneDelegate : UIResponder <UIWindowSceneDelegate>
 @property(strong, nonatomic) UIWindow* window;
 @end
 
-@implementation MydearSceneDelegate
+@implementation ImShellSceneDelegate
 - (void)scene:(UIScene*)scene
     willConnectToSession:(UISceneSession*)session
                  options:(UISceneConnectionOptions*)options {
-    self.window = [[MydearWindow alloc] initWithWindowScene:(UIWindowScene*)scene];
+    self.window = [[ImShellWindow alloc] initWithWindowScene:(UIWindowScene*)scene];
     self.window.rootViewController =
         [[UINavigationController alloc] initWithRootViewController:[[gRootClass alloc] init]];
     [self.window makeKeyAndVisible];
 }
 @end
 
-@interface MydearAppDelegate : UIResponder <UIApplicationDelegate>
+@interface ImShellAppDelegate : UIResponder <UIApplicationDelegate>
 @end
 
-@implementation MydearAppDelegate
+@implementation ImShellAppDelegate
 - (UISceneConfiguration*)application:(UIApplication*)application
     configurationForConnectingSceneSession:(UISceneSession*)session
                                    options:(UISceneConnectionOptions*)options {
     UISceneConfiguration* config = [[UISceneConfiguration alloc] initWithName:@"Default"
                                                                   sessionRole:session.role];
-    config.delegateClass = MydearSceneDelegate.class;
+    config.delegateClass = ImShellSceneDelegate.class;
     return config;
 }
 @end
 
-namespace mydear {
+namespace imshell {
     int RunUIKit(int argc, char* argv[], Class root) {
-        gRootClass = root ?: MydearViewController.class;
-        return UIApplicationMain(argc, argv, nil, NSStringFromClass(MydearAppDelegate.class));
+        gRootClass = root ?: ImShellViewController.class;
+        return UIApplicationMain(argc, argv, nil, NSStringFromClass(ImShellAppDelegate.class));
     }
 
     struct App::Impl {
@@ -669,7 +669,7 @@ namespace mydear {
     // the view exists (root controller's loadView): imgui, its metal backend, the clipboard
     bool App::create(const Config& config, Delegate& delegate) {
         if (!gView) {
-            std::fprintf(stderr, "mydear: create the app from the root controller's loadView\n");
+            std::fprintf(stderr, "imshell: create the app from the root controller's loadView\n");
             return false;
         }
         impl_->delegate = &delegate;
@@ -680,7 +680,7 @@ namespace mydear {
         ImGuiIO& io = ImGui::GetIO();
         if (config.docking)
             io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        io.BackendPlatformName = "mydear_ios";
+        io.BackendPlatformName = "imshell_ios";
         io.MouseDoubleClickMaxDist = 20.0f; // fingers land less precisely than a mouse
         ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
         pio.Platform_GetWindowWorkAreaInsets = [](ImGuiViewport*) { return detail::safeArea(); };
@@ -813,7 +813,7 @@ namespace mydear {
         ImGui::SetNextWindowPos(bar.pos);
         ImGui::SetNextWindowSize(bar.size);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
-        ImGui::Begin("##mydear_title_bar", nullptr,
+        ImGui::Begin("##imshell_title_bar", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoInputs |
                          ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings |
                          ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoDocking);
@@ -824,4 +824,4 @@ namespace mydear {
     void EndTitleBar() {
         ImGui::End();
     }
-} // namespace mydear
+} // namespace imshell

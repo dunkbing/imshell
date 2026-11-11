@@ -7,7 +7,7 @@
 // an idle app sleeps between events; anything animating (a spinner, a stream) asks for
 // frames a little longer so the loop keeps drawing. safe from any thread: a request from
 // an idle app wakes the loop at once
-namespace mydear {
+namespace imshell {
     inline std::atomic<std::int64_t>& framesWantedUntilMs() {
         static std::atomic<std::int64_t> until{0};
         return until;
@@ -41,4 +41,4 @@ namespace mydear {
     inline bool framesRequested() {
         return steadyNowMs() < framesWantedUntilMs().load(std::memory_order_relaxed);
     }
-} // namespace mydear
+} // namespace imshell

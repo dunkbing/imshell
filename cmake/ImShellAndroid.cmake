@@ -1,18 +1,18 @@
 # android: pack a shared library into a signed debug apk, no gradle (cmake/android/apk.sh)
 #
-#   mydear_android_apk(myapp PACKAGE com.example.myapp LABEL "My App"
-#                      [ACTIVITY io.mydear.MydearActivity] [JAVA extra.java...] [ASSETS dir]
+#   imshell_android_apk(myapp PACKAGE com.example.myapp LABEL "My App"
+#                      [ACTIVITY io.imshell.ImShellActivity] [JAVA extra.java...] [ASSETS dir]
 #                      [PERMISSIONS android.permission.INTERNET...] [VERSION 1.0] [VERSION_CODE 1])
 #
 # adds the target <lib>_apk, which writes <lib>.apk next to the library (debuggable in Debug). the sdk is the ndk's
 # parent (ndk/<version> inside it); needs a jdk (javac, jar, keytool) on PATH
 
-function(mydear_android_apk lib)
+function(imshell_android_apk lib)
     set(dir ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/android)
     cmake_parse_arguments(APK "" "PACKAGE;LABEL;ACTIVITY;ASSETS;VERSION;VERSION_CODE"
                           "JAVA;PERMISSIONS" ${ARGN})
     if(NOT APK_ACTIVITY)
-        set(APK_ACTIVITY io.mydear.MydearActivity)
+        set(APK_ACTIVITY io.imshell.ImShellActivity)
     endif()
     if(NOT APK_VERSION)
         set(APK_VERSION 1.0)
@@ -36,9 +36,9 @@ function(mydear_android_apk lib)
         set(ndk ${ANDROID_NDK})
     endif()
     get_filename_component(sdk ${ndk}/../.. ABSOLUTE)
-    set(java ${dir}/../../android/io/mydear/MydearActivity.java ${APK_JAVA})
+    set(java ${dir}/../../android/io/imshell/ImShellActivity.java ${APK_JAVA})
     add_custom_target(${lib}_apk ALL
-        COMMAND ${CMAKE_COMMAND} -E env MYDEAR_APK_DEBUG=$<CONFIG:Debug> ${dir}/apk.sh ${sdk} ${work} ${work}/AndroidManifest.xml
+        COMMAND ${CMAKE_COMMAND} -E env IMSHELL_APK_DEBUG=$<CONFIG:Debug> ${dir}/apk.sh ${sdk} ${work} ${work}/AndroidManifest.xml
                 $<TARGET_FILE:${lib}> ${CMAKE_CURRENT_BINARY_DIR}/${lib}.apk ${APK_ASSETS} ${java}
         DEPENDS ${lib} ${java}
         VERBATIM)

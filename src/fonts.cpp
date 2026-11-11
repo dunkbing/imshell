@@ -1,4 +1,4 @@
-#include "mydear/fonts.hpp"
+#include "imshell/fonts.hpp"
 
 #include <cstdint>
 #include <cstring>
@@ -16,7 +16,7 @@
 #include <unistd.h>
 #endif
 
-namespace mydear {
+namespace imshell {
     namespace {
         // a font file mapped read-only for the whole run. its pages stay clean: the os loads only
         // the glyph data drawn and can drop it again, where a read copy of a 23 mb .ttc stays
@@ -158,4 +158,4 @@ namespace mydear {
         }
         return font;
     }
-} // namespace mydear
+} // namespace imshell

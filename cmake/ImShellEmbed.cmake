@@ -1,6 +1,6 @@
-# mydear_embed_fonts(<dir>) / mydear_embed_images(<dir>): every font (.ttf .otf) or image (.png .jpg) in <dir> as a C++ byte array, regenerated when a file changes; sets EMBEDDED_FONTS_FILE / EMBEDDED_IMAGES_FILE to add to the target
+# imshell_embed_fonts(<dir>) / imshell_embed_images(<dir>): every font (.ttf .otf) or image (.png .jpg) in <dir> as a C++ byte array, regenerated when a file changes; sets EMBEDDED_FONTS_FILE / EMBEDDED_IMAGES_FILE to add to the target
 
-function(mydear_embed_fonts dir)
+function(imshell_embed_fonts dir)
   # Embed font files as resources
   file(GLOB FONT_FILES "${dir}/*.ttf" "${dir}/*.otf")
   set(RESOURCE_FILE "${CMAKE_CURRENT_BINARY_DIR}/embedded_fonts.cpp")
@@ -66,7 +66,7 @@ file(WRITE \${RESOURCE_FILE} \"\${OUT}\")
   set(EMBEDDED_FONTS_FILE ${RESOURCE_FILE} PARENT_SCOPE)
 endfunction()
 
-function(mydear_embed_images dir)
+function(imshell_embed_images dir)
   # Embed image files as resources
   file(
         GLOB IMAGE_FILES

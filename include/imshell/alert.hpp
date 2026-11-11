@@ -7,10 +7,10 @@
 // imgui modals that stack over everything, one at a time. show() queues one from any thread
 // (it wakes the loop) and returns; call Alert::render() once a frame, after the rest of the ui
 //
-//   mydear::Alert::show("Delete?", "It cannot be undone.",
-//                       {{"Delete", [] { ... }, mydear::AlertButton::Style::Destructive},
-//                        {"Cancel", nullptr, mydear::AlertButton::Style::Cancel}});
-namespace mydear {
+//   imshell::Alert::show("Delete?", "It cannot be undone.",
+//                       {{"Delete", [] { ... }, imshell::AlertButton::Style::Destructive},
+//                        {"Cancel", nullptr, imshell::AlertButton::Style::Cancel}});
+namespace imshell {
     struct AlertButton {
         std::string text;
         std::function<void()> onPress;
@@ -41,4 +41,4 @@ namespace mydear {
                          ConfirmCallback onConfirm, CancelCallback onCancel = nullptr,
                          ValidatorCallback validator = nullptr);
     };
-} // namespace mydear
+} // namespace imshell

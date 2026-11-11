@@ -1,13 +1,13 @@
 #pragma once
 
 #include "imgui.h"
-#include "mydear/themes.hpp"
+#include "imshell/themes.hpp"
 
 #include <algorithm>
 
 // every menu opens through these: a popup takes its padding when it opens,
 // so the tighter padding is pushed only for that moment
-namespace mydear {
+namespace imshell {
     // dialogs: never larger than the screen
     inline ImVec2 DialogRoom() {
         const ImVec2 work = ImGui::GetMainViewport()->WorkSize;
@@ -63,4 +63,4 @@ namespace mydear {
         ImGui::PopStyleVar();
         ImGui::EndCombo();
     }
-} // namespace mydear
+} // namespace imshell

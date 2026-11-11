@@ -1,9 +1,9 @@
-#include "mydear/select.hpp"
+#include "imshell/select.hpp"
 
 #include "imgui.h"
-#include "mydear/menu.hpp"
+#include "imshell/menu.hpp"
 
-bool mydear::Select(const char* label, int* currentItem, const char* const items[],
+bool imshell::Select(const char* label, int* currentItem, const char* const items[],
                      int itemCount) {
     const auto& colors = Theme::Current()->colors;
     ImGui::PushStyleColor(ImGuiCol_Button, colors.surface0);

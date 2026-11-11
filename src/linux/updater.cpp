@@ -2,7 +2,7 @@
 // download lands next to the AppImage (same filesystem, so the swap is one rename), is checked,
 // then renamed over it, and a restart execs the new one. outside an AppImage there is nothing to
 // replace: checks still run (Available()), installs don't
-#include "mydear/updater.hpp"
+#include "imshell/updater.hpp"
 #include "../native_view.hpp"
 
 #define CPPHTTPLIB_OPENSSL_SUPPORT
@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include <vector>
 
-namespace mydear::updater {
+namespace imshell::updater {
     namespace {
         namespace fs = std::filesystem;
 
@@ -150,7 +150,7 @@ namespace mydear::updater {
             client.set_follow_location(true);
             const auto res = client.Get(path.c_str());
             if (stop.stop_requested() || !res || res->status != 200) {
-                std::fprintf(stderr, "mydear: update check failed (%d)\n", res ? res->status : 0);
+                std::fprintf(stderr, "imshell: update check failed (%d)\n", res ? res->status : 0);
                 return false;
             }
             try {
@@ -168,7 +168,7 @@ namespace mydear::updater {
                 gNotes = data.value("release_notes", "");
                 return true;
             } catch (const std::exception& e) {
-                std::fprintf(stderr, "mydear: bad update manifest: %s\n", e.what());
+                std::fprintf(stderr, "imshell: bad update manifest: %s\n", e.what());
                 return false;
             }
         }
@@ -222,7 +222,7 @@ namespace mydear::updater {
             std::error_code ec;
             if (stop.stop_requested() || !res || res->status != 200 || !out ||
                 sha256Of(temp, stop) != sha) {
-                std::fprintf(stderr, "mydear: update download failed or did not verify\n");
+                std::fprintf(stderr, "imshell: update download failed or did not verify\n");
                 fs::remove(temp, ec);
                 return false;
             }
@@ -368,4 +368,4 @@ namespace mydear::updater {
         gWorker = {}; // requests stop and joins
         closeProgress();
     }
-} // namespace mydear::updater
+} // namespace imshell::updater

@@ -26,4 +26,4 @@ if [ ! -f "$TOOLS/imgui/imgui.h" ]; then
     git -C "$TOOLS/imgui" checkout --quiet FETCH_HEAD
 fi
 
-MYDEAR_IMGUI_DIR="$TOOLS/imgui" sh ./build.sh "$TOOLS/build-web"
+IMSHELL_IMGUI_DIR="$TOOLS/imgui" sh ./build.sh "$TOOLS/build-web"

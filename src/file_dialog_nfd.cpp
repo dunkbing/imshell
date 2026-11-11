@@ -1,17 +1,17 @@
 // desktop file dialogs: native file dialog extended (appkit, the windows shell, the xdg portal)
-#include "mydear/file_dialog.hpp"
+#include "imshell/file_dialog.hpp"
 
 #include <cstdio>
 #include <nfd.h>
 
-namespace mydear {
+namespace imshell {
     namespace {
         // nfd's own setup around each dialog: it can fail (no dbus session on linux), and a
         // failed init must not be followed by NFD_Quit
         template <class Show>
         void withNfd(const FileDone& done, Show show) {
             if (NFD_Init() != NFD_OKAY) {
-                std::fprintf(stderr, "mydear: file dialogs unavailable: %s\n", NFD_GetError());
+                std::fprintf(stderr, "imshell: file dialogs unavailable: %s\n", NFD_GetError());
                 return;
             }
             nfdchar_t* out = nullptr;
@@ -21,7 +21,7 @@ namespace mydear {
                 path = out;
                 NFD_FreePath(out);
             } else if (result != NFD_CANCEL) {
-                std::fprintf(stderr, "mydear: file dialog: %s\n", NFD_GetError());
+                std::fprintf(stderr, "imshell: file dialog: %s\n", NFD_GetError());
             }
             NFD_Quit();
             if (!path.empty())
@@ -60,4 +60,4 @@ namespace mydear {
     std::string DocumentsDir() {
         return {};
     }
-} // namespace mydear
+} // namespace imshell

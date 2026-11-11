@@ -1,15 +1,15 @@
 # Editor
 
-`mydear/editor.hpp` is a multi-line code editor, `mydear::TextEditor`: typing, selection, undo and redo, line numbers, find and replace, a read-only mode, and a completion popup. It is optional: it lives in its own target, `mydear::editor`, and nothing in mydear's core uses it, so an app that doesn't link it pays nothing. It draws with `Theme::Current()` and uses only ImGui's input, so it runs on every shell.
+`imshell/editor.hpp` is a multi-line code editor, `imshell::TextEditor`: typing, selection, undo and redo, line numbers, find and replace, a read-only mode, and a completion popup. It is optional: it lives in its own target, `imshell::editor`, and nothing in imshell's core uses it, so an app that doesn't link it pays nothing. It draws with `Theme::Current()` and uses only ImGui's input, so it runs on every shell.
 
 ```cmake
-target_link_libraries(myapp PRIVATE mydear::mydear mydear::editor)
+target_link_libraries(myapp PRIVATE imshell::imshell imshell::editor)
 ```
 
 ```cpp
-#include "mydear/editor.hpp"
+#include "imshell/editor.hpp"
 
-mydear::TextEditor editor; // keep it between frames
+imshell::TextEditor editor; // keep it between frames
 editor.SetText("let x = 1\n");
 editor.SetSubmitCallback([&] { run(editor.HasSelection() ? editor.GetSelectedText() : editor.GetText()); });
 
@@ -52,6 +52,6 @@ Colours come from `Theme::Current()` each frame (`TextEditor::FromTheme(colors)`
 - Ctrl+F or Ctrl+H opens the find bar, starting from the selection; F3 and Shift+F3 step through the matches, Escape closes it.
 - Undo keeps the last 100 steps as whole copies of the text. `SetText` clears them and the dirty flag.
 - Offsets are bytes of UTF-8. Lines do not wrap; the text scrolls sideways. A tab is drawn `SetTabSize` spaces wide.
-- The highlighter gets the whole text on every edit. For a large text and a slow parser, parse incrementally inside the hook (keep the last text and tree in its closure). There is no tree-sitter adapter in mydear yet.
+- The highlighter gets the whole text on every edit. For a large text and a slow parser, parse incrementally inside the hook (keep the last text and tree in its closure). There is no tree-sitter adapter in imshell yet.
 - While it is focused and editable the editor is a text field to the platform, as ImGui's own fields are: it sets `PlatformImeData.WantVisible` and `WantTextInput` with the caret's position, so iOS and Android show the soft keyboard and underline a composition at the caret, Windows places the IME window there, and `io.WantTextInput` tells the host's global shortcuts that someone is typing. On macOS GLFW places the IME's candidate window by itself. Touch reaches it as the mouse input the shells' touch layer produces; the selection handles are for ImGui's own text fields.
 - `tests/editor_test.cpp` drives an editor on a bare ImGui context with ImGui's input events: editing, selection, undo, a fake highlighter and a fake completion provider (`ctest`).

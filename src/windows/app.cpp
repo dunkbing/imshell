@@ -1,12 +1,12 @@
 #include "../activity.hpp"
-#include "mydear/app.hpp"
+#include "imshell/app.hpp"
 #include "../glfw_loop.hpp"
 #include "../native_view.hpp"
 #include "dx11_backend.hpp"
 #include "imgui_impl_glfw.h"
 #include "imgui_internal.h"
-#include "mydear/themes.hpp"
-#include "mydear/title_bar.hpp"
+#include "imshell/themes.hpp"
+#include "imshell/title_bar.hpp"
 
 #include <cstdio>
 #include <utility>
@@ -25,7 +25,7 @@
 #endif
 
 // imgui coordinates are client pixels here: glfw on windows has no points
-namespace mydear {
+namespace imshell {
     namespace {
         Delegate* gDelegate = nullptr; // glfw and window procedure callbacks have no user pointer
         HWND gHwnd = nullptr;
@@ -204,7 +204,7 @@ namespace mydear {
             };
 
             ImRect r = box(x);
-            if (button("##mydear_minimize", r, hoverBg, activeBg))
+            if (button("##imshell_minimize", r, hoverBg, activeBg))
                 ShowWindow(gHwnd, SW_MINIMIZE);
             ImVec2 m = r.GetCenter();
             dl->AddLine({m.x - 5, m.y}, {m.x + 5, m.y}, text);
@@ -226,7 +226,7 @@ namespace mydear {
             x += kCaptionW;
             r = box(x);
             const bool closeHot = ImGui::IsMouseHoveringRect(r.Min, r.Max);
-            if (button("##mydear_close", r, IM_COL32(196, 43, 28, 255), IM_COL32(170, 36, 23, 255)))
+            if (button("##imshell_close", r, IM_COL32(196, 43, 28, 255), IM_COL32(170, 36, 23, 255)))
                 PostMessageW(gHwnd, WM_CLOSE, 0, 0);
             m = r.GetCenter();
             const ImU32 cross = closeHot ? IM_COL32_WHITE : text;
@@ -257,14 +257,14 @@ namespace mydear {
         d.maxFps = config.maxFps;
 
         if (!glfwInit()) {
-            std::fprintf(stderr, "mydear: glfwInit failed\n");
+            std::fprintf(stderr, "imshell: glfwInit failed\n");
             return false;
         }
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // direct3d draws, not gl
         d.window =
             glfwCreateWindow(config.width, config.height, config.title.c_str(), nullptr, nullptr);
         if (!d.window) {
-            std::fprintf(stderr, "mydear: could not create the window\n");
+            std::fprintf(stderr, "imshell: could not create the window\n");
             glfwTerminate();
             return false;
         }
@@ -305,7 +305,7 @@ namespace mydear {
 
         ImGui_ImplGlfw_InitForOther(d.window, true);
         if (!d.backend->initializeImGui()) {
-            std::fprintf(stderr, "mydear: the imgui dx11 backend failed\n");
+            std::fprintf(stderr, "imshell: the imgui dx11 backend failed\n");
             return false;
         }
         followTheme();
@@ -369,7 +369,7 @@ namespace mydear {
 
     TitleBar BeginTitleBar() {
         if (ImGuiWindow* nav = GImGui->NavWindow;
-            nav && nav != ImGui::FindWindowByName("##mydear_title_bar"))
+            nav && nav != ImGui::FindWindowByName("##imshell_title_bar"))
             gFocusBeforeBar = nav;
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         TitleBar bar;
@@ -384,7 +384,7 @@ namespace mydear {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
-        ImGui::Begin("##mydear_title_bar", nullptr,
+        ImGui::Begin("##imshell_title_bar", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav |
                          ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
@@ -442,4 +442,4 @@ namespace mydear {
     void* detail::nativeHost() {
         return gHwnd;
     }
-} // namespace mydear
+} // namespace imshell

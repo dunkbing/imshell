@@ -2,9 +2,9 @@
 
 #include "imgui_internal.h" // ImRect
 
-// what a shell does for mydear/native_view.hpp. src/native_view.cpp keeps the entries and
+// what a shell does for imshell/native_view.hpp. src/native_view.cpp keeps the entries and
 // decides where each view goes and whether it shows; the platform file moves real views
-namespace mydear::detail {
+namespace imshell::detail {
     void* nativeHost();      // the shell's view imgui draws into (NSView*, UIView*, HWND, GtkWidget*)
     void placeNativeViews(); // after ImGui::Render(): move, clip, hide, free
     void dropNativeViews();  // App::destroy()
@@ -16,4 +16,4 @@ namespace mydear::detail {
     void nativePlace(void* clip, void* view, const ImRect& visible, const ImRect& full);
     void nativeSetHidden(void* clip, bool hidden);
     void nativeRemove(void* clip); // removes and frees the container and the view
-} // namespace mydear::detail
+} // namespace imshell::detail

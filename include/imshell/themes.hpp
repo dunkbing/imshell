@@ -3,7 +3,7 @@
 #include <string>
 #include <string_view>
 
-namespace mydear::Theme {
+namespace imshell::Theme {
     struct Colors {
         ImVec4 rose;
         ImVec4 coral;
@@ -412,4 +412,4 @@ namespace mydear::Theme {
         constexpr float L = 16.0f;
         constexpr float XL = 20.0f;
     } // namespace Spacing
-} // namespace mydear::Theme
+} // namespace imshell::Theme

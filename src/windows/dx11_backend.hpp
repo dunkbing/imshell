@@ -13,7 +13,7 @@ struct ID3D11DeviceContext;
 struct IDXGISwapChain;
 struct ID3D11RenderTargetView;
 
-namespace mydear {
+namespace imshell {
     // direct3d 11 swap chain on the window, and the imgui dx11 renderer
     class DX11Backend {
     public:
@@ -45,4 +45,4 @@ namespace mydear {
         IDXGISwapChain* swapChain_ = nullptr;
         ID3D11RenderTargetView* target_ = nullptr;
     };
-} // namespace mydear
+} // namespace imshell

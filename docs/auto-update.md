@@ -1,12 +1,12 @@
 # Auto-update
 
-`mydear/updater.hpp` keeps an installed app up to date. How an app updates depends on how it was installed, so mydear uses the mechanism that owns each format: Sparkle for a macOS `.app`, WinSparkle for a Windows install, and an in-place swap for a Linux AppImage. A package from a package manager (DEB, RPM, Flatpak, the App Store) is updated by its manager, never by the app.
+`imshell/updater.hpp` keeps an installed app up to date. How an app updates depends on how it was installed, so imshell uses the mechanism that owns each format: Sparkle for a macOS `.app`, WinSparkle for a Windows install, and an in-place swap for a Linux AppImage. A package from a package manager (DEB, RPM, Flatpak, the App Store) is updated by its manager, never by the app.
 
 ```cpp
-#include "mydear/updater.hpp"
+#include "imshell/updater.hpp"
 
 // once, after App::create
-mydear::updater::Start({
+imshell::updater::Start({
     .appName = "My App",
     .version = "1.4.2",
     .appcastUrl = "https://example.com/appcast.xml",     // windows
@@ -15,21 +15,21 @@ mydear::updater::Start({
 });
 
 // a "Check for Updates..." menu item
-mydear::updater::Check();
+imshell::updater::Check();
 
 // before exit
-mydear::updater::Stop();
+imshell::updater::Stop();
 ```
 
 `Start()` checks quietly in the background. `Check()` is the check a user asked for: it says what it found ("up to date", or the new version with its notes), offers to download it, and offers to restart afterwards. On Linux `Available()` and `LatestVersion()` report what the quiet check found, so the app can show an update button of its own.
 
 ## Turning it on
 
-The updater is off by default, so mydear needs nothing extra. Configure with `-DMYDEAR_UPDATER=ON`; the host provides the platform's updater, because it also has to ship it:
+The updater is off by default, so imshell needs nothing extra. Configure with `-DIMSHELL_UPDATER=ON`; the host provides the platform's updater, because it also has to ship it:
 
-- **macOS:** set `MYDEAR_SPARKLE_FRAMEWORK` to a `Sparkle.framework` (Sparkle 2) and embed the framework in the app bundle (`Contents/Frameworks`). Sparkle reads the feed and the key from `Info.plist`: `SUFeedURL` and `SUPublicEDKey`; without the key it doesn't start. `appcastUrl` and `publicKey` are not used.
+- **macOS:** set `IMSHELL_SPARKLE_FRAMEWORK` to a `Sparkle.framework` (Sparkle 2) and embed the framework in the app bundle (`Contents/Frameworks`). Sparkle reads the feed and the key from `Info.plist`: `SUFeedURL` and `SUPublicEDKey`; without the key it doesn't start. `appcastUrl` and `publicKey` are not used.
 - **Windows:** define an imported `WinSparkle` target (`winsparkle.h`, `WinSparkle.lib`) and ship `WinSparkle.dll` next to the exe.
-- **Linux:** mydear finds `httplib`, `nlohmann_json` and `OpenSSL` with `find_package` (vcpkg has all three).
+- **Linux:** imshell finds `httplib`, `nlohmann_json` and `OpenSSL` with `find_package` (vcpkg has all three).
 - **iOS:** always a no-op; the App Store updates the app.
 
 ## What each platform does
@@ -38,7 +38,7 @@ The updater is off by default, so mydear needs nothing extra. Configure with `-D
 |---|---|---|---|---|
 | macOS | Sparkle appcast (`SUFeedURL`) | Sparkle: ed25519 signature, code signature | Sparkle, replacing the whole `.app` | Sparkle's own windows, on its schedule |
 | Windows | Sparkle appcast (`appcastUrl`) | WinSparkle: ed25519 signature (`publicKey`) | the downloaded installer (an MSI, for instance) | WinSparkle's own windows |
-| Linux | JSON manifest (`manifestUrl`) | SHA-256 from the manifest, before anything is replaced | mydear: rename over the AppImage, then exec it | GTK dialogs, only after `Check()` |
+| Linux | JSON manifest (`manifestUrl`) | SHA-256 from the manifest, before anything is replaced | imshell: rename over the AppImage, then exec it | GTK dialogs, only after `Check()` |
 
 macOS and Windows share one appcast: publish each release once, signed with one ed25519 key (Sparkle's `generate_keys` and `sign_update`).
 
@@ -55,7 +55,7 @@ macOS and Windows share one appcast: publish each release once, signed with one 
 }
 ```
 
-mydear picks the entry for the CPU it was built for (`appimage-x86_64` or `appimage-aarch64`; `Config::assetKey` overrides it), with no fallback, since another architecture's binary won't run. Versions compare as dotted numbers; a part that isn't a number counts as 0, so `1.4.3-beta` is `1.4.3`.
+imshell picks the entry for the CPU it was built for (`appimage-x86_64` or `appimage-aarch64`; `Config::assetKey` overrides it), with no fallback, since another architecture's binary won't run. Versions compare as dotted numbers; a part that isn't a number counts as 0, so `1.4.3-beta` is `1.4.3`.
 
 An update goes like this:
 

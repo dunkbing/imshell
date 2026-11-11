@@ -5,30 +5,30 @@
 #import "imgui_impl_glfw.h"
 #import "imgui_impl_metal.h"
 #include "metal_backend.hpp"
-#include "mydear/app.hpp"
-#include "mydear/title_bar.hpp"
+#include "imshell/app.hpp"
+#include "imshell/title_bar.hpp"
 #import <GLFW/glfw3.h>
 #import <GLFW/glfw3native.h>
 
 
 // Pass-through views: hitTest returns nil so all events reach GLFW's content view.
-@interface MydearPassthroughView : NSView
+@interface ImShellPassthroughView : NSView
 @end
-@implementation MydearPassthroughView
+@implementation ImShellPassthroughView
 - (NSView*)hitTest:(NSPoint)point {
     return nil;
 }
 @end
 
-@interface MydearPassthroughEffectView : NSVisualEffectView
+@interface ImShellPassthroughEffectView : NSVisualEffectView
 @end
-@implementation MydearPassthroughEffectView
+@implementation ImShellPassthroughEffectView
 - (NSView*)hitTest:(NSPoint)point {
     return nil;
 }
 @end
 
-namespace mydear {
+namespace imshell {
 
 MetalBackend::MetalBackend(GLFWwindow* window) : window_(window) {
     metalDevice_ = MTLCreateSystemDefaultDevice();
@@ -50,8 +50,8 @@ MetalBackend::MetalBackend(GLFWwindow* window) : window_(window) {
     [contentView setWantsLayer:YES];
 
     // vibrancy blur behind everything
-    MydearPassthroughEffectView* effectView =
-        [[MydearPassthroughEffectView alloc] initWithFrame:contentView.bounds];
+    ImShellPassthroughEffectView* effectView =
+        [[ImShellPassthroughEffectView alloc] initWithFrame:contentView.bounds];
     effectView.blendingMode = NSVisualEffectBlendingModeBehindWindow;
     effectView.state = NSVisualEffectStateActive;
     effectView.material = NSVisualEffectMaterialUnderWindowBackground;
@@ -59,13 +59,13 @@ MetalBackend::MetalBackend(GLFWwindow* window) : window_(window) {
     [contentView addSubview:effectView];
 
     // Metal rendering view on top of blur, pass-through for events
-    MydearPassthroughView* appContainer = [[MydearPassthroughView alloc] initWithFrame:contentView.bounds];
+    ImShellPassthroughView* appContainer = [[ImShellPassthroughView alloc] initWithFrame:contentView.bounds];
     [appContainer setWantsLayer:YES];
     appContainer.layer.opaque = NO;
     appContainer.alphaValue = 0.85;
     appContainer.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 
-    MydearPassthroughView* metalView = [[MydearPassthroughView alloc] initWithFrame:appContainer.bounds];
+    ImShellPassthroughView* metalView = [[ImShellPassthroughView alloc] initWithFrame:appContainer.bounds];
     metalView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
 
     CAMetalLayer* layer = [CAMetalLayer layer];
@@ -172,4 +172,4 @@ ImTextureID MetalBackend::createTextureFromRGBA(const uint8_t* pixels, int width
     // imgui holds the id, not a reference: keep the texture alive with the app
     return (ImTextureID)(intptr_t)(__bridge_retained void*)texture;
 }
-} // namespace mydear
+} // namespace imshell

@@ -4,10 +4,10 @@
 #include <span>
 #include <string>
 
-// optional components on top of plain imgui (target mydear::components): forms, status and
-// feedback pieces drawn with Theme::Current(). nothing in mydear's core uses them, so an app
+// optional components on top of plain imgui (target imshell::components): forms, status and
+// feedback pieces drawn with Theme::Current(). nothing in imshell's core uses them, so an app
 // that does not link the target pays nothing
-namespace mydear::ui {
+namespace imshell::ui {
     // what a status piece means; picks its colour from the theme
     enum class Tone {
         Neutral,
@@ -34,7 +34,7 @@ namespace mydear::ui {
 
     // a small pill with a word or a count
     void Badge(const char* text, Tone tone = Tone::Neutral);
-    // an inline message with an accent stripe; the body wraps. not a modal (see mydear/alert.hpp)
+    // an inline message with an accent stripe; the body wraps. not a modal (see imshell/alert.hpp)
     void Callout(const char* title, const char* body, Tone tone = Tone::Info);
 
     // fraction 0..1; a negative fraction is indeterminate (a moving stripe)
@@ -58,4 +58,4 @@ namespace mydear::ui {
     // RenderToasts once a frame after the rest of the ui
     void Toast(const char* text, Tone tone = Tone::Neutral, float seconds = 3);
     void RenderToasts();
-} // namespace mydear::ui
+} // namespace imshell::ui

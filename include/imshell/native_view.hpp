@@ -7,7 +7,7 @@
 // space like any item and the shell places the view there after the frame, clipped to the
 // imgui window. the view gets its own clicks and keys from the os.
 //
-//   auto* field = (__bridge NSTextField*)mydear::NativeView("##name", {200, 24}, [] {
+//   auto* field = (__bridge NSTextField*)imshell::NativeView("##name", {200, 24}, [] {
 //       return (__bridge_retained void*)[NSTextField textFieldWithString:@""];
 //   });
 //
@@ -16,7 +16,7 @@
 // - not drawn this frame (tab closed, scrolled away): hidden; gone for a few seconds: freed
 // - `create` runs once per id (in the current window's id stack) and hands over a +1
 //   reference: return (__bridge_retained void*)view
-namespace mydear {
+namespace imshell {
     // size: like ImGui::Button (0 or negative fills the remaining width / height);
     // returns the view, or nullptr if create returned nothing
     void* NativeView(const char* id, const ImVec2& size, const std::function<void*()>& create);
@@ -28,4 +28,4 @@ namespace mydear {
     bool NativeButton(const char* id, const char* symbol, const char* tooltip,
                       const char* title = nullptr);
 #endif
-} // namespace mydear
+} // namespace imshell

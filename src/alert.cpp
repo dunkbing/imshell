@@ -1,10 +1,10 @@
-#include "mydear/alert.hpp"
+#include "imshell/alert.hpp"
 
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "mydear/button.hpp"
-#include "mydear/frames.hpp"
-#include "mydear/themes.hpp"
+#include "imshell/button.hpp"
+#include "imshell/frames.hpp"
+#include "imshell/themes.hpp"
 
 #include <algorithm>
 #include <cfloat>
@@ -14,7 +14,7 @@
 #include <mutex>
 #include <variant>
 
-namespace mydear {
+namespace imshell {
 namespace {
     struct Message {
         std::string title, message;
@@ -36,14 +36,14 @@ namespace {
     std::deque<Entry> gQueue;
     bool gOpen = false; // the front entry's popup was opened
 
-    constexpr const char* kPopup = "###mydear_alert";
+    constexpr const char* kPopup = "###imshell_alert";
 
     void push(Entry entry) {
         {
             std::lock_guard lock(gMutex);
             gQueue.push_back(std::move(entry));
         }
-        mydear::requestFrames(); // may come from a worker while the loop sleeps
+        imshell::requestFrames(); // may come from a worker while the loop sleeps
     }
 
     float buttonWidth(const std::string& text) {
@@ -248,4 +248,4 @@ void Alert::render() {
             done(); // last: it may show another alert
     }
 }
-} // namespace mydear
+} // namespace imshell

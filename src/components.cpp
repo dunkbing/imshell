@@ -1,12 +1,12 @@
-// mydear::ui components (include/mydear/components.hpp): plain imgui items and draw-list
+// imshell::ui components (include/imshell/components.hpp): plain imgui items and draw-list
 // shapes in the theme's colours; nothing here keeps state across frames except toasts
 #define IMGUI_DEFINE_MATH_OPERATORS
-#include "mydear/components.hpp"
+#include "imshell/components.hpp"
 
 #include "imgui_internal.h"
-#include "mydear/button.hpp"
-#include "mydear/frames.hpp"
-#include "mydear/themes.hpp"
+#include "imshell/button.hpp"
+#include "imshell/frames.hpp"
+#include "imshell/themes.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -15,7 +15,7 @@
 #include <cstring>
 #include <vector>
 
-namespace mydear::ui {
+namespace imshell::ui {
     namespace {
         const Theme::Colors& colors() {
             return Theme::Current()->colors;
@@ -358,4 +358,4 @@ namespace mydear::ui {
             y = at.y - Theme::Spacing::S;
         }
     }
-} // namespace mydear::ui
+} // namespace imshell::ui

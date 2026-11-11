@@ -1,13 +1,13 @@
 #include "../activity.hpp"
-#include "mydear/app.hpp"
+#include "imshell/app.hpp"
 #include "../frame_skip.hpp"
 #include "../glfw_loop.hpp"
 #include "imgui_impl_glfw.h"
 #include "imgui_internal.h"
 #include "metal_backend.hpp"
 #include "../native_view.hpp"
-#include "mydear/themes.hpp"
-#include "mydear/title_bar.hpp"
+#include "imshell/themes.hpp"
+#include "imshell/title_bar.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -20,7 +20,7 @@
 #import <GLFW/glfw3native.h>
 #import <objc/runtime.h>
 
-namespace mydear {
+namespace imshell {
     namespace {
         Delegate* gDelegate = nullptr; // glfw and appkit callbacks have no user pointer
         NSWindow* gWindow = nil;
@@ -108,14 +108,14 @@ namespace mydear {
         d.maxFps = config.maxFps;
 
         if (!glfwInit()) {
-            std::fprintf(stderr, "mydear: glfwInit failed\n");
+            std::fprintf(stderr, "imshell: glfwInit failed\n");
             return false;
         }
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // metal draws, not gl
         d.window =
             glfwCreateWindow(config.width, config.height, config.title.c_str(), nullptr, nullptr);
         if (!d.window) {
-            std::fprintf(stderr, "mydear: could not create the window\n");
+            std::fprintf(stderr, "imshell: could not create the window\n");
             glfwTerminate();
             return false;
         }
@@ -137,7 +137,7 @@ namespace mydear {
 
         d.backend = std::make_unique<MetalBackend>(d.window);
         if (!d.backend->metalDevice_) {
-            std::fprintf(stderr, "mydear: no metal device\n");
+            std::fprintf(stderr, "imshell: no metal device\n");
             return false;
         }
         d.backend->vsync = d.vsync;
@@ -176,7 +176,7 @@ namespace mydear {
 
         ImGui_ImplGlfw_InitForOther(d.window, true);
         if (!d.backend->initializeImGui()) {
-            std::fprintf(stderr, "mydear: the imgui metal backend failed\n");
+            std::fprintf(stderr, "imshell: the imgui metal backend failed\n");
             return false;
         }
         return true;
@@ -239,7 +239,7 @@ namespace mydear {
 
     TitleBar BeginTitleBar() {
         if (ImGuiWindow* nav = GImGui->NavWindow;
-            nav && nav != ImGui::FindWindowByName("##mydear_title_bar"))
+            nav && nav != ImGui::FindWindowByName("##imshell_title_bar"))
             gFocusBeforeBar = nav;
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         TitleBar bar;
@@ -258,7 +258,7 @@ namespace mydear {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0)); // the default 32 would overlap
-        ImGui::Begin("##mydear_title_bar", nullptr,
+        ImGui::Begin("##imshell_title_bar", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav |
                          ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
@@ -311,4 +311,4 @@ namespace mydear {
                    ? (__bridge void*)((NSWindow*)glfwGetCocoaWindow(impl_->window)).contentView
                    : nullptr;
     }
-} // namespace mydear
+} // namespace imshell

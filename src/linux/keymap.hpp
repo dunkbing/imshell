@@ -4,7 +4,7 @@
 #include "imgui.h"
 #include <gtk/gtk.h>
 
-namespace mydear::detail {
+namespace imshell::detail {
     inline ImGuiKey gtkKeyToImGuiKey(guint keyval) {
         switch (keyval) {
         case GDK_KEY_Tab:
@@ -248,4 +248,4 @@ namespace mydear::detail {
             return ImGuiKey_None;
         }
     }
-} // namespace mydear::detail
+} // namespace imshell::detail

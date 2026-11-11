@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-// files baked into the binary by mydear_embed_fonts / mydear_embed_images (cmake/MydearEmbed.cmake);
+// files baked into the binary by imshell_embed_fonts / imshell_embed_images (cmake/ImShellEmbed.cmake);
 // the host calls both, the generated files define the get* functions
 struct EmbeddedFont {
     const char* name; // file name without extension

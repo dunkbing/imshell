@@ -37,15 +37,15 @@ namespace {
             WNDCLASSW wc = {};
             wc.lpfnWndProc = clipProc;
             wc.hInstance = GetModuleHandleW(nullptr);
-            wc.lpszClassName = L"MydearNativeClip";
+            wc.lpszClassName = L"ImShellNativeClip";
             RegisterClassW(&wc);
-            return L"MydearNativeClip";
+            return L"ImShellNativeClip";
         }();
         return name;
     }
 } // namespace
 
-namespace mydear::detail {
+namespace imshell::detail {
     void* nativeAttach(void* made) {
         HWND view = static_cast<HWND>(made);
         HWND clip = CreateWindowExW(0, clipClass(), nullptr,
@@ -79,4 +79,4 @@ namespace mydear::detail {
     void nativeRemove(void* clip) {
         DestroyWindow(static_cast<HWND>(clip)); // and the view, its child
     }
-} // namespace mydear::detail
+} // namespace imshell::detail
