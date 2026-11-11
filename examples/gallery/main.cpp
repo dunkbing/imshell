@@ -1,5 +1,6 @@
 // every imshell::ui component and the editor on one page, on the desktops and in a browser (the
 // website's demo)
+#include "imshell/resizable.hpp"
 #include "imshell/app.hpp"
 #include "imshell/button.hpp"
 #include "imshell/components.hpp"
@@ -177,6 +178,31 @@ struct Gallery : imshell::Delegate {
         ImGui::Spacing();
         ui::BeginCard("editor", "Editor");
         editor.Render("code", ImVec2(0, 200), true);
+        ui::EndCard();
+
+        // drag the lines between the panes; the left one keeps its width when the window resizes
+        ImGui::Spacing();
+        ui::BeginCard("panes", "Resizable");
+        static float list = 160, preview = 0;
+        static bool previewShown = true;
+        ImGui::Checkbox("Preview", &previewShown);
+        if (imshell::BeginResizable("panes", {.size = ImVec2(0, 160)})) {
+            if (imshell::ResizablePanel({.size = &list, .min = 100, .fixed = true}))
+                ImGui::TextDisabled("List, %.0f px", list);
+            if (imshell::ResizablePanel({.min = 120})) {
+                if (imshell::BeginResizable("stack", {.axis = imshell::Axis::Vertical})) {
+                    if (imshell::ResizablePanel({.min = 40}))
+                        ImGui::TextUnformatted("Top");
+                    if (imshell::ResizablePanel({.min = 40}))
+                        ImGui::TextUnformatted("Bottom");
+                    imshell::EndResizable();
+                }
+            }
+            if (imshell::ResizablePanel({.size = &preview, .min = 100, .visible = previewShown}))
+                ImGui::TextDisabled("Preview");
+            if (imshell::EndResizable())
+                ui::Toast("Sizes saved");
+        }
         ui::EndCard();
 
         ImGui::End();
