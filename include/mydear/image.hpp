@@ -12,4 +12,8 @@ namespace mydear {
     // decode a PNG held in memory (an embedded image) and upload it
     ImTextureID LoadTexture(const uint8_t* data, size_t size, const CreateTexture& create,
                             int* width = nullptr, int* height = nullptr);
+    // the same, uploaded by the app that Run() started (a delegate has no App to ask);
+    // ImTextureID{} when there is none (before Run, after it, on ios)
+    ImTextureID LoadTexture(const uint8_t* data, size_t size, int* width = nullptr,
+                            int* height = nullptr);
 } // namespace mydear

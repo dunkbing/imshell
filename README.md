@@ -17,7 +17,7 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 - **Fonts** (`fonts.hpp`): `AddFont(files)` makes one UI font from a text font with icon fonts and other scripts merged in, then the system's Chinese, Japanese and Korean font (memory-mapped, not read in); `SystemCjkFontPath()` names it.
 - **File dialogs** (`file_dialog.hpp`): `OpenFileDialog(filters, done)`, `SaveFileDialog`, `PickFolderDialog`, with filters as extensions. Native File Dialog on the desktops; the document picker on iOS and Android, where a picked file is copied in and saves go to `DocumentsDir()`.
 - **Haptics** (`haptics.hpp`): `PlayHaptic(Haptic::Tap)` (also `Selection`, `LongPress`, `Success`, `Warning`, `Error`): the taptic engine on iOS, the vibrator on Android, a Force Touch trackpad on macOS; nothing on Windows and Linux.
-- **Images** (`image.hpp`): `LoadTexture(bytes, size, create)` decodes a PNG and hands the pixels to the backend's texture upload.
+- **Images** (`image.hpp`): `LoadTexture(bytes, size, create)` decodes a PNG and hands the pixels to the backend's texture upload; `LoadTexture(bytes, size)` uploads through the app `Run()` started.
 - **Embedded files** (`cmake/MydearEmbed.cmake`, `embedded.hpp`): `mydear_embed_fonts(<dir>)` and `mydear_embed_images(<dir>)` bake every font or image in a folder into the binary; `findEmbeddedFont(name)` / `findEmbeddedImage(name)` find them by file name.
 
 ## Docs
