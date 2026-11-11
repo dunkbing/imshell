@@ -24,8 +24,9 @@ bool closeLikeUser(); // false where the platform cannot
 
 struct Hello : mydear::Delegate {
     int clicks = 0;
-    // smoke tests: MYDEAR_HELLO_QUIT=<seconds> closes by itself, MYDEAR_HELLO_PROBE=1 drives the
-    // window (title bar zoom, a bar button, native views, the close veto)
+    // smoke tests: MYDEAR_HELLO_QUIT=<seconds> closes by itself (0: right after the first frame,
+    // which site/bench.sh times), MYDEAR_HELLO_PROBE=1 drives the window (title bar zoom, a bar
+    // button, native views, the close veto)
     const char* quitAfter = std::getenv("MYDEAR_HELLO_QUIT");
     const bool probe = std::getenv("MYDEAR_HELLO_PROBE");
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
@@ -152,8 +153,9 @@ struct Hello : mydear::Delegate {
     }
 
     bool shouldQuit() override {
-        const bool quit = quitAfter && std::chrono::steady_clock::now() - start >
-                                           std::chrono::seconds(std::atoi(quitAfter));
+        const bool quit = quitAfter && ImGui::GetFrameCount() > 0 &&
+                          std::chrono::steady_clock::now() - start >=
+                              std::chrono::seconds(std::atoi(quitAfter));
         if (quit)
             std::printf("hello: %d frames\n", ImGui::GetFrameCount());
         return quit;
