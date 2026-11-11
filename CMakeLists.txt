@@ -34,6 +34,25 @@ add_library(imshell_editor STATIC src/editor.cpp)
 add_library(imshell::editor ALIAS imshell_editor)
 target_link_libraries(imshell_editor PUBLIC imshell)
 
+# optional markdown (imshell/markdown.hpp) through imgui_rich_md, which the host provides like
+# imgui: its folder in IMSHELL_RICH_MD_DIR, or its own imgui_rich_md target added before imshell.
+# without either there is no imshell::markdown
+set(IMSHELL_RICH_MD_DIR "" CACHE PATH "imgui_rich_md source folder, for imshell::markdown")
+if(IMSHELL_RICH_MD_DIR AND NOT TARGET imgui_rich_md)
+    # it links a target named imgui; the host compiles imgui, so headers only
+    if(NOT TARGET imgui)
+        add_library(imgui INTERFACE)
+        target_include_directories(imgui INTERFACE ${IMSHELL_IMGUI_DIR})
+    endif()
+    set(IMGUI_RICHMD_STB_IMAGE_IMPLEMENTATION OFF CACHE BOOL "" FORCE) # src/image.cpp has it
+    add_subdirectory(${IMSHELL_RICH_MD_DIR} ${CMAKE_CURRENT_BINARY_DIR}/imgui_rich_md EXCLUDE_FROM_ALL)
+endif()
+if(TARGET imgui_rich_md)
+    add_library(imshell_markdown STATIC src/markdown.cpp)
+    add_library(imshell::markdown ALIAS imshell_markdown)
+    target_link_libraries(imshell_markdown PUBLIC imshell_editor PRIVATE imgui_rich_md)
+endif()
+
 # the platform shell. imgui core stays the host's; its platform backends are ours
 if(EMSCRIPTEN) # before UNIX, which emscripten's toolchain also sets
     target_sources(imshell PRIVATE
@@ -215,6 +234,13 @@ if(IMSHELL_BUILD_TESTS)
     target_compile_features(imshell_editor_test PRIVATE cxx_std_20)
     target_compile_definitions(imshell_editor_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
     add_test(NAME imshell_editor_test COMMAND imshell_editor_test)
+    if(TARGET imgui_rich_md)
+        add_executable(imshell_markdown_test tests/markdown_test.cpp src/markdown.cpp src/editor.cpp src/button.cpp ${IMSHELL_TEST_IMGUI})
+        target_include_directories(imshell_markdown_test PRIVATE include third_party ${IMSHELL_IMGUI_DIR})
+        target_compile_features(imshell_markdown_test PRIVATE cxx_std_20)
+        target_link_libraries(imshell_markdown_test PRIVATE imgui_rich_md)
+        add_test(NAME imshell_markdown_test COMMAND imshell_markdown_test)
+    endif()
     # the smoke test: hello drives its own window (title bar, native views, the close veto) and
     # prints "probe: ok"; needs a desktop session
     if(TARGET imshell_hello AND NOT ANDROID AND NOT EMSCRIPTEN)

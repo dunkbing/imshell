@@ -8,6 +8,7 @@
 - [UI toolkit](ui.md): themes, widgets, menus, images and embedded files.
 - [Components](components.md): optional ready-made pieces (`imshell::components`): text fields, cards, badges, callouts, progress, avatars, metrics, chips, toasts.
 - [Editor](editor.md): an optional code editor (`imshell::editor`) with hooks for highlighting and completion.
+- [Markdown](markdown.md): optional markdown (`imshell::markdown`) through imgui_rich_md, with code blocks in the editor.
 - [Platforms](platforms.md): what each platform supports and how they differ.
 - [Roadmap](roadmap.md): what comes next, with the issues.
 

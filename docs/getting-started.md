@@ -83,6 +83,8 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+Add `-DIMSHELL_RICH_MD_DIR=/path/to/imgui_rich_md` to build `imshell::markdown` and its test ([Markdown](markdown.md)).
+
 On Linux, GTK 4 and libepoxy come from the system (`pkg-config`). Instead of the vcpkg toolchain, `-DCMAKE_PREFIX_PATH` can point at packages installed some other way, such as a host's `vcpkg_installed/<triplet>`.
 
 `ctest` runs two tests:
