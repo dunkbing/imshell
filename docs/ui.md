@@ -21,7 +21,29 @@ imshell::Theme::ApplyTheme(imshell::Theme::Current()->colors);
 | `Select` | `select.hpp` | a dropdown over a string array |
 | `ToggleButton` | `toggle_button.hpp` | a switch bound to a `bool` |
 | `Splitter` | `splitter.hpp` | a draggable divider between two panes |
+| `BeginResizable`, `ResizablePanel`, `EndResizable` | `resizable.hpp` | panels in a row or column with a handle between each two; see below |
 | `Spinner`, `SpinnerOverlay` | `spinner.hpp` | the overlay draws on a draw list without taking layout space |
+
+## Resizable panels (`imshell/resizable.hpp`)
+
+A group of panels side by side (or stacked) with a handle on each boundary. Dragging a handle resizes the two panels next to it and nothing else.
+
+```cpp
+static float sidebar = 260, files = 0; // pixels; 0: not sized yet
+if (imshell::BeginResizable("main")) {
+    if (imshell::ResizablePanel({.size = &sidebar, .min = 200, .fixed = true})) Sidebar();
+    if (imshell::ResizablePanel({.min = 420})) Chat();
+    if (imshell::ResizablePanel({.size = &files, .min = 300, .visible = filesOpen})) Files();
+    if (imshell::EndResizable()) Save(sidebar, files); // true once, when a drag ends
+}
+```
+
+- **Sizes are pixels.** `size` points at the app's own value: it is read when the group first sees the panel and whenever the app changes it, and written when a drag resizes the panel, so saving it is enough to restore a layout. A panel without a size shares what the sized ones leave.
+- **When the group changes size**, `fixed` panels keep theirs and the others take the change in proportion to their sizes.
+- **Limits**: `min` and `max` (0: none) hold while dragging and while the group grows or shrinks. When the minimums do not fit, fixed panels give way to their minimum first, then the others shrink below theirs, so no panel ends past the edge. The sizes asked for are kept and come back when there is room.
+- **Hidden** (`visible = false`): the panel takes no room and has no handle; shown again, it has its old size. `ResizablePanel` returns false for it, so draw nothing.
+- **Options**: `axis` (`Horizontal`, `Vertical`), `size` of the group (as `BeginChild`), `disabled`, `hitSize` (the band around a handle that takes the mouse, 8 by default), and the handle's colours `line` and `lit` (`ImGuiCol_Separator` and `ImGuiCol_SeparatorActive` by default). The handle is one screen pixel at rest and two while hovered or dragged.
+- Each panel is a child window: `childFlags` and `windowFlags` go to it. Groups nest: begin one inside a panel.
 
 ## Menus and dialogs (`imshell/menu.hpp`)
 
