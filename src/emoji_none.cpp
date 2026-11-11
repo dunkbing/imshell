@@ -2,6 +2,6 @@
 
 namespace imshell::detail {
     const ImFontLoader* EmojiLoader() {
-        return nullptr; // shortcut: windows (directwrite) and the web (a canvas) draw no emoji yet
+        return nullptr; // shortcut: the web (a canvas) and linux without freetype draw no emoji yet
     }
 } // namespace imshell::detail
