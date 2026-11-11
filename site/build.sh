@@ -1,10 +1,10 @@
 #!/bin/sh
 # builds the site into site/dist: the astro pages plus the components gallery compiled to
-# webassembly (into public/gallery). needs emscripten (emcmake), bun and IMSHELL_IMGUI_DIR
-# usage: IMSHELL_IMGUI_DIR=/path/to/imgui site/build.sh [wasm-build-dir]
+# webassembly (into public/gallery). needs emscripten (emcmake), bun and the imgui submodule
+# (or IMSHELL_IMGUI_DIR). usage: site/build.sh [wasm-build-dir]
 set -eu
 cd "$(dirname "$0")/.."
-: "${IMSHELL_IMGUI_DIR:?set IMSHELL_IMGUI_DIR to a dear imgui checkout}"
+IMSHELL_IMGUI_DIR=${IMSHELL_IMGUI_DIR:-$PWD/external/imgui}
 BUILD=${1:-build-web}
 emcmake cmake -S . -B "$BUILD" -G Ninja -DCMAKE_BUILD_TYPE=Release \
     -DIMSHELL_IMGUI_DIR="$IMSHELL_IMGUI_DIR" -DIMSHELL_BUILD_EXAMPLES=ON >/dev/null

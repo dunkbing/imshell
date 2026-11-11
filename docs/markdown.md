@@ -1,22 +1,21 @@
 # Markdown
 
-`imshell/markdown.hpp` draws markdown: headings, bold and italic, lists, links, tables, inline code, and text that can be selected and copied. The parsing and layout are [imgui_rich_md](https://github.com/pthom/imgui_rich_md)'s; imshell adds the theme's colours, the app's fonts, and code blocks drawn by a read-only [`TextEditor`](editor.md) with a copy button. It is optional: it lives in its own target, `imshell::markdown`, which exists only when the host provides imgui_rich_md.
+`imshell/markdown.hpp` draws markdown: headings, bold and italic, lists, links, tables, inline code, and text that can be selected and copied. The parsing and layout are [imgui_rich_md](https://github.com/pthom/imgui_rich_md)'s; imshell adds the theme's colours, the app's fonts, and code blocks drawn by a read-only [`TextEditor`](editor.md) with a copy button. It is optional: it lives in its own target, `imshell::markdown`, which exists when imgui_rich_md is there.
 
 ## Adding it
 
-imshell neither vendors nor downloads imgui_rich_md. As with Dear ImGui, the host has a checkout (a submodule, for example) and passes its folder before adding imshell:
+imgui_rich_md is a submodule, `external/imgui_rich_md`, so linking the target is enough:
 
 ```cmake
-set(IMSHELL_RICH_MD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui_rich_md)
 add_subdirectory(external/imshell)
 target_link_libraries(myapp PRIVATE imshell::imshell imshell::markdown)
 ```
 
-imshell then adds that folder itself. imgui_rich_md links a target named `imgui`; when the host has none, imshell makes a header-only one from `IMSHELL_IMGUI_DIR`, since the host compiles Dear ImGui. It also turns `IMGUI_RICHMD_STB_IMAGE_IMPLEMENTATION` off, because imshell already has stb_image.
+A host with its own checkout sets `IMSHELL_RICH_MD_DIR` to it before adding imshell. imshell adds the folder itself. imgui_rich_md links a target named `imgui`; when the host has none, imshell makes a header-only one from `IMSHELL_IMGUI_DIR`, since the host compiles Dear ImGui. It also turns `IMGUI_RICHMD_STB_IMAGE_IMPLEMENTATION` off, because imshell already has stb_image.
 
 A host that already adds imgui_rich_md can instead do so before `add_subdirectory(external/imshell)`: imshell uses an existing `imgui_rich_md` target and leaves `IMSHELL_RICH_MD_DIR` alone. That host turns `IMGUI_RICHMD_STB_IMAGE_IMPLEMENTATION` off itself.
 
-`imshell::markdown` links `imshell::editor`. Without the folder or the target there is no `imshell::markdown`, and nothing else changes.
+`imshell::markdown` links `imshell::editor`. Without the submodule, the folder or the target there is no `imshell::markdown`, and nothing else changes.
 
 A plain checkout of imgui_rich_md has its md4c submodule empty unless cloned with `--recursive`; it then fetches md4c while configuring.
 
