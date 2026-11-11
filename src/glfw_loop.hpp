@@ -43,7 +43,7 @@ namespace imshell::detail {
             const bool busy = delegate.wantsFrames();
 
             double wait = 0.0;
-            if (!focused)
+            if (!focused || glfwGetWindowAttrib(window, GLFW_ICONIFIED))
                 wait = kMaxWaitSeconds; // nothing is drawn: no spinning, requestFrames() wakes it
             else if (focused && !busy && sinceInput >= kIdleAfterSeconds)
                 wait = std::clamp(sinceInput - kIdleAfterSeconds, kMinWaitSeconds, kMaxWaitSeconds);
@@ -58,8 +58,10 @@ namespace imshell::detail {
             wasFocused = nowFocused;
             delegate.tick();
             // never render unfocused: on macos CAMetalLayer nextDrawable blocks while the
-            // window is in the background, which makes switching apps sluggish
-            if (!nowFocused)
+            // window is in the background, which makes switching apps sluggish. nor minimized:
+            // a minimized window can stay active on windows, and imgui would lay out for a
+            // 0x0 display (dialogs capped to the screen shrink and stay small)
+            if (!nowFocused || glfwGetWindowAttrib(window, GLFW_ICONIFIED))
                 continue;
 
             render();
