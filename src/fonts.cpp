@@ -1,6 +1,11 @@
 #include "imshell/fonts.hpp"
 
+#include "emoji.hpp"
+#include "imgui_internal.h"
+
 #include <cstdint>
+#include <map>
+#include <vector>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -128,7 +133,49 @@ namespace imshell {
         return {};
     }
 
-    ImFont* AddFont(std::span<const FontFile> files, float size, bool systemCjk) {
+    namespace {
+        // the codepoints not in `ranges` (pairs, zero-terminated), as imgui's exclude list.
+        // kept for the atlas's life, one list per ranges array
+        const ImWchar* outsideOf(const ImWchar* ranges) {
+            static std::map<const ImWchar*, std::vector<ImWchar>> made;
+            auto& out = made[ranges];
+            if (out.empty()) {
+                unsigned next = 1;
+                for (const ImWchar* r = ranges; r[0] != 0; r += 2) {
+                    if (r[0] > next)
+                        out.insert(out.end(), {static_cast<ImWchar>(next), static_cast<ImWchar>(r[0] - 1)});
+                    next = static_cast<unsigned>(r[1]) + 1;
+                }
+                if (next <= IM_UNICODE_CODEPOINT_MAX)
+                    out.insert(out.end(), {static_cast<ImWchar>(next), static_cast<ImWchar>(IM_UNICODE_CODEPOINT_MAX)});
+                out.push_back(0);
+            }
+            return out.data();
+        }
+    } // namespace
+
+    void MergeEmoji(ImFont* font) {
+        const ImFontLoader* loader = font ? detail::EmojiLoader() : nullptr;
+        if (!loader)
+            return;
+        // once per font: asked of the font itself, so a font made again at the same address
+        // (after the atlas was cleared) still gets them
+        for (const ImFontConfig* source : font->Sources)
+            if (source->FontLoader == loader)
+                return;
+        static unsigned char none = 0; // the loader reads the system font itself
+        ImFontConfig config;
+        config.FontLoader = loader;
+        config.FontData = &none;
+        config.FontDataSize = 1;
+        config.FontDataOwnedByAtlas = false;
+        config.MergeMode = true;
+        config.DstFont = font;
+        ImFormatString(config.Name, IM_ARRAYSIZE(config.Name), "%s", "emoji");
+        ImGui::GetIO().Fonts->AddFont(&config);
+    }
+
+    ImFont* AddFont(std::span<const FontFile> files, float size, bool systemCjk, bool emoji) {
         ImFontAtlas* atlas = ImGui::GetIO().Fonts;
         ImFont* font = nullptr;
         for (const FontFile& f : files) {
@@ -140,6 +187,11 @@ namespace imshell {
                 config.OversampleH = config.OversampleV = 1;
                 config.PixelSnapH = true;
             }
+            // imgui 1.92 looks glyphs up past a merged source's ranges: an icon font that also
+            // maps ordinary codepoints (font awesome has ✅ ❤ 👍) would take them from the
+            // emoji and the text. everything outside its ranges is excluded instead
+            if (f.ranges && font)
+                config.GlyphExcludeRanges = outsideOf(f.ranges);
             ImFont* added = atlas->AddFontFromMemoryTTF(
                 const_cast<void*>(f.data), static_cast<int>(f.size), size, &config, f.ranges);
             if (!font && !added)
@@ -147,6 +199,9 @@ namespace imshell {
             if (!font)
                 font = added;
         }
+        // the system's colour emoji, before the cjk font so its pictures win over plain symbols
+        if (emoji)
+            MergeEmoji(font);
         if (font && systemCjk && !cjkData().empty()) {
             ImFontConfig config;
             config.FontDataOwnedByAtlas = false;

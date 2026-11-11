@@ -85,6 +85,14 @@ imshell::AddFont({{text->data, text->size}, {icons->data, icons->size, kIcons, t
 
 On iOS the documents folder shows in the Files app under the app's name. Filters become content types (iOS) or MIME types (Android, from a short table; anything else allows any file). On the desktops, link Native File Dialog Extended (vcpkg `nativefiledialog-extended`); imshell finds it with `find_package(nfd)`.
 
+## Emoji
+
+`AddFont` merges the system's colour emoji into the font (`emoji = true`, the default), and `MergeEmoji(font)` does it for a font made elsewhere (the markdown renderer calls it for the faces it loads, never for the app's own fonts). The emoji font's glyphs are pictures at fixed sizes, which ImGui's rasterizers cannot draw, so a small font loader draws each one at the size asked for: CoreText on macOS and iOS, FreeType with Noto Color Emoji on Linux and Android (`IMSHELL_EMOJI_FONT` names another file). FreeType is optional: CMake looks for it, and a build without it has no emoji. Linux distributions ship it (Ubuntu: `libfreetype-dev`); the Android NDK does not, so an Android host adds it itself (vcpkg `freetype`) or goes without. Windows and the web have none yet. Text, icons and CJK keep their own rasterizer.
+
+Most emoji are past U+FFFF, which ImGui's default 16-bit `ImWchar` cannot hold: configure with `-DIMSHELL_WCHAR32=ON` to build ImGui with `IMGUI_USE_WCHAR32`. It changes ImGui's structs, so it reaches every target that includes `imgui.h`, the host's own ImGui sources included (through linking imshell). Without it only the emoji below U+FFFF (✅ ❤ ✨) show.
+
+ImGui does no text shaping: skin tones are drawn with no width (the emoji keeps its default colour), flags show as two letters and joined sequences (👨‍👩‍👧) as their parts.
+
 ## Clipboard (`imshell/clipboard.hpp`)
 
 Shaped like the web's Clipboard API, in `imshell::Clipboard`, from the UI thread:
