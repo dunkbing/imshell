@@ -1,10 +1,9 @@
 # Getting started
 
-imshell is a static library added with `add_subdirectory`. Your project compiles Dear ImGui's core once and tells imshell where it is; imshell compiles only the platform and renderer backends it needs. Two copies of ImGui's core would each have their own global context, which fails in confusing ways, so imshell never builds one.
+imshell is a static library added with `add_subdirectory`. Dear ImGui comes as a submodule (`external/imgui`, docking branch; clone with `--recursive` or run `git submodule update --init --recursive`), or from your own checkout in `IMSHELL_IMGUI_DIR`. Your project compiles its core once, from that folder; imshell compiles only the platform and renderer backends it needs. Two copies of ImGui's core would each have their own global context, which fails in confusing ways, so imshell never builds one.
 
 ```cmake
-set(IMSHELL_IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui)
-add_subdirectory(external/imshell)
+add_subdirectory(external/imshell) # sets IMSHELL_IMGUI_DIR to its submodule unless you did
 file(GLOB IMGUI_CORE ${IMSHELL_IMGUI_DIR}/imgui*.cpp)
 add_executable(app main.cpp ${IMGUI_CORE})
 target_link_libraries(app PRIVATE imshell::imshell)
@@ -72,18 +71,17 @@ The same `main()` runs on macOS, Windows and Linux. On Android, `android_main` c
 
 ## Building imshell on its own
 
-imshell builds without a host, to work on it or to try the example. `vcpkg.json` lists what the desktops need (GLFW on macOS and Windows, Native File Dialog Extended), and Dear ImGui comes from a checkout of your choice:
+imshell builds without a host, to work on it or to try the example. `vcpkg.json` lists what the desktops need (GLFW on macOS and Windows, Native File Dialog Extended), and Dear ImGui, imgui_rich_md and imgui-node-editor come from the submodules:
 
 ```sh
 cmake -S . -B build -G Ninja \
   -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-  -DIMSHELL_IMGUI_DIR=/path/to/imgui \
   -DIMSHELL_BUILD_EXAMPLES=ON -DIMSHELL_BUILD_TESTS=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Add `-DIMSHELL_RICH_MD_DIR=/path/to/imgui_rich_md` to build `imshell::markdown` and its test ([Markdown](markdown.md)).
+`imshell::markdown` and `imshell::node_editor` and their tests are built when their submodules are there ([Markdown](markdown.md), [Node editor](node-editor.md)).
 
 On Linux, GTK 4 and libepoxy come from the system (`pkg-config`). Instead of the vcpkg toolchain, `-DCMAKE_PREFIX_PATH` can point at packages installed some other way, such as a host's `vcpkg_installed/<triplet>`.
 
@@ -97,7 +95,7 @@ The same app runs in a browser through [Emscripten](https://emscripten.org) (`br
 
 ```sh
 emcmake cmake -S . -B build-web -G Ninja -DCMAKE_BUILD_TYPE=Release \
-  -DIMSHELL_IMGUI_DIR=/path/to/imgui -DIMSHELL_BUILD_EXAMPLES=ON
+  -DIMSHELL_BUILD_EXAMPLES=ON
 cmake --build build-web
 ```
 

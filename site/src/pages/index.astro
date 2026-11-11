@@ -23,6 +23,7 @@ const features = [
   ["Components", "optional text fields, cards, badges, callouts, progress, avatars, metrics, chips and toasts.", "components"],
   ["Editor", "an optional code editor: selection, undo, find and replace, with highlighting and completion as hooks.", "editor"],
   ["Markdown", "optional markdown through imgui_rich_md: tables, lists, selectable text, and code blocks in the editor with a copy button.", "markdown"],
+  ["Node editor", "optional node graphs through imgui-node-editor, themed like the rest.", "node-editor"],
   ["Fonts and files", "one UI font from a text font, icon fonts and the system's CJK font; file dialogs; fonts and images baked into the binary.", "ui"],
   ["Auto-update", "Sparkle, WinSparkle or a checked AppImage swap, behind one call.", "auto-update"],
 ];
@@ -56,9 +57,9 @@ int main() {
     return imshell::Run({.title = "Hello", .titleBar = true}, hello);
 }`;
 
-const cmake = `set(IMSHELL_IMGUI_DIR \${CMAKE_CURRENT_SOURCE_DIR}/external/imgui)
-add_subdirectory(external/imshell)
-add_executable(app main.cpp \${IMGUI_SOURCES})
+const cmake = `add_subdirectory(external/imshell) # dear imgui comes as its submodule
+file(GLOB IMGUI_CORE \${IMSHELL_IMGUI_DIR}/imgui*.cpp)
+add_executable(app main.cpp \${IMGUI_CORE})
 target_link_libraries(app PRIVATE imshell::imshell) # + imshell::components, optional`;
 ---
 
@@ -102,7 +103,7 @@ target_link_libraries(app PRIVATE imshell::imshell) # + imshell::components, opt
       <h2 class="text-[1rem] font-bold mb-2">## The whole app</h2>
       <p class="text-sm text-subtext0 mb-3">A delegate draws a frame; <code>imshell::Run</code> does the rest. The same file builds for every platform above.</p>
       <Code code={hello} lang="cpp" themes={{ light: "github-light", dark: "github-dark" }} class="code" />
-      <p class="text-sm text-subtext0 mt-4 mb-3">In CMake, next to your own Dear ImGui:</p>
+      <p class="text-sm text-subtext0 mt-4 mb-3">In CMake (Dear ImGui comes as a submodule; your project compiles its core once):</p>
       <Code code={cmake} lang="cmake" themes={{ light: "github-light", dark: "github-dark" }} class="code" />
       <p class="text-sm mt-3"><a href={`${base}/docs/getting-started`}>Getting started &rarr;</a></p>
     </section>

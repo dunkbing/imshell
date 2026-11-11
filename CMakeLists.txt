@@ -1,12 +1,20 @@
 cmake_minimum_required(VERSION 3.23)
 project(imshell LANGUAGES CXX)
 
-# the host compiles Dear ImGui once and hands over its folder: a second copy of imgui's
-# statics would silently split the context
+# dear imgui and the libraries on it are submodules in external/ (git submodule update --init
+# --recursive); a host may set these to its own copies. the host still compiles imgui core once,
+# from IMSHELL_IMGUI_DIR: a second copy of imgui's statics would silently split the context
+set(IMSHELL_EXTERNAL ${CMAKE_CURRENT_SOURCE_DIR}/external)
 set(IMSHELL_IMGUI_DIR "" CACHE PATH "Dear ImGui source folder (imgui.h, imconfig.h)")
 if(NOT IMSHELL_IMGUI_DIR)
-    message(FATAL_ERROR "imshell: set IMSHELL_IMGUI_DIR to the host's Dear ImGui folder")
+    set(IMSHELL_IMGUI_DIR ${IMSHELL_EXTERNAL}/imgui CACHE PATH "Dear ImGui source folder (imgui.h, imconfig.h)" FORCE)
 endif()
+if(NOT EXISTS ${IMSHELL_IMGUI_DIR}/imgui.h)
+    message(FATAL_ERROR "imshell: no imgui.h in ${IMSHELL_IMGUI_DIR}; run git submodule update --init --recursive, or set IMSHELL_IMGUI_DIR")
+endif()
+# the test engine's sources, for a host to compile with its imgui (IMGUI_ENABLE_TEST_ENGINE)
+set(IMSHELL_TEST_ENGINE_DIR ${IMSHELL_EXTERNAL}/imgui_test_engine/imgui_test_engine CACHE PATH "imgui_test_engine sources")
+set(IMSHELL_NODE_EDITOR_DIR ${IMSHELL_EXTERNAL}/imgui-node-editor CACHE PATH "imgui-node-editor sources, for imshell::node_editor")
 
 add_library(imshell STATIC
     src/activity.cpp
@@ -35,11 +43,10 @@ add_library(imshell_editor STATIC src/editor.cpp)
 add_library(imshell::editor ALIAS imshell_editor)
 target_link_libraries(imshell_editor PUBLIC imshell)
 
-# optional markdown (imshell/markdown.hpp) through imgui_rich_md, which the host provides like
-# imgui: its folder in IMSHELL_RICH_MD_DIR, or its own imgui_rich_md target added before imshell.
-# without either there is no imshell::markdown
-set(IMSHELL_RICH_MD_DIR "" CACHE PATH "imgui_rich_md source folder, for imshell::markdown")
-if(IMSHELL_RICH_MD_DIR AND NOT TARGET imgui_rich_md)
+# optional markdown (imshell/markdown.hpp) through imgui_rich_md: the submodule, another folder in
+# IMSHELL_RICH_MD_DIR, or the host's own imgui_rich_md target added before imshell
+set(IMSHELL_RICH_MD_DIR ${IMSHELL_EXTERNAL}/imgui_rich_md CACHE PATH "imgui_rich_md source folder, for imshell::markdown")
+if(EXISTS ${IMSHELL_RICH_MD_DIR}/CMakeLists.txt AND NOT TARGET imgui_rich_md)
     # it links a target named imgui; the host compiles imgui, so headers only
     if(NOT TARGET imgui)
         add_library(imgui INTERFACE)
@@ -52,6 +59,18 @@ if(TARGET imgui_rich_md)
     add_library(imshell_markdown STATIC src/markdown.cpp)
     add_library(imshell::markdown ALIAS imshell_markdown)
     target_link_libraries(imshell_markdown PUBLIC imshell_editor PRIVATE imgui_rich_md)
+endif()
+
+# optional node editor (imshell/node_editor.hpp): imgui-node-editor, themed
+if(EXISTS ${IMSHELL_NODE_EDITOR_DIR}/imgui_node_editor.cpp)
+    add_library(imshell_node_editor STATIC src/node_editor.cpp
+        ${IMSHELL_NODE_EDITOR_DIR}/imgui_node_editor.cpp
+        ${IMSHELL_NODE_EDITOR_DIR}/imgui_node_editor_api.cpp
+        ${IMSHELL_NODE_EDITOR_DIR}/crude_json.cpp
+        ${IMSHELL_NODE_EDITOR_DIR}/imgui_canvas.cpp)
+    add_library(imshell::node_editor ALIAS imshell_node_editor)
+    target_include_directories(imshell_node_editor PUBLIC ${IMSHELL_NODE_EDITOR_DIR})
+    target_link_libraries(imshell_node_editor PUBLIC imshell)
 endif()
 
 # the platform shell. imgui core stays the host's; its platform backends are ours
@@ -235,6 +254,14 @@ if(IMSHELL_BUILD_TESTS)
     target_compile_features(imshell_editor_test PRIVATE cxx_std_20)
     target_compile_definitions(imshell_editor_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
     add_test(NAME imshell_editor_test COMMAND imshell_editor_test)
+    if(TARGET imshell_node_editor)
+        add_executable(imshell_node_editor_test tests/node_editor_test.cpp src/node_editor.cpp
+            ${IMSHELL_NODE_EDITOR_DIR}/imgui_node_editor.cpp ${IMSHELL_NODE_EDITOR_DIR}/imgui_node_editor_api.cpp
+            ${IMSHELL_NODE_EDITOR_DIR}/crude_json.cpp ${IMSHELL_NODE_EDITOR_DIR}/imgui_canvas.cpp ${IMSHELL_TEST_IMGUI})
+        target_include_directories(imshell_node_editor_test PRIVATE include ${IMSHELL_IMGUI_DIR} ${IMSHELL_NODE_EDITOR_DIR})
+        target_compile_features(imshell_node_editor_test PRIVATE cxx_std_20)
+        add_test(NAME imshell_node_editor_test COMMAND imshell_node_editor_test)
+    endif()
     if(TARGET imgui_rich_md)
         add_executable(imshell_markdown_test tests/markdown_test.cpp src/markdown.cpp src/editor.cpp src/button.cpp ${IMSHELL_TEST_IMGUI})
         target_include_directories(imshell_markdown_test PRIVATE include third_party ${IMSHELL_IMGUI_DIR})

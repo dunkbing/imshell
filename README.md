@@ -12,7 +12,8 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 - **Widgets**: `Button` / `SmallButton` / `IconButton` / `IconLabelButton` with variants (`button.hpp`), `Select` (`select.hpp`), `ToggleButton` (`toggle_button.hpp`), `Splitter` and `SegmentedTabs` (`splitter.hpp`), `Spinner` and `SpinnerOverlay` (`spinner.hpp`).
 - **Components** (`components.hpp`, optional target `imshell::components`): text field with label, hint and error; card; badge; callout; progress and skeleton; avatar; metric; empty state; chips; toasts. See [docs/components.md](docs/components.md) and `examples/gallery`.
 - **Editor** (`editor.hpp`, optional target `imshell::editor`): `TextEditor`, a multi-line code editor with selection, undo, line numbers, find and replace, a read-only mode and a completion popup; highlighting (`SetHighlighter`) and completion (`SetCompletionProvider`) are hooks the app fills, so it knows no language. See [docs/editor.md](docs/editor.md).
-- **Markdown** (`markdown.hpp`, optional target `imshell::markdown`): `Markdown::Render(text, idPrefix)` draws headings, lists, links, tables and selectable text through [imgui_rich_md](https://github.com/pthom/imgui_rich_md), which the host provides (`IMSHELL_RICH_MD_DIR`, or its own `imgui_rich_md` target); code blocks are read-only `TextEditor`s with a copy button, and the fonts, the highlighter per fence language and extra code-block buttons are options the app fills. See [docs/markdown.md](docs/markdown.md).
+- **Markdown** (`markdown.hpp`, optional target `imshell::markdown`): `Markdown::Render(text, idPrefix)` draws headings, lists, links, tables and selectable text through [imgui_rich_md](https://github.com/pthom/imgui_rich_md) (the `external/imgui_rich_md` submodule, or the host's own); code blocks are read-only `TextEditor`s with a copy button, and the fonts, the highlighter per fence language and extra code-block buttons are options the app fills. See [docs/markdown.md](docs/markdown.md).
+- **Node editor** (`node_editor.hpp`, optional target `imshell::node_editor`): [imgui-node-editor](https://github.com/thedmd/imgui-node-editor) (`ax::NodeEditor`) from the `external/imgui-node-editor` submodule, with `NodeEditor::ApplyStyle()` and `NodeEditor::ApplyColors()` to theme it from `Theme::Current()`. See [docs/node-editor.md](docs/node-editor.md).
 - **Menus and dialogs** (`menu.hpp`): `BeginMenuPopup`, `BeginContextMenu`, `BeginSubMenu`, `BeginSelect`/`EndSelect` with one padding for every menu; `FitScreen` / `CapToScreen` keep dialogs inside small screens.
 - **Alerts and prompts** (`alert.hpp`): `Alert::show(title, message, buttons)` and `InputDialog::show(...)` queue an ImGui modal from any thread; `Alert::render()`, once a frame after the rest of the UI, draws it over every open popup. Escape answers the cancel button and return the default one.
 - **Idle frames** (`frames.hpp`): `requestFrames()` asks the host loop to keep drawing for a moment (spinners call it); the loop checks `framesRequested()` before it sleeps, and a request from another thread wakes an idle loop at once.
@@ -24,18 +25,18 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 
 ## Docs
 
-The [`docs/`](docs/README.md) folder covers each part in depth: getting started, the platform shell, the title bar, native views, the UI toolkit, the components, the editor, markdown, and what differs per platform.
+The [`docs/`](docs/README.md) folder covers each part in depth: getting started, the platform shell, the title bar, native views, the UI toolkit, the components, the editor, markdown, the node editor, and what differs per platform.
 
 ## Use
 
 The smallest app is `examples/hello/main.cpp` (configure with `-DIMSHELL_BUILD_EXAMPLES=ON`): a delegate with a `frame()` that draws a title bar and a window in `ContentRect()`, started with `imshell::Run`.
 
 ```cmake
-set(IMSHELL_IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/imgui)
-add_subdirectory(external/imshell)
+add_subdirectory(external/imshell) # imgui from its submodule, or set IMSHELL_IMGUI_DIR first
+file(GLOB IMGUI_CORE ${IMSHELL_IMGUI_DIR}/imgui*.cpp)
 imshell_embed_fonts(${CMAKE_CURRENT_SOURCE_DIR}/assets/fonts)   # sets EMBEDDED_FONTS_FILE
 imshell_embed_images(${CMAKE_CURRENT_SOURCE_DIR}/assets/images) # sets EMBEDDED_IMAGES_FILE
-add_executable(app main.cpp ${EMBEDDED_FONTS_FILE} ${EMBEDDED_IMAGES_FILE} ${IMGUI_SOURCES})
+add_executable(app main.cpp ${EMBEDDED_FONTS_FILE} ${EMBEDDED_IMAGES_FILE} ${IMGUI_CORE})
 target_link_libraries(app PRIVATE imshell::imshell)
 ```
 
@@ -49,7 +50,7 @@ if (imshell::Button("Save", imshell::ButtonVariant::Primary))
     save();
 ```
 
-The host compiles the Dear ImGui core itself and passes the folder as `IMSHELL_IMGUI_DIR`; imshell compiles only the platform and renderer backends it uses, never a second copy of the core. If you embed anything, call both embed functions: the generated files define the lookups' data, and an empty folder still generates empty tables.
+Dear ImGui and the libraries built on it come as submodules in `external/` (clone with `--recursive`): imgui (docking branch), imgui_test_engine, imgui_rich_md and imgui-node-editor, at the versions imshell is tested with. A host that keeps its own copies sets `IMSHELL_IMGUI_DIR`, `IMSHELL_TEST_ENGINE_DIR`, `IMSHELL_RICH_MD_DIR` or `IMSHELL_NODE_EDITOR_DIR` before adding imshell, and reads them back after (they are cache variables). The host compiles the Dear ImGui core itself, from `IMSHELL_IMGUI_DIR`, and the test engine with it when it tests; imshell compiles only the platform and renderer backends it uses, never a second copy of the core. If you embed anything, call both embed functions: the generated files define the lookups' data, and an empty folder still generates empty tables.
 
 ## Status
 
