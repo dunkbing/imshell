@@ -1,12 +1,15 @@
-// every mydear::ui component on one page, on the desktops and in a browser (the website's demo)
+// every mydear::ui component and the editor on one page, on the desktops and in a browser (the
+// website's demo)
 #include "mydear/app.hpp"
 #include "mydear/button.hpp"
 #include "mydear/components.hpp"
+#include "mydear/editor.hpp"
 #include "mydear/select.hpp"
 #include "mydear/themes.hpp"
 #include "mydear/title_bar.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <string>
 #include <vector>
 
@@ -17,6 +20,59 @@ struct Gallery : mydear::Delegate {
     bool chips[5] = {true, false, true, false, false};
     bool loading = true;
     int theme = 0;
+    mydear::TextEditor editor;
+
+    Gallery() {
+        using Token = mydear::TextEditor::Token;
+        static constexpr std::string_view words[] = {"const", "else", "for", "if", "let", "return"};
+        // a lexer in a few lines: comments, strings, numbers and a handful of keywords
+        editor.SetHighlighter([](std::string_view text, std::span<Token> tokens, const auto&) {
+            for (size_t i = 0; i < text.size();) {
+                size_t end = i + 1;
+                Token token = Token::Text;
+                if (text.substr(i, 2) == "//") {
+                    end = std::min(text.find('\n', i), text.size());
+                    token = Token::Comment;
+                } else if (text[i] == '"') {
+                    end = std::min(text.find_first_of("\"\n", i + 1), text.size() - 1) + 1;
+                    token = Token::String;
+                } else if (std::isalnum(static_cast<unsigned char>(text[i]))) {
+                    while (end < text.size() && std::isalnum(static_cast<unsigned char>(text[end])))
+                        ++end;
+                    const std::string_view word = text.substr(i, end - i);
+                    if (std::isdigit(static_cast<unsigned char>(text[i])))
+                        token = Token::Number;
+                    else if (std::find(std::begin(words), std::end(words), word) != std::end(words))
+                        token = Token::Keyword;
+                    else if (end < text.size() && text[end] == '(')
+                        token = Token::Function;
+                }
+                std::fill(tokens.begin() + i, tokens.begin() + end, token);
+                i = end;
+            }
+        });
+        // completion: the keywords that start with the word before the cursor
+        editor.SetCompletionProvider([](std::string_view text, int cursor, bool) {
+            int from = cursor;
+            while (from > 0 && std::isalpha(static_cast<unsigned char>(text[from - 1])))
+                --from;
+            mydear::TextEditor::CompletionResponse response{.replaceStart = from,
+                                                            .replaceEnd = cursor};
+            for (const std::string_view word : words) {
+                if (word.starts_with(text.substr(from, cursor - from)))
+                    response.items.push_back(
+                        {.text = std::string(word), .detailText = "keyword", .icon = "K"});
+            }
+            return response;
+        });
+        editor.SetLineComment("//");
+        editor.SetText("// highlighting and completion are hooks the app fills\n"
+                       "let total = 0\n"
+                       "for (let i = 0; i < 10; i = i + 1) {\n"
+                       "    total = add(total, i)\n"
+                       "}\n"
+                       "print(\"total\", total)\n");
+    }
 
     void frame() override {
         const auto bar = mydear::BeginTitleBar();
@@ -117,6 +173,11 @@ struct Gallery : mydear::Delegate {
             loading = !loading;
         ui::EndCard();
         ImGui::EndChild();
+
+        ImGui::Spacing();
+        ui::BeginCard("editor", "Editor");
+        editor.Render("code", ImVec2(0, 200), true);
+        ui::EndCard();
 
         ImGui::End();
         ui::RenderToasts();

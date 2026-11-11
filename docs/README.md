@@ -7,6 +7,7 @@
 - [Auto-update](auto-update.md): Sparkle, WinSparkle or an AppImage swap, behind one call.
 - [UI toolkit](ui.md): themes, widgets, menus, images and embedded files.
 - [Components](components.md): optional ready-made pieces (`mydear::components`): text fields, cards, badges, callouts, progress, avatars, metrics, chips, toasts.
+- [Editor](editor.md): an optional code editor (`mydear::editor`) with hooks for highlighting and completion.
 - [Platforms](platforms.md): what each platform supports and how they differ.
 - [Roadmap](roadmap.md): what comes next, with the issues.
 

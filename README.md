@@ -11,6 +11,7 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 - **Themes** (`mydear/themes.hpp`): eighteen palettes (One Dark/Light, Ayu, Gruvbox, VS Code, Catppuccin, Tokyo Night, Nord, Dracula, Solarized, GitHub), `ApplyTheme(colors)` for the ImGui style, spacing and corner radius constants, and `Theme::Current()`, the theme the widgets below draw with.
 - **Widgets**: `Button` / `SmallButton` / `IconButton` / `IconLabelButton` with variants (`button.hpp`), `Select` (`select.hpp`), `ToggleButton` (`toggle_button.hpp`), `Splitter` and `SegmentedTabs` (`splitter.hpp`), `Spinner` and `SpinnerOverlay` (`spinner.hpp`).
 - **Components** (`components.hpp`, optional target `mydear::components`): text field with label, hint and error; card; badge; callout; progress and skeleton; avatar; metric; empty state; chips; toasts. See [docs/components.md](docs/components.md) and `examples/gallery`.
+- **Editor** (`editor.hpp`, optional target `mydear::editor`): `TextEditor`, a multi-line code editor with selection, undo, line numbers, find and replace, a read-only mode and a completion popup; highlighting (`SetHighlighter`) and completion (`SetCompletionProvider`) are hooks the app fills, so it knows no language. See [docs/editor.md](docs/editor.md).
 - **Menus and dialogs** (`menu.hpp`): `BeginMenuPopup`, `BeginContextMenu`, `BeginSubMenu`, `BeginSelect`/`EndSelect` with one padding for every menu; `FitScreen` / `CapToScreen` keep dialogs inside small screens.
 - **Alerts and prompts** (`alert.hpp`): `Alert::show(title, message, buttons)` and `InputDialog::show(...)` queue an ImGui modal from any thread; `Alert::render()`, once a frame after the rest of the UI, draws it over every open popup. Escape answers the cancel button and return the default one.
 - **Idle frames** (`frames.hpp`): `requestFrames()` asks the host loop to keep drawing for a moment (spinners call it); the loop checks `framesRequested()` before it sleeps, and a request from another thread wakes an idle loop at once.
@@ -22,7 +23,7 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 
 ## Docs
 
-The [`docs/`](docs/README.md) folder covers each part in depth: getting started, the platform shell, the title bar, native views, the UI toolkit, and what differs per platform.
+The [`docs/`](docs/README.md) folder covers each part in depth: getting started, the platform shell, the title bar, native views, the UI toolkit, the components, the editor, and what differs per platform.
 
 ## Use
 

@@ -29,6 +29,11 @@ add_library(mydear_components STATIC src/components.cpp)
 add_library(mydear::components ALIAS mydear_components)
 target_link_libraries(mydear_components PUBLIC mydear)
 
+# optional code editor (mydear/editor.hpp): a host links mydear::editor to use it
+add_library(mydear_editor STATIC src/editor.cpp)
+add_library(mydear::editor ALIAS mydear_editor)
+target_link_libraries(mydear_editor PUBLIC mydear)
+
 # the platform shell. imgui core stays the host's; its platform backends are ours
 if(EMSCRIPTEN) # before UNIX, which emscripten's toolchain also sets
     target_sources(mydear PRIVATE
@@ -171,7 +176,7 @@ if(MYDEAR_BUILD_EXAMPLES AND NOT IOS)
     # the components gallery; on the web it is the site's demo
     if(NOT ANDROID)
         add_executable(mydear_gallery examples/gallery/main.cpp ${MYDEAR_IMGUI_CORE})
-        target_link_libraries(mydear_gallery PRIVATE mydear_components)
+        target_link_libraries(mydear_gallery PRIVATE mydear_components mydear_editor)
         if(EMSCRIPTEN)
             set_target_properties(mydear_gallery PROPERTIES SUFFIX .html)
             target_link_options(mydear_gallery PRIVATE --shell-file ${CMAKE_CURRENT_SOURCE_DIR}/examples/web_shell.html)
@@ -205,6 +210,11 @@ if(MYDEAR_BUILD_TESTS)
     target_compile_features(mydear_components_test PRIVATE cxx_std_20)
     target_compile_definitions(mydear_components_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
     add_test(NAME mydear_components_test COMMAND mydear_components_test)
+    add_executable(mydear_editor_test tests/editor_test.cpp src/editor.cpp src/button.cpp ${MYDEAR_TEST_IMGUI})
+    target_include_directories(mydear_editor_test PRIVATE include ${MYDEAR_IMGUI_DIR})
+    target_compile_features(mydear_editor_test PRIVATE cxx_std_20)
+    target_compile_definitions(mydear_editor_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
+    add_test(NAME mydear_editor_test COMMAND mydear_editor_test)
     # the smoke test: hello drives its own window (title bar, native views, the close veto) and
     # prints "probe: ok"; needs a desktop session
     if(TARGET mydear_hello AND NOT ANDROID AND NOT EMSCRIPTEN)

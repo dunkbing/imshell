@@ -20,7 +20,7 @@ ui::EndCard();
 ui::RenderToasts();
 ```
 
-`examples/gallery` shows all of them (`-DMYDEAR_BUILD_EXAMPLES=ON`, `mydear_gallery`); built for the web, it is the live demo on the site.
+`examples/gallery` shows all of them (and the [editor](editor.md)) (`-DMYDEAR_BUILD_EXAMPLES=ON`, `mydear_gallery`); built for the web, it is the live demo on the site.
 
 ## What there is
 
