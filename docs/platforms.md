@@ -11,6 +11,7 @@
 | Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) | — (`PickFile` copies one in) | — |
 | File dialogs | NFD | document picker | NFD | NFD | document picker | — (the callbacks never run yet) |
 | Skips identical frames | yes | yes | no | no | no | yes |
+| Clipboard (`Clipboard::Read`, `Write`) | every format with a mime type (NSPasteboard) | every format with a mime type (UIPasteboard) | text, HTML, RTF, PNG (and bitmaps as PNG), files, formats registered under a mime type | every format with a mime type (GdkClipboard) | text, HTML, URLs; pictures read, not written | text |
 | Haptics (`PlayHaptic`) | Force Touch trackpad | taptic engine | — | — | vibrator | — |
 | Auto-update (`IMSHELL_UPDATER`) | Sparkle | — (App Store) | WinSparkle | AppImage swap, SHA-256 checked | — (the store) | — (reload the page) |
 

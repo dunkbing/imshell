@@ -6,6 +6,7 @@
 #include "../frame_skip.hpp"
 #include "../ime.hpp"
 #include "imshell/android.hpp"
+#include "imshell/clipboard.hpp"
 #include "imshell/haptics.hpp"
 #include "imshell/app.hpp"
 #include "imshell/themes.hpp"
@@ -32,6 +33,7 @@
 #include <functional>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace {
     namespace touch = imshell::touch; // the shared one-finger model (src/touch.cpp)
@@ -747,4 +749,67 @@ std::string imshell::detail::androidFilesDir() {
 void imshell::PlayHaptic(const Haptic kind) {
     if (jmethodID m = method("haptic", "(I)V"))
         gEnv->CallVoidMethod(gAndroid->activity->clazz, m, static_cast<jint>(kind));
+}
+
+// ImShellActivity.readClipboard / writeClipboard: [mime, bytes, mime, bytes, ..., "" (next item)]
+std::vector<imshell::Clipboard::Item> imshell::Clipboard::Read() {
+    jmethodID m = method("readClipboard", "()[[B");
+    if (!m)
+        return {};
+    auto parts = static_cast<jobjectArray>(gEnv->CallObjectMethod(gAndroid->activity->clazz, m));
+    if (gEnv->ExceptionCheck() || !parts) {
+        gEnv->ExceptionClear();
+        return {};
+    }
+    auto bytesAt = [&](jsize i) {
+        auto a = static_cast<jbyteArray>(gEnv->GetObjectArrayElement(parts, i));
+        std::string out(static_cast<size_t>(gEnv->GetArrayLength(a)), '\0');
+        gEnv->GetByteArrayRegion(a, 0, static_cast<jsize>(out.size()), reinterpret_cast<jbyte*>(out.data()));
+        gEnv->DeleteLocalRef(a);
+        return out;
+    };
+    std::vector<Item> items;
+    Item item;
+    const jsize n = gEnv->GetArrayLength(parts);
+    for (jsize i = 0; i < n;) {
+        const std::string mime = bytesAt(i);
+        if (mime.empty()) {
+            if (!item.data.empty())
+                items.push_back(std::move(item));
+            item = {};
+            i += 1;
+        } else {
+            item.data[mime] = i + 1 < n ? bytesAt(i + 1) : "";
+            i += 2;
+        }
+    }
+    gEnv->DeleteLocalRef(parts);
+    return items;
+}
+
+void imshell::Clipboard::Write(const std::vector<Item>& items) {
+    jmethodID m = method("writeClipboard", "([[B)V");
+    if (!m)
+        return;
+    std::vector<std::string> flat;
+    for (const Item& item : items) {
+        for (const auto& [mime, bytes] : item.data) {
+            flat.push_back(mime);
+            flat.push_back(bytes);
+        }
+        flat.emplace_back();
+    }
+    jclass bytesClass = gEnv->FindClass("[B");
+    jobjectArray parts = gEnv->NewObjectArray(static_cast<jsize>(flat.size()), bytesClass, nullptr);
+    for (size_t i = 0; i < flat.size(); ++i) {
+        jbyteArray a = gEnv->NewByteArray(static_cast<jsize>(flat[i].size()));
+        gEnv->SetByteArrayRegion(a, 0, static_cast<jsize>(flat[i].size()), reinterpret_cast<const jbyte*>(flat[i].data()));
+        gEnv->SetObjectArrayElement(parts, static_cast<jsize>(i), a);
+        gEnv->DeleteLocalRef(a);
+    }
+    gEnv->CallVoidMethod(gAndroid->activity->clazz, m, parts);
+    if (gEnv->ExceptionCheck())
+        gEnv->ExceptionClear(); // a clip the system refused
+    gEnv->DeleteLocalRef(parts);
+    gEnv->DeleteLocalRef(bytesClass);
 }

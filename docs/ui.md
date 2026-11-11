@@ -85,6 +85,34 @@ imshell::AddFont({{text->data, text->size}, {icons->data, icons->size, kIcons, t
 
 On iOS the documents folder shows in the Files app under the app's name. Filters become content types (iOS) or MIME types (Android, from a short table; anything else allows any file). On the desktops, link Native File Dialog Extended (vcpkg `nativefiledialog-extended`); imshell finds it with `find_package(nfd)`.
 
+## Clipboard (`imshell/clipboard.hpp`)
+
+Shaped like the web's Clipboard API, in `imshell::Clipboard`, from the UI thread:
+
+```cpp
+std::vector<Clipboard::Item> items = Clipboard::Read();
+std::string text = Clipboard::ReadText();
+Clipboard::Write({{{{"text/plain", "hi"}, {"text/html", "<b>hi</b>"}}}});
+Clipboard::WriteText("hi");
+```
+
+An `Item` is one thing on the clipboard in each format it is offered in: `item.data` maps a mime type to its bytes, `item.has(type)` and `item.get(type)` look one up (empty when absent), and `item.file()` is the path when the item is a file copied in the file manager (from its `text/uri-list`). There is usually one item; copied files give one each. A paste handler:
+
+```cpp
+for (const auto& item : Clipboard::Read()) {
+    if (!item.file().empty())        attach(item.file());
+    else if (item.has("image/png"))  attachPng(item.get("image/png"));
+}
+```
+
+Per platform:
+
+- **macOS and iOS**: every pasteboard format that has a mime type is read and written (`text/plain`, `text/html`, `text/rtf`, `image/png`, `image/tiff`, `application/pdf`, `text/uri-list`, ...), and a picture is always offered as `image/png` (a macOS screenshot arrives as TIFF, an iOS photo as JPEG or HEIC).
+- **Linux**: every format GTK offers with a mime type (`text/plain;charset=utf-8` reads as `text/plain`). The clipboard holds one set of formats, so `Write` keeps the first item, and files from all items as one list (also offered as `x-special/gnome-copied-files`, which file managers paste). A read waits for the owner up to a second per format.
+- **Windows**: `text/plain`, `text/html` (the CF_HTML header and wrapper added on write; a read gives the copied fragment, as other platforms do), `text/rtf`, `image/png` (also written as a bitmap for apps that paste only those, and a copied bitmap is read as PNG), copied files (CF_HDROP, one item each) and any format registered under a mime type name. One set of formats, as on Linux.
+- **Android**: text, HTML and URLs both ways; a copied picture (a `content://` URL) is read with its bytes and as PNG, but pictures and files are not written, since another app could only read them through a content provider of the app's own.
+- **The web**: `text/plain` only, through ImGui.
+
 ## Haptics (`imshell/haptics.hpp`)
 
 `PlayHaptic(kind)` gives a short vibration, from the UI thread. Kinds: `Tap` (a button or toggle), `Selection` (a value ticks over), `LongPress`, `Success`, `Warning`, `Error`. iOS uses UIKit's feedback generators, Android `performHapticFeedback` (success and error are their own patterns from Android 11), and macOS the trackpad's feedback performer, felt only on a Force Touch trackpad while the finger is down. Windows and Linux do nothing. The system setting wins: with haptics turned off, nothing plays. The shells already play `LongPress` when a long press takes hold.
