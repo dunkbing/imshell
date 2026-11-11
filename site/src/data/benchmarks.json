@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-11",
+  "commit": "f1a00de",
+  "machine": "Apple M4, 16 GB",
+  "os": "macOS 27.0.1",
+  "hello": { "sizeMB": 1.5, "firstFrameMs": 149, "memoryMB": 30.0, "idleCpu": 0.1 },
+  "gallery": { "sizeMB": 1.5, "memoryMB": 82.0, "animatingCpu": 3.1 },
+  "web": { "wasmKB": 279, "jsKB": 35 }
+}
