@@ -1,7 +1,7 @@
-// mydear::NativeButton: an NSButton placed by NativeView
+// imshell::NativeButton: an NSButton placed by NativeView
 #include "imgui_internal.h"
-#include "mydear/frames.hpp"
-#include "mydear/native_view.hpp"
+#include "imshell/frames.hpp"
+#include "imshell/native_view.hpp"
 
 #include <unordered_map>
 #include <utility>
@@ -9,21 +9,21 @@
 #import <AppKit/AppKit.h>
 #import <objc/runtime.h>
 
-@interface MydearButtonTarget : NSObject {
+@interface ImShellButtonTarget : NSObject {
 @public
     bool clicked;
 }
 - (void)fire:(id)sender;
 @end
 
-@implementation MydearButtonTarget
+@implementation ImShellButtonTarget
 - (void)fire:(id)sender {
     clicked = true;
-    mydear::requestFrames(); // the click came outside imgui: wake the idle loop
+    imshell::requestFrames(); // the click came outside imgui: wake the idle loop
 }
 @end
 
-namespace mydear {
+namespace imshell {
     namespace {
         std::unordered_map<ImGuiID, float> gWidths; // each button's fitting width, last frame
     }
@@ -36,7 +36,7 @@ namespace mydear {
                                 ? std::max(side, known->second)
                                 : side + (title ? ImGui::CalcTextSize(title).x + side : 0);
         NSButton* button = (__bridge NSButton*)NativeView(id, ImVec2(width, side), [&] {
-            MydearButtonTarget* target = [MydearButtonTarget new];
+            ImShellButtonTarget* target = [ImShellButtonTarget new];
             NSImage* image = [NSImage imageWithSystemSymbolName:@(symbol)
                                        accessibilityDescription:@(tooltip)];
             NSButton* b = [NSButton buttonWithImage:image target:target action:@selector(fire:)];
@@ -70,7 +70,7 @@ namespace mydear {
             button.imagePosition = NSImageTrailing;
         }
         gWidths[key] = button.fittingSize.width;
-        MydearButtonTarget* target = objc_getAssociatedObject(button, "target");
+        ImShellButtonTarget* target = objc_getAssociatedObject(button, "target");
         return std::exchange(target->clicked, false) || pressed;
     }
-} // namespace mydear
+} // namespace imshell

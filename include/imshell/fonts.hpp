@@ -8,12 +8,12 @@
 // one ui font from several files: a text font, icon fonts and other scripts merged into it,
 // then the system's chinese/japanese/korean font so user text in those scripts shows
 //
-//   mydear::AddFont({{text->data, text->size},
+//   imshell::AddFont({{text->data, text->size},
 //                    {icons->data, icons->size, kIconRanges, true}});
 //
 // call from Delegate::setup() (the first font added is imgui's default). files embedded with
-// mydear_embed_fonts work as they are: data is not copied, so it must outlive the atlas
-namespace mydear {
+// imshell_embed_fonts work as they are: data is not copied, so it must outlive the atlas
+namespace imshell {
     struct FontFile {
         const void* data = nullptr;
         size_t size = 0;
@@ -31,4 +31,4 @@ namespace mydear {
 
     // an installed font with chinese, japanese and korean glyphs, or empty
     std::string SystemCjkFontPath();
-} // namespace mydear
+} // namespace imshell

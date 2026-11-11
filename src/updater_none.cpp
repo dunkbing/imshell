@@ -1,7 +1,7 @@
-// MYDEAR_UPDATER off, or ios (the app store updates)
-#include "mydear/updater.hpp"
+// IMSHELL_UPDATER off, or ios (the app store updates)
+#include "imshell/updater.hpp"
 
-namespace mydear::updater {
+namespace imshell::updater {
     void Start(const Config&) {}
     void Check() {}
     bool Available() {
@@ -11,4 +11,4 @@ namespace mydear::updater {
         return {};
     }
     void Stop() {}
-} // namespace mydear::updater
+} // namespace imshell::updater

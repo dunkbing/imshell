@@ -1,15 +1,15 @@
 // the browser shell: emscripten's glfw port (contrib.glfw3) on a full-page canvas, imgui's
 // opengl3 backend on webgl2, the browser's animation frames as the loop. single threaded, so
 // it runs on any static host (threads would need cross-origin isolation headers)
-#include "mydear/app.hpp"
+#include "imshell/app.hpp"
 #include "../activity.hpp"
 #include "../frame_skip.hpp"
 #include "../native_view.hpp"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
-#include "mydear/file_dialog.hpp"
-#include "mydear/themes.hpp"
-#include "mydear/title_bar.hpp"
+#include "imshell/file_dialog.hpp"
+#include "imshell/themes.hpp"
+#include "imshell/title_bar.hpp"
 
 #include <GLES3/gl3.h>
 #include <GLFW/emscripten_glfw3.h>
@@ -18,13 +18,13 @@
 
 namespace {
     GLFWwindow* gWindow = nullptr;
-    mydear::Delegate* gDelegate = nullptr;
+    imshell::Delegate* gDelegate = nullptr;
     bool gTitleBar = false;
     float gBarHeight = 36;
-    mydear::App* gApp = nullptr; // run()'s, for the browser's frame callback
+    imshell::App* gApp = nullptr; // run()'s, for the browser's frame callback
 } // namespace
 
-namespace mydear {
+namespace imshell {
     struct App::Impl {};
 
     App::App() : impl_(std::make_unique<Impl>()) {}
@@ -61,7 +61,7 @@ namespace mydear {
         Theme::ApplyTheme(Theme::Current()->colors);
         delegate.setup();
         ImGui_ImplGlfw_InitForOpenGL(gWindow, true);
-        io.BackendPlatformName = "mydear_web";
+        io.BackendPlatformName = "imshell_web";
         return ImGui_ImplOpenGL3_Init("#version 300 es");
     }
 
@@ -165,7 +165,7 @@ namespace mydear {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
-        ImGui::Begin("##mydear_title_bar", nullptr,
+        ImGui::Begin("##imshell_title_bar", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav |
                          ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
@@ -201,4 +201,4 @@ namespace mydear {
     std::string DocumentsDir() {
         return "/home/web_user";
     }
-} // namespace mydear
+} // namespace imshell

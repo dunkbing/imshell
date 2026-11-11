@@ -1,5 +1,5 @@
 // the composing underline on a bare imgui context: a focused field gets a line that ends at its
-// caret and is as wide as the composing text; no field, no line. built with -DMYDEAR_BUILD_TESTS=ON
+// caret and is as wide as the composing text; no field, no line. built with -DIMSHELL_BUILD_TESTS=ON
 #include "ime.hpp"
 
 #include "imgui.h"
@@ -34,7 +34,7 @@ namespace {
         }
         ImGui::End();
         ImDrawList* fg = ImGui::GetForegroundDrawList();
-        mydear::detail::drawComposingUnderline(composing);
+        imshell::detail::drawComposingUnderline(composing);
         ImGui::Render();
         return fg;
     }

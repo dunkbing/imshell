@@ -1,11 +1,11 @@
-// auto-update (opt in with -DMYDEAR_UPDATER=ON; a no-op otherwise and on ios). the os install
+// auto-update (opt in with -DIMSHELL_UPDATER=ON; a no-op otherwise and on ios). the os install
 // format picks the mechanism: sparkle on macos, winsparkle on windows, an appimage swap on linux.
 // see docs/auto-update.md
 #pragma once
 
 #include <string>
 
-namespace mydear::updater {
+namespace imshell::updater {
     struct Config {
         std::string appName;     // windows: winsparkle's dialogs
         std::string version;     // this build, dotted numbers ("1.4.2")
@@ -24,4 +24,4 @@ namespace mydear::updater {
     std::string LatestVersion();
     // before exit: cancels a running check or download
     void Stop();
-} // namespace mydear::updater
+} // namespace imshell::updater

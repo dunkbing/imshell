@@ -5,7 +5,7 @@
 #include <d3d11.h>
 #include <dxgi.h>
 
-namespace mydear {
+namespace imshell {
     DX11Backend::DX11Backend(HWND hwnd) {
         DXGI_SWAP_CHAIN_DESC sd = {};
         sd.BufferCount = 2;
@@ -25,7 +25,7 @@ namespace mydear {
             nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, levels, 2, D3D11_SDK_VERSION, &sd,
             &swapChain_, &device_, &level, &context_);
         if (FAILED(hr)) {
-            std::fprintf(stderr, "mydear: D3D11CreateDeviceAndSwapChain failed: 0x%lx\n",
+            std::fprintf(stderr, "imshell: D3D11CreateDeviceAndSwapChain failed: 0x%lx\n",
                          static_cast<unsigned long>(hr));
             return;
         }
@@ -118,4 +118,4 @@ namespace mydear {
         texture->Release();
         return FAILED(hr) ? ImTextureID{} : (ImTextureID)(INT_PTR)srv;
     }
-} // namespace mydear
+} // namespace imshell

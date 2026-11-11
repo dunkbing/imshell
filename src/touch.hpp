@@ -6,7 +6,7 @@
 // scrolls (or drags a splitter, a column edge, text), a flick coasts, a long press is the
 // shell's. android feeds raw events (down, move, up); ios lets its gesture recognizers decide
 // the slop and velocity and calls press() and fling() itself. coordinates are imgui units
-namespace mydear::touch {
+namespace imshell::touch {
     enum class State { None, Pending, Pressed, Scrolling };
 
     constexpr float kSlop = 8;          // before a touch becomes a drag
@@ -51,4 +51,4 @@ namespace mydear::touch {
     // ImGui::Render(). down() on a handle drags that end (the other end stays)
     void drawHandles();
     bool grabbing(); // a handle is being dragged: not a scroll, not a long press
-} // namespace mydear::touch
+} // namespace imshell::touch

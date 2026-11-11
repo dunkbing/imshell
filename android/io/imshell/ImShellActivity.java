@@ -1,4 +1,4 @@
-package io.mydear;
+package io.imshell;
 
 import android.app.NativeActivity;
 import android.content.ClipData;
@@ -36,9 +36,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-// the activity of a mydear app: NativeActivity plus what the ndk cannot reach. the native
+// the activity of a imshell app: NativeActivity plus what the ndk cannot reach. the native
 // side calls these over jni from its own thread
-public class MydearActivity extends NativeActivity {
+public class ImShellActivity extends NativeActivity {
     private static final int PICK = 0x6d79;
     private final ConcurrentLinkedQueue<Integer> chars = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<String> picked = new ConcurrentLinkedQueue<>();
@@ -346,7 +346,7 @@ public class MydearActivity extends NativeActivity {
 
     // the system's floating text toolbar at (x, y), window pixels. a pick lands in pollEdit as
     // the letter of its shortcut: 'X' cut, 'C' copy, 'V' paste, 'A' select all
-    // mydear::Haptic in order: tap, selection, long press, success, warning, error
+    // imshell::Haptic in order: tap, selection, long press, success, warning, error
     public void haptic(int kind) {
         final int api = Build.VERSION.SDK_INT;
         final int[] constants = {

@@ -2,11 +2,11 @@
 
 #include <string>
 
-namespace mydear {
+namespace imshell {
     struct Config;
 }
 
-namespace mydear::detail {
+namespace imshell::detail {
     // input or a widget in use this frame: the loop stays at full speed
     bool isImGuiUserActive();
     // after ImGui::CreateContext: imgui.ini in DataDir(appName), or none
@@ -14,4 +14,4 @@ namespace mydear::detail {
 #ifdef __ANDROID__
     std::string androidFilesDir(); // the activity's internal storage
 #endif
-} // namespace mydear::detail
+} // namespace imshell::detail

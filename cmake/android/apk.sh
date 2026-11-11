@@ -19,7 +19,7 @@ cp "$lib" "$work/stage/lib/arm64-v8a/"
 set -- link -o "$work/base.apk" --manifest "$manifest" -I "$jar"
 [ "$assets" != "-" ] && set -- "$@" -A "$assets"
 # debug builds: run-as and a debugger can reach the app
-[ "${MYDEAR_APK_DEBUG:-0}" = 1 ] && set -- "$@" --debug-mode
+[ "${IMSHELL_APK_DEBUG:-0}" = 1 ] && set -- "$@" --debug-mode
 "$tools/aapt2" "$@"
 (cd "$work/stage" && zip -qr "$work/base.apk" classes.dex lib)
 "$tools/zipalign" -f -p 4 "$work/base.apk" "$work/aligned.apk"

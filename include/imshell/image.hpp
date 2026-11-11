@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <functional>
 
-namespace mydear {
+namespace imshell {
     // the backend's upload: RGBA pixels in, a texture out (ImTextureID{} on failure)
     using CreateTexture = std::function<ImTextureID(const uint8_t* rgba, int width, int height)>;
 
@@ -16,4 +16,4 @@ namespace mydear {
     // ImTextureID{} when there is none (before Run, after it, on ios)
     ImTextureID LoadTexture(const uint8_t* data, size_t size, int* width = nullptr,
                             int* height = nullptr);
-} // namespace mydear
+} // namespace imshell

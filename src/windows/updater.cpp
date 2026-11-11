@@ -1,11 +1,11 @@
 // winsparkle: the same appcast and ed25519 key as sparkle, its own dialogs
-#include "mydear/updater.hpp"
+#include "imshell/updater.hpp"
 
 #include <string>
 #include <windows.h>
 #include <winsparkle.h>
 
-namespace mydear::updater {
+namespace imshell::updater {
     namespace {
         bool gStarted = false;
 
@@ -49,4 +49,4 @@ namespace mydear::updater {
             win_sparkle_cleanup();
         gStarted = false;
     }
-} // namespace mydear::updater
+} // namespace imshell::updater

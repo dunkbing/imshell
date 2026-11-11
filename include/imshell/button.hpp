@@ -3,7 +3,7 @@
 #include "imgui.h"
 #include <initializer_list>
 
-namespace mydear {
+namespace imshell {
     enum class ButtonVariant {
         Secondary,
         Primary,
@@ -27,4 +27,4 @@ namespace mydear {
     bool IconButton(const char* icon, ButtonVariant variant = ButtonVariant::Secondary,
                     const ImVec2& size = ImVec2(0.0f, 0.0f),
                     ButtonSize buttonSize = ButtonSize::Default);
-} // namespace mydear
+} // namespace imshell

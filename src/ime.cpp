@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-namespace mydear::detail {
+namespace imshell::detail {
     void drawComposingUnderline(const char* text) {
         const ImGuiPlatformImeData& ime = GImGui->PlatformImeData; // this frame's, set by the field
         if (!text || !*text || !ime.WantTextInput)
@@ -19,4 +19,4 @@ namespace mydear::detail {
             ->AddLine(ImVec2(caret - width, y), ImVec2(caret, y), ImGui::GetColorU32(ImGuiCol_Text),
                       std::max(1.0f, size / 14));
     }
-} // namespace mydear::detail
+} // namespace imshell::detail

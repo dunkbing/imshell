@@ -3,7 +3,7 @@
 #include <cstring>
 #include <vector>
 
-namespace mydear::detail {
+namespace imshell::detail {
     namespace {
         std::vector<char> last, current;
 
@@ -61,4 +61,4 @@ namespace mydear::detail {
         last.swap(current);
         return same;
     }
-} // namespace mydear::detail
+} // namespace imshell::detail

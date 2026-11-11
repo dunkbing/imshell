@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # measures the examples on this mac and the web gallery as served, for the site's performance
-# section; writes src/data/benchmarks.json. needs an unlocked screen: mydear draws nothing in a
+# section; writes src/data/benchmarks.json. needs an unlocked screen: imshell draws nothing in a
 # window that cannot have focus.
-# usage: site/bench.sh <release build dir with mydear_hello and mydear_gallery> [site url]
+# usage: site/bench.sh <release build dir with imshell_hello and imshell_gallery> [site url]
 set -euo pipefail
 
 BUILD=$(cd "${1:?usage: bench.sh <release build dir> [site url]}" && pwd)
-URL=${2:-https://mydear-d0o.pages.dev}
+URL=${2:-https://imshell.pages.dev}
 SITE=$(cd "$(dirname "$0")" && pwd)
 OUT="$SITE/src/data/benchmarks.json"
 TMP=$(mktemp -d)
@@ -16,7 +16,7 @@ trap 'rm -rf "$TMP"' EXIT
 now() { perl -MTime::HiRes=time -e 'printf "%.6f", time'; }
 mb() { awk -v b="$1" 'BEGIN { printf "%.1f", b / 1048576 }'; }
 
-# size: the stripped executable (dear imgui, mydear and glfw linked in statically)
+# size: the stripped executable (dear imgui, imshell and glfw linked in statically)
 size() {
     strip -x -o "$TMP/$1" "$BUILD/$1"
     mb "$(stat -f %z "$TMP/$1")"
@@ -27,7 +27,7 @@ firstFrame() {
     local runs=() t0 t1 out
     for _ in $(seq 11); do
         t0=$(now)
-        out=$(MYDEAR_HELLO_QUIT=0 "$BUILD/mydear_hello" 2>/dev/null)
+        out=$(IMSHELL_HELLO_QUIT=0 "$BUILD/imshell_hello" 2>/dev/null)
         t1=$(now)
         case "$out" in *"hello: 0 frames"* | "") echo "bench.sh: no frame drawn (screen locked?)" >&2; exit 1 ;; esac
         runs+=("$(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.0f", (b - a) * 1000 }')")
@@ -57,13 +57,13 @@ transfer() {
     curl -sf -H 'Accept-Encoding: br' -o /dev/null -w '%{size_download}' "$URL/gallery/$1"
 }
 
-helloSize=$(size mydear_hello)
-gallerySize=$(size mydear_gallery)
+helloSize=$(size imshell_hello)
+gallerySize=$(size imshell_gallery)
 frameMs=$(firstFrame)
-read -r helloMem helloCpu <<<"$(rest mydear_hello)"
-read -r galleryMem galleryCpu <<<"$(rest mydear_gallery)"
-wasm=$(transfer mydear_gallery.wasm)
-js=$(transfer mydear_gallery.js)
+read -r helloMem helloCpu <<<"$(rest imshell_hello)"
+read -r galleryMem galleryCpu <<<"$(rest imshell_gallery)"
+wasm=$(transfer imshell_gallery.wasm)
+js=$(transfer imshell_gallery.js)
 
 mkdir -p "$(dirname "$OUT")"
 cat >"$OUT" <<EOF

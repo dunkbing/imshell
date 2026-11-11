@@ -1,21 +1,21 @@
-#include "mydear/button.hpp"
+#include "imshell/button.hpp"
 
 #include "imgui_internal.h"
-#include "mydear/themes.hpp"
+#include "imshell/themes.hpp"
 
-using namespace mydear;
+using namespace imshell;
 
 namespace {
-    void pushVariantColors(mydear::ButtonVariant variant) {
+    void pushVariantColors(imshell::ButtonVariant variant) {
         // secondary takes the theme's button colours (themes.hpp)
-        if (variant == mydear::ButtonVariant::Custom ||
-            variant == mydear::ButtonVariant::Secondary) {
+        if (variant == imshell::ButtonVariant::Custom ||
+            variant == imshell::ButtonVariant::Secondary) {
             return;
         }
 
         const auto& colors = Theme::Current()->colors;
         const ImVec4 accent =
-            variant == mydear::ButtonVariant::Primary ? colors.green : colors.red;
+            variant == imshell::ButtonVariant::Primary ? colors.green : colors.red;
 
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(accent.x, accent.y, accent.z, 0.85f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, accent);
@@ -24,22 +24,22 @@ namespace {
         ImGui::PushStyleColor(ImGuiCol_Text, colors.base);
     }
 
-    void popVariantColors(mydear::ButtonVariant variant) {
-        if (variant != mydear::ButtonVariant::Custom &&
-            variant != mydear::ButtonVariant::Secondary) {
+    void popVariantColors(imshell::ButtonVariant variant) {
+        if (variant != imshell::ButtonVariant::Custom &&
+            variant != imshell::ButtonVariant::Secondary) {
             ImGui::PopStyleColor(4);
         }
     }
 
-    void pushIconColors(mydear::ButtonVariant variant) {
+    void pushIconColors(imshell::ButtonVariant variant) {
         const auto& colors = Theme::Current()->colors;
         ImVec4 hovered = colors.surface1;
         ImVec4 active = colors.surface2;
 
-        if (variant == mydear::ButtonVariant::Primary ||
-            variant == mydear::ButtonVariant::Danger) {
+        if (variant == imshell::ButtonVariant::Primary ||
+            variant == imshell::ButtonVariant::Danger) {
             const ImVec4 accent =
-                variant == mydear::ButtonVariant::Primary ? colors.green : colors.red;
+                variant == imshell::ButtonVariant::Primary ? colors.green : colors.red;
             hovered = ImVec4(accent.x, accent.y, accent.z, 0.25f);
             active = ImVec4(accent.x, accent.y, accent.z, 0.4f);
         }
@@ -77,7 +77,7 @@ namespace {
     }
 } // namespace
 
-bool mydear::Button(const char* label, ButtonVariant variant, const ImVec2& size) {
+bool imshell::Button(const char* label, ButtonVariant variant, const ImVec2& size) {
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, Theme::CornerRadius::SMALL);
     pushVariantColors(variant);
@@ -88,7 +88,7 @@ bool mydear::Button(const char* label, ButtonVariant variant, const ImVec2& size
     return clicked;
 }
 
-bool mydear::SmallButton(const char* label, ButtonVariant variant) {
+bool imshell::SmallButton(const char* label, ButtonVariant variant) {
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, Theme::CornerRadius::SMALL);
     pushVariantColors(variant);
@@ -99,7 +99,7 @@ bool mydear::SmallButton(const char* label, ButtonVariant variant) {
     return clicked;
 }
 
-bool mydear::IconButton(const char* icon, ButtonVariant variant, const ImVec2& size,
+bool imshell::IconButton(const char* icon, ButtonVariant variant, const ImVec2& size,
                          ButtonSize buttonSize) {
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, Theme::CornerRadius::SMALL);
@@ -111,7 +111,7 @@ bool mydear::IconButton(const char* icon, ButtonVariant variant, const ImVec2& s
     return clicked;
 }
 
-bool mydear::IconLabelButton(const char* icon, const char* label, ButtonVariant variant) {
+bool imshell::IconLabelButton(const char* icon, const char* label, ButtonVariant variant) {
     ImFont* font = ImGui::GetFont();
     const float iconSize = ImGui::GetFontSize() * 0.8f;
     const float iconWidth = font->CalcTextSizeA(iconSize, FLT_MAX, 0.0f, icon).x;
@@ -135,7 +135,7 @@ bool mydear::IconLabelButton(const char* icon, const char* label, ButtonVariant 
     return clicked;
 }
 
-bool mydear::SegmentedTabs(const char* id, std::initializer_list<const char*> labels,
+bool imshell::SegmentedTabs(const char* id, std::initializer_list<const char*> labels,
                             int* current) {
     const auto& colors = Theme::Current()->colors;
     bool changed = false;

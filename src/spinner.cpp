@@ -1,9 +1,9 @@
-#include "mydear/spinner.hpp"
-#include "mydear/frames.hpp"
+#include "imshell/spinner.hpp"
+#include "imshell/frames.hpp"
 #include "imgui_internal.h"
 #include <cmath>
 
-namespace mydear {
+namespace imshell {
     bool Spinner(const char* label, float radius, int thickness, const ImU32& color) {
         ImGuiWindow* window = ImGui::GetCurrentWindow();
         if (window->SkipItems)
@@ -67,4 +67,4 @@ namespace mydear {
         }
         drawList->PathStroke(color, false, static_cast<float>(thickness));
     }
-} // namespace mydear
+} // namespace imshell

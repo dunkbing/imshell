@@ -1,10 +1,10 @@
 // sparkle reads its feed (SUFeedURL) and key (SUPublicEDKey) from Info.plist, checks on its
 // schedule and shows its own ui
-#include "mydear/updater.hpp"
+#include "imshell/updater.hpp"
 
 #import <Sparkle/Sparkle.h>
 
-namespace mydear::updater {
+namespace imshell::updater {
     namespace {
         SPUStandardUpdaterController* gController = nil;
     }
@@ -14,7 +14,7 @@ namespace mydear::updater {
             return;
         NSString* key = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"SUPublicEDKey"];
         if (key.length == 0) { // sparkle refuses to start without it: say why once
-            NSLog(@"mydear: SUPublicEDKey not set, no updates");
+            NSLog(@"imshell: SUPublicEDKey not set, no updates");
             return;
         }
         gController = [[SPUStandardUpdaterController alloc] initWithStartingUpdater:YES
@@ -35,4 +35,4 @@ namespace mydear::updater {
     }
 
     void Stop() {}
-} // namespace mydear::updater
+} // namespace imshell::updater

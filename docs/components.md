@@ -1,26 +1,26 @@
 # Components
 
-`mydear/components.hpp` adds ready-made pieces for forms, status and feedback, in namespace `mydear::ui`. They are optional: they live in their own target, `mydear::components`, and nothing in mydear's core uses them, so an app that doesn't link it pays nothing. They draw with `Theme::Current()`, so they follow the app's theme, and they are plain ImGui items: they take part in layout, keyboard navigation and mydear's touch handling like any other.
+`imshell/components.hpp` adds ready-made pieces for forms, status and feedback, in namespace `imshell::ui`. They are optional: they live in their own target, `imshell::components`, and nothing in imshell's core uses them, so an app that doesn't link it pays nothing. They draw with `Theme::Current()`, so they follow the app's theme, and they are plain ImGui items: they take part in layout, keyboard navigation and imshell's touch handling like any other.
 
 ```cmake
-target_link_libraries(myapp PRIVATE mydear::mydear mydear::components)
+target_link_libraries(myapp PRIVATE imshell::imshell imshell::components)
 ```
 
 ```cpp
-#include "mydear/components.hpp"
-namespace ui = mydear::ui;
+#include "imshell/components.hpp"
+namespace ui = imshell::ui;
 
 ui::BeginCard("signup", "Create an account");
 ui::TextField("Email", email, {.placeholder = "you@example.com", .error = valid ? nullptr : "Not an email"});
 ui::TextField("Password", password, {.hint = "At least 8 characters", .password = true});
-if (mydear::Button("Sign up", mydear::ButtonVariant::Primary))
+if (imshell::Button("Sign up", imshell::ButtonVariant::Primary))
     ui::Toast("Welcome aboard", ui::Tone::Success);
 ui::EndCard();
 // once a frame, after the rest of the ui
 ui::RenderToasts();
 ```
 
-`examples/gallery` shows all of them (and the [editor](editor.md)) (`-DMYDEAR_BUILD_EXAMPLES=ON`, `mydear_gallery`); built for the web, it is the live demo on the site.
+`examples/gallery` shows all of them (and the [editor](editor.md)) (`-DIMSHELL_BUILD_EXAMPLES=ON`, `imshell_gallery`); built for the web, it is the live demo on the site.
 
 ## What there is
 
@@ -29,7 +29,7 @@ ui::RenderToasts();
 | Text field | `TextField(label, std::string&, {placeholder, hint, error, password, width, flags})` | label above, hint or error below; an error outlines the field in red. True when edited. |
 | Card | `BeginCard(id, title)` … `EndCard()` | a bordered, rounded panel that grows with its content |
 | Badge | `Badge(text, tone)` | a pill with a word or a count |
-| Callout | `Callout(title, body, tone)` | an inline message with an accent stripe; the body wraps. For a modal, use `mydear::Alert`. |
+| Callout | `Callout(title, body, tone)` | an inline message with an accent stripe; the body wraps. For a modal, use `imshell::Alert`. |
 | Progress | `Progress(fraction, label, width)` | 0..1, with the percentage beside the label; a negative fraction is indeterminate |
 | Skeleton | `Skeleton(size)` | a pulsing placeholder while content loads; width 0 fills the row |
 | Avatar | `Avatar(name, diameter)` | initials in a circle whose colour comes from the name; the name as a tooltip |
@@ -40,7 +40,7 @@ ui::RenderToasts();
 
 `Tone` is `Neutral`, `Info`, `Success`, `Warning` or `Danger`, and maps to the theme's grey, blue, green, yellow and red.
 
-Buttons, selects, the toggle, segmented tabs and the spinner were already in mydear's core and stay there (see [UI toolkit](ui.md)); the components use them rather than redefining them.
+Buttons, selects, the toggle, segmented tabs and the spinner were already in imshell's core and stay there (see [UI toolkit](ui.md)); the components use them rather than redefining them.
 
 ## Behaviour worth knowing
 

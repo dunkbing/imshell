@@ -1,9 +1,9 @@
-#include "mydear/toggle_button.hpp"
+#include "imshell/toggle_button.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
-#include "mydear/themes.hpp"
+#include "imshell/themes.hpp"
 
-void mydear::ToggleButton(const char* str_id, bool* v) {
+void imshell::ToggleButton(const char* str_id, bool* v) {
     const auto& colors = Theme::Current()->colors;
     const ImVec2 p = ImGui::GetCursorScreenPos();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();

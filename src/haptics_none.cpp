@@ -1,4 +1,4 @@
 // windows and linux: no haptics api for the desktop
-#include "mydear/haptics.hpp"
+#include "imshell/haptics.hpp"
 
-void mydear::PlayHaptic(Haptic) {}
+void imshell::PlayHaptic(Haptic) {}

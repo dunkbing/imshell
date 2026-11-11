@@ -4,12 +4,12 @@
 // host's android_main on its own thread. hand the glue's app over, then run as on the desktop:
 //
 //   void android_main(android_app* state) {
-//       mydear::SetAndroidApp(state);
+//       imshell::SetAndroidApp(state);
 //       static MyApp delegate; // outlives a recreated activity
-//       mydear::Run(config, delegate);
+//       imshell::Run(config, delegate);
 //   }
 //
-// the activity must be io.mydear.MydearActivity (android/io/mydear/MydearActivity.java) or a
+// the activity must be io.imshell.ImShellActivity (android/io/imshell/ImShellActivity.java) or a
 // subclass: it brings the soft keyboard, typed characters, the clipboard and the file picker.
 // the app's private folder is state->activity->internalDataPath (DataDir is inside it)
 #include <android_native_app_glue.h> // android_main, with c linkage
@@ -17,7 +17,7 @@
 #include <functional>
 #include <string>
 
-namespace mydear {
+namespace imshell {
     void SetAndroidApp(android_app* app);
     android_app* AndroidApp();
 
@@ -33,4 +33,4 @@ namespace mydear {
     // or two later; never when cancelled. mimeTypes: comma-separated, empty for any file
     void PickFile(const std::string& mimeTypes, const std::string& intoDir,
                   std::function<void(const std::string&)> done);
-} // namespace mydear
+} // namespace imshell

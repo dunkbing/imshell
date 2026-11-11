@@ -1,7 +1,7 @@
 #include "activity.hpp"
 #include "imgui_internal.h"
 
-namespace mydear::detail {
+namespace imshell::detail {
     bool isImGuiUserActive() {
         ImGuiIO& io = ImGui::GetIO();
 
@@ -44,4 +44,4 @@ namespace mydear::detail {
 
         return false;
     }
-} // namespace mydear::detail
+} // namespace imshell::detail

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "imgui.h"
-#include "mydear/frames.hpp"
+#include "imshell/frames.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <memory>
@@ -10,8 +10,8 @@
 struct GLFWwindow;
 
 // the platform shell: a native window, the graphics backend (metal on apple), the imgui
-// context and backends, the frame loop and input. the host draws, mydear does the rest
-namespace mydear {
+// context and backends, the frame loop and input. the host draws, imshell does the rest
+namespace imshell {
     struct Config {
         std::string title;
         // names the data folder (DataDir) where imgui.ini is kept; empty = no imgui.ini
@@ -22,7 +22,7 @@ namespace mydear {
         bool vsync = true;
         int maxFps = 120; // with vsync off; 0 = unlimited
         // the app draws its own title bar: content runs under it (macos keeps the traffic
-        // lights), see mydear/title_bar.hpp
+        // lights), see imshell/title_bar.hpp
         bool titleBar = false;
         // points (dp on android, pixels on windows); 0 = the platform's own: 28 on macos, 32 on
         // windows, 36 on linux, 44 on android. taller re-centres the macos traffic lights
@@ -62,7 +62,7 @@ namespace mydear {
 
     // one window per app. run() is the whole loop; a host that drives frames itself
     // (a test engine) calls pollEvents() and renderFrame() instead. on ios uikit runs the
-    // loop: start with RunUIKit (mydear/ios.h) and create() from the root controller
+    // loop: start with RunUIKit (imshell/ios.h) and create() from the root controller
     class App {
     public:
         App();
@@ -107,7 +107,7 @@ namespace mydear {
         return detail::safeArea();
     }
 
-    float TitleBarHeight(); // mydear/title_bar.hpp
+    float TitleBarHeight(); // imshell/title_bar.hpp
     struct Rect {
         ImVec2 pos, size;
     };
@@ -129,4 +129,4 @@ namespace mydear {
     // from android_main after SetAndroidApp, with a delegate that outlives it (static): a
     // recreated activity carries on in the same app. not on ios (see RunUIKit)
     int Run(const Config& config, Delegate& delegate);
-} // namespace mydear
+} // namespace imshell

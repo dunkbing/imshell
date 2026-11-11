@@ -1,9 +1,9 @@
 import { defineConfig } from "astro/config";
 import tailwindcss from "@tailwindcss/vite";
 
-// a static site: any static host serves dist/. MYDEAR_SITE_BASE is the path it lives under
-// ("/mydear" for a github pages project site), MYDEAR_SITE_URL its origin
-const base = process.env.MYDEAR_SITE_BASE ?? "";
+// a static site: any static host serves dist/. IMSHELL_SITE_BASE is the path it lives under
+// ("/imshell" for a github pages project site), IMSHELL_SITE_URL its origin
+const base = process.env.IMSHELL_SITE_BASE ?? "";
 
 // the docs are the repo's own docs/*.md: their links between pages ("ui.md#fonts") become
 // site routes ("/docs/ui#fonts"), README.md the docs index
@@ -21,7 +21,7 @@ function docLinks() {
 }
 
 export default defineConfig({
-  site: process.env.MYDEAR_SITE_URL,
+  site: process.env.IMSHELL_SITE_URL,
   base: base || undefined,
   trailingSlash: "never",
   markdown: {

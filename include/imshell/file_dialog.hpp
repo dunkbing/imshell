@@ -7,7 +7,7 @@
 // the system's open, save and folder dialogs. done gets the chosen path and is not called when
 // the user cancels. ui thread only
 //
-//   mydear::OpenFileDialog({{"CSV files", "csv,tsv"}, {"All files", "*"}},
+//   imshell::OpenFileDialog({{"CSV files", "csv,tsv"}, {"All files", "*"}},
 //                          [](const std::string& path) { open(path); });
 //
 // desktops (native file dialog): modal, done runs before the call returns. ios and android:
@@ -15,7 +15,7 @@
 // copyInto (DocumentsDir() when empty), since it is not reachable by path. there is no save
 // or folder dialog there: save names a free file in DocumentsDir() (the files app shows it on
 // ios), and the folder is DocumentsDir() itself
-namespace mydear {
+namespace imshell {
     struct FileFilter {
         std::string name;       // "CSV files"
         std::string extensions; // "csv,tsv" without dots; "*" = any file
@@ -30,4 +30,4 @@ namespace mydear {
 
     // the user-visible documents folder on ios and android (created); empty on desktops
     std::string DocumentsDir();
-} // namespace mydear
+} // namespace imshell

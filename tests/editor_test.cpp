@@ -1,7 +1,7 @@
-// mydear::TextEditor on a bare imgui context, driven with imgui's own input events: editing,
+// imshell::TextEditor on a bare imgui context, driven with imgui's own input events: editing,
 // selection, undo, the highlighter and completion hooks. the test engine's item hook (compiled
-// into this test's own imgui) fails a duplicated item id. built with -DMYDEAR_BUILD_TESTS=ON
-#include "mydear/editor.hpp"
+// into this test's own imgui) fails a duplicated item id. built with -DIMSHELL_BUILD_TESTS=ON
+#include "imshell/editor.hpp"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -46,7 +46,7 @@ const char* ImGuiTestEngine_FindItemDebugLabel(ImGuiContext*, ImGuiID) {
     } while (0)
 
 namespace {
-    using mydear::TextEditor;
+    using imshell::TextEditor;
     using Token = TextEditor::Token;
 
     TextEditor* editor = nullptr; // the one drawn (and focused)
@@ -274,7 +274,7 @@ namespace {
         CHECK(onEntry == std::vector<Token>(13, Token::Text));
 
         // colours: the theme's, or the host's palette
-        const auto theme = TextEditor::FromTheme(mydear::Theme::Current()->colors);
+        const auto theme = TextEditor::FromTheme(imshell::Theme::Current()->colors);
         CHECK(e.TokenColor(Token::Number) == theme.number);
         CHECK(e.TokenColor(Token::Keyword) == theme.keyword && theme.keyword != theme.text);
         auto palette = theme;

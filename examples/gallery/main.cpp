@@ -1,29 +1,29 @@
-// every mydear::ui component and the editor on one page, on the desktops and in a browser (the
+// every imshell::ui component and the editor on one page, on the desktops and in a browser (the
 // website's demo)
-#include "mydear/app.hpp"
-#include "mydear/button.hpp"
-#include "mydear/components.hpp"
-#include "mydear/editor.hpp"
-#include "mydear/select.hpp"
-#include "mydear/themes.hpp"
-#include "mydear/title_bar.hpp"
+#include "imshell/app.hpp"
+#include "imshell/button.hpp"
+#include "imshell/components.hpp"
+#include "imshell/editor.hpp"
+#include "imshell/select.hpp"
+#include "imshell/themes.hpp"
+#include "imshell/title_bar.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <string>
 #include <vector>
 
-namespace ui = mydear::ui;
+namespace ui = imshell::ui;
 
-struct Gallery : mydear::Delegate {
+struct Gallery : imshell::Delegate {
     std::string email, password = "hunter2", name = "Ada Lovelace";
     bool chips[5] = {true, false, true, false, false};
     bool loading = true;
     int theme = 0;
-    mydear::TextEditor editor;
+    imshell::TextEditor editor;
 
     Gallery() {
-        using Token = mydear::TextEditor::Token;
+        using Token = imshell::TextEditor::Token;
         static constexpr std::string_view words[] = {"const", "else", "for", "if", "let", "return"};
         // a lexer in a few lines: comments, strings, numbers and a handful of keywords
         editor.SetHighlighter([](std::string_view text, std::span<Token> tokens, const auto&) {
@@ -56,7 +56,7 @@ struct Gallery : mydear::Delegate {
             int from = cursor;
             while (from > 0 && std::isalpha(static_cast<unsigned char>(text[from - 1])))
                 --from;
-            mydear::TextEditor::CompletionResponse response{.replaceStart = from,
+            imshell::TextEditor::CompletionResponse response{.replaceStart = from,
                                                             .replaceEnd = cursor};
             for (const std::string_view word : words) {
                 if (word.starts_with(text.substr(from, cursor - from)))
@@ -75,15 +75,15 @@ struct Gallery : mydear::Delegate {
     }
 
     void frame() override {
-        const auto bar = mydear::BeginTitleBar();
-        const char* title = "mydear components";
+        const auto bar = imshell::BeginTitleBar();
+        const char* title = "imshell components";
         ImGui::SetCursorScreenPos(
             ImVec2(bar.pos.x + (bar.size.x - ImGui::CalcTextSize(title).x) / 2,
                    bar.pos.y + (bar.size.y - ImGui::GetTextLineHeight()) / 2));
         ImGui::TextDisabled("%s", title);
-        mydear::EndTitleBar();
+        imshell::EndTitleBar();
 
-        const mydear::Rect content = mydear::ContentRect();
+        const imshell::Rect content = imshell::ContentRect();
         ImGui::SetNextWindowPos(content.pos);
         ImGui::SetNextWindowSize(content.size);
         ImGui::Begin("gallery", nullptr, ImGuiWindowFlags_NoDecoration);
@@ -102,10 +102,10 @@ struct Gallery : mydear::Delegate {
                                     : nullptr});
         ui::TextField("Password", password, {.hint = "At least 8 characters", .password = true});
         ImGui::Spacing();
-        if (mydear::Button("Sign up", mydear::ButtonVariant::Primary))
+        if (imshell::Button("Sign up", imshell::ButtonVariant::Primary))
             ui::Toast("Welcome aboard", ui::Tone::Success);
         ImGui::SameLine();
-        if (mydear::Button("Cancel"))
+        if (imshell::Button("Cancel"))
             ui::Toast("Nothing was saved");
         ui::EndCard();
 
@@ -123,7 +123,7 @@ struct Gallery : mydear::Delegate {
         ImGui::Spacing();
         ui::Callout(
             "Heads up",
-            "Callouts sit in the layout and wrap their text. For a modal, use mydear::Alert.",
+            "Callouts sit in the layout and wrap their text. For a modal, use imshell::Alert.",
             ui::Tone::Warning);
         ImGui::Spacing();
         ui::Progress(0.62f, "Uploading");
@@ -169,7 +169,7 @@ struct Gallery : mydear::Delegate {
             ui::EmptyState("No projects yet", "Projects you create show up here.", "New project");
         }
         ImGui::Spacing();
-        if (mydear::SmallButton(loading ? "Show the empty state" : "Show the skeleton"))
+        if (imshell::SmallButton(loading ? "Show the empty state" : "Show the skeleton"))
             loading = !loading;
         ui::EndCard();
         ImGui::EndChild();
@@ -186,14 +186,14 @@ struct Gallery : mydear::Delegate {
     void themePicker() {
         static std::vector<const char*> names = [] {
             std::vector<const char*> v;
-            for (const auto& t : mydear::Theme::THEMES)
+            for (const auto& t : imshell::Theme::THEMES)
                 v.push_back(t.name);
             return v;
         }();
         ImGui::SetNextItemWidth(220);
-        if (mydear::Select("##theme", &theme, names.data(), static_cast<int>(names.size()))) {
-            mydear::Theme::Current() = &mydear::Theme::THEMES[theme];
-            mydear::Theme::ApplyTheme(mydear::Theme::Current()->colors);
+        if (imshell::Select("##theme", &theme, names.data(), static_cast<int>(names.size()))) {
+            imshell::Theme::Current() = &imshell::Theme::THEMES[theme];
+            imshell::Theme::ApplyTheme(imshell::Theme::Current()->colors);
         }
         ImGui::Spacing();
     }
@@ -202,12 +202,12 @@ struct Gallery : mydear::Delegate {
 static Gallery gallery; // android: outlives a recreated activity
 
 int main() {
-    mydear::Theme::Current() = &mydear::Theme::themeById("tokyo-night");
-    gallery.theme = static_cast<int>(mydear::Theme::Current() - mydear::Theme::THEMES);
-    mydear::Config config;
-    config.title = "mydear components";
+    imshell::Theme::Current() = &imshell::Theme::themeById("tokyo-night");
+    gallery.theme = static_cast<int>(imshell::Theme::Current() - imshell::Theme::THEMES);
+    imshell::Config config;
+    config.title = "imshell components";
     config.width = 960;
     config.height = 720;
     config.titleBar = true;
-    return mydear::Run(config, gallery);
+    return imshell::Run(config, gallery);
 }

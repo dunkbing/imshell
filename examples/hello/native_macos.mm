@@ -1,4 +1,4 @@
-// the native half of hello: appkit controls for mydear::NativeView, and a probe that
+// the native half of hello: appkit controls for imshell::NativeView, and a probe that
 // reports where the shell put one
 #import <AppKit/AppKit.h>
 #include <cstdio>

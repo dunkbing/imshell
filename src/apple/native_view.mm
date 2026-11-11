@@ -13,9 +13,9 @@ using PlatformView = UIView;
 using PlatformView = NSView;
 
 // top-left origin like imgui; clicks fall through wherever it has no subview
-@interface MydearFlippedView : NSView
+@interface ImShellFlippedView : NSView
 @end
-@implementation MydearFlippedView
+@implementation ImShellFlippedView
 - (BOOL)isFlipped {
     return YES;
 }
@@ -29,13 +29,13 @@ using PlatformView = NSView;
 namespace {
     PlatformView* overlay() {
 #if TARGET_OS_IPHONE
-        return (__bridge UIView*)mydear::detail::nativeHost();
+        return (__bridge UIView*)imshell::detail::nativeHost();
 #else
         // above the metal view, full size, so frames are window points from the top left
-        static MydearFlippedView* view = nil;
+        static ImShellFlippedView* view = nil;
         if (!view) {
-            NSView* host = (__bridge NSView*)mydear::detail::nativeHost();
-            view = [[MydearFlippedView alloc] initWithFrame:host.bounds];
+            NSView* host = (__bridge NSView*)imshell::detail::nativeHost();
+            view = [[ImShellFlippedView alloc] initWithFrame:host.bounds];
             view.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
             [host addSubview:view];
             // a click on imgui takes the keyboard back from a native field
@@ -64,13 +64,13 @@ namespace {
 } // namespace
 
 // views are window points from the top left, like imgui
-namespace mydear::detail {
+namespace imshell::detail {
     void* nativeAttach(void* made) {
         PlatformView* view = (__bridge_transfer PlatformView*)made;
 #if TARGET_OS_IPHONE
         UIView* clip = [[UIView alloc] init];
 #else
-        MydearFlippedView* clip = [[MydearFlippedView alloc] init];
+        ImShellFlippedView* clip = [[ImShellFlippedView alloc] init];
 #endif
         clip.clipsToBounds = YES;
         clip.hidden = YES; // the first placement shows it
@@ -93,4 +93,4 @@ namespace mydear::detail {
         PlatformView* view = (__bridge_transfer PlatformView*)clip;
         [view removeFromSuperview];
     }
-} // namespace mydear::detail
+} // namespace imshell::detail

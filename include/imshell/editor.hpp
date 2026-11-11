@@ -1,7 +1,7 @@
 #pragma once
 
 #include "imgui.h"
-#include "mydear/themes.hpp"
+#include "imshell/themes.hpp"
 #include <cstdint>
 #include <functional>
 #include <span>
@@ -10,11 +10,11 @@
 #include <utility>
 #include <vector>
 
-// an optional multi-line code editor (target mydear::editor): editing, selection, undo, line
+// an optional multi-line code editor (target imshell::editor): editing, selection, undo, line
 // numbers, find and replace, a read-only mode, and hooks for what the app knows: highlighting
-// and completion. nothing in mydear's core uses it, so an app that does not link the target
+// and completion. nothing in imshell's core uses it, so an app that does not link the target
 // pays nothing
-namespace mydear {
+namespace imshell {
     class TextEditor {
     public:
         // --- text ---
@@ -311,4 +311,4 @@ namespace mydear {
         void renderFindReplace();
         void renderFindHighlights(ImDrawList* drawList, int startLine, int endLine);
     };
-} // namespace mydear
+} // namespace imshell

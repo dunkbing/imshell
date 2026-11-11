@@ -5,11 +5,11 @@
 #include "../activity.hpp"
 #include "../frame_skip.hpp"
 #include "../ime.hpp"
-#include "mydear/android.hpp"
-#include "mydear/haptics.hpp"
-#include "mydear/app.hpp"
-#include "mydear/themes.hpp"
-#include "mydear/title_bar.hpp"
+#include "imshell/android.hpp"
+#include "imshell/haptics.hpp"
+#include "imshell/app.hpp"
+#include "imshell/themes.hpp"
+#include "imshell/title_bar.hpp"
 #include "../native_view.hpp"
 #include "../touch.hpp"
 
@@ -34,9 +34,9 @@
 #include <utility>
 
 namespace {
-    namespace touch = mydear::touch; // the shared one-finger model (src/touch.cpp)
+    namespace touch = imshell::touch; // the shared one-finger model (src/touch.cpp)
     android_app* gAndroid = nullptr;
-    mydear::Delegate* gDelegate = nullptr;
+    imshell::Delegate* gDelegate = nullptr;
 
     EGLDisplay gDisplay = EGL_NO_DISPLAY;
     EGLSurface gSurface = EGL_NO_SURFACE;
@@ -57,7 +57,7 @@ namespace {
             .count();
     }
 
-    // ---- java (MydearActivity) ----
+    // ---- java (ImShellActivity) ----
 
     jmethodID method(const char* name, const char* sig) {
         if (!gEnv || !gAndroid)
@@ -66,7 +66,7 @@ namespace {
         jmethodID m = gEnv->GetMethodID(cls, name, sig);
         gEnv->DeleteLocalRef(cls);
         if (!m)
-            gEnv->ExceptionClear(); // not a MydearActivity
+            gEnv->ExceptionClear(); // not a ImShellActivity
         return m;
     }
 
@@ -111,7 +111,7 @@ namespace {
     }
 
 
-    // MydearActivity.wake(): java hands the loop something (a toolbar pick, a picked file,
+    // ImShellActivity.wake(): java hands the loop something (a toolbar pick, a picked file,
     // new insets) without a native event, so it wakes the looper itself
     void JNICALL nativeWake(JNIEnv*, jobject) {
         if (gAndroid)
@@ -128,10 +128,10 @@ namespace {
         jclass loaderClass = gEnv->FindClass("java/lang/ClassLoader");
         jmethodID loadClass =
             gEnv->GetMethodID(loaderClass, "loadClass", "(Ljava/lang/String;)Ljava/lang/Class;");
-        jstring name = gEnv->NewStringUTF("io.mydear.MydearActivity");
+        jstring name = gEnv->NewStringUTF("io.imshell.ImShellActivity");
         auto cls = static_cast<jclass>(gEnv->CallObjectMethod(loader, loadClass, name));
         if (gEnv->ExceptionCheck()) {
-            gEnv->ExceptionClear(); // not a MydearActivity
+            gEnv->ExceptionClear(); // not a ImShellActivity
         } else {
             const JNINativeMethod wake{"wake", "()V", reinterpret_cast<void*>(nativeWake)};
             if (gEnv->RegisterNatives(cls, &wake, 1) != JNI_OK)
@@ -247,7 +247,7 @@ namespace {
     int32_t gPointer = -1; // the finger driving the mouse
 
     // window pixels: left, top, right, bottom covered by system bars and cutouts, then the
-    // keyboard's height (MydearActivity.windowInsets)
+    // keyboard's height (ImShellActivity.windowInsets)
     int gInsets[5] = {};
     // what the current activity was told; a recreated one starts over
     int gLightBars = -1;
@@ -346,7 +346,7 @@ namespace {
     }
 
     int32_t onInput(android_app*, AInputEvent* e) {
-        mydear::requestFrames(std::chrono::milliseconds(500));
+        imshell::requestFrames(std::chrono::milliseconds(500));
         if (AInputEvent_getType(e) != AINPUT_EVENT_TYPE_MOTION)
             return ImGui_ImplAndroid_HandleInputEvent(e); // keys
         if (AMotionEvent_getToolType(e, 0) == AMOTION_EVENT_TOOL_TYPE_MOUSE)
@@ -357,7 +357,7 @@ namespace {
     }
 
     void onCmd(android_app* app, int32_t cmd) {
-        mydear::requestFrames(std::chrono::milliseconds(500));
+        imshell::requestFrames(std::chrono::milliseconds(500));
         switch (cmd) {
         case APP_CMD_INIT_WINDOW:
             if (gContext != EGL_NO_CONTEXT)
@@ -405,7 +405,7 @@ namespace {
     }
 } // namespace
 
-namespace mydear {
+namespace imshell {
     void SetAndroidApp(android_app* app) {
         gAndroid = app;
         if (!gRecreating)
@@ -458,7 +458,7 @@ namespace mydear {
 
     bool App::create(const Config& config, Delegate& delegate) {
         if (!gAndroid) {
-            __android_log_print(ANDROID_LOG_ERROR, "mydear", "call SetAndroidApp first");
+            __android_log_print(ANDROID_LOG_ERROR, "imshell", "call SetAndroidApp first");
             return false;
         }
         gDelegate = &delegate;
@@ -476,7 +476,7 @@ namespace mydear {
             if (pump(-1))
                 return false;
         if (!initEgl()) {
-            __android_log_print(ANDROID_LOG_ERROR, "mydear", "egl setup failed");
+            __android_log_print(ANDROID_LOG_ERROR, "imshell", "egl setup failed");
             return false;
         }
 
@@ -505,7 +505,7 @@ namespace mydear {
         ImGui::StyleColorsDark();
         Theme::ApplyTheme(Theme::Current()->colors);
         ImGui_ImplAndroid_Init(gAndroid->window);
-        io.BackendPlatformName = "mydear_android";
+        io.BackendPlatformName = "imshell_android";
         delegate.setup();
         gGlReady = ImGui_ImplOpenGL3_Init("#version 300 es");
         return gGlReady;
@@ -534,7 +534,7 @@ namespace mydear {
         pollPicked();
         pollEdits();
         if (touch::longPressDue(now)) {
-            mydear::PlayHaptic(mydear::Haptic::LongPress);
+            imshell::PlayHaptic(imshell::Haptic::LongPress);
             // the finger has hovered since it landed, so the cursor says what is under it
             if (ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput) {
                 // like an android text field: a double click selects the word (and focuses
@@ -711,7 +711,7 @@ namespace mydear {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
-        ImGui::Begin("##mydear_title_bar", nullptr,
+        ImGui::Begin("##imshell_title_bar", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav |
                          ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
@@ -738,13 +738,13 @@ namespace mydear {
         void nativeSetHidden(void*, bool) {}
         void nativeRemove(void*) {}
     } // namespace detail
-} // namespace mydear
+} // namespace imshell
 
-std::string mydear::detail::androidFilesDir() {
+std::string imshell::detail::androidFilesDir() {
     return gAndroid && gAndroid->activity->internalDataPath ? gAndroid->activity->internalDataPath : "";
 }
 
-void mydear::PlayHaptic(const Haptic kind) {
+void imshell::PlayHaptic(const Haptic kind) {
     if (jmethodID m = method("haptic", "(I)V"))
         gEnv->CallVoidMethod(gAndroid->activity->clazz, m, static_cast<jint>(kind));
 }

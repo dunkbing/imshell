@@ -6,7 +6,7 @@
 #include <cfloat>
 #include <cmath>
 
-namespace mydear::touch {
+namespace imshell::touch {
     namespace {
         State gState = State::None;
         ImVec2 gStart, gLast;
@@ -208,9 +208,9 @@ namespace mydear::touch {
     bool animating() {
         return gState == State::Pending || length(gFling) > kFlingStop || gLift;
     }
-} // namespace mydear::touch
+} // namespace imshell::touch
 
-namespace mydear::touch {
+namespace imshell::touch {
     bool grabbing() {
         return gGrab;
     }
@@ -249,4 +249,4 @@ namespace mydear::touch {
         }
         gHandleCount = 2;
     }
-} // namespace mydear::touch
+} // namespace imshell::touch

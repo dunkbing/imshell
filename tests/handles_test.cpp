@@ -1,5 +1,5 @@
 // selection handles on a bare imgui context: a selection gets a knob under each end, and a
-// finger dragging a knob moves that end while the other stays. built with -DMYDEAR_BUILD_TESTS=ON
+// finger dragging a knob moves that end while the other stays. built with -DIMSHELL_BUILD_TESTS=ON
 #include "touch.hpp"
 
 #include "imgui.h"
@@ -35,7 +35,7 @@ namespace {
         fieldMin = ImGui::GetItemRectMin();
         fieldId = ImGui::GetItemID();
         ImGui::End();
-        mydear::touch::drawHandles();
+        imshell::touch::drawHandles();
         ImGui::Render();
     }
 
@@ -50,14 +50,14 @@ namespace {
     // a finger from one knob to under another character, a few moves on the way
     void drag(int from, int to) {
         double now = 1;
-        mydear::touch::down(knob(from), now);
+        imshell::touch::down(knob(from), now);
         frame();
         for (int step = 1; step <= 4; ++step) {
             const ImVec2 a = knob(from), b = knob(to);
-            mydear::touch::move(ImVec2(a.x + (b.x - a.x) * step / 4, a.y), now += 0.05);
+            imshell::touch::move(ImVec2(a.x + (b.x - a.x) * step / 4, a.y), now += 0.05);
             frame();
         }
-        mydear::touch::up(now, true);
+        imshell::touch::up(now, true);
         frame();
         frame();
     }
@@ -94,9 +94,9 @@ int main() {
     state()->SetSelection(4, 4);
     frame();
     double now = 2;
-    mydear::touch::down(knob(4), now); // no selection, no handle: an ordinary touch
-    check(!mydear::touch::grabbing(), "no handles without a selection");
-    mydear::touch::cancel();
+    imshell::touch::down(knob(4), now); // no selection, no handle: an ordinary touch
+    check(!imshell::touch::grabbing(), "no handles without a selection");
+    imshell::touch::cancel();
 
     ImGui::DestroyContext();
     if (failures)

@@ -1,5 +1,5 @@
 // the touch engine against a bare imgui context: no window, no platform. built with
-// -DMYDEAR_BUILD_TESTS=ON (ctest), or by hand:
+// -DIMSHELL_BUILD_TESTS=ON (ctest), or by hand:
 //   c++ -std=c++20 -I<imgui> -Isrc tests/touch_test.cpp src/touch.cpp <imgui>/imgui*.cpp
 #include "touch.hpp"
 
@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-namespace touch = mydear::touch;
+namespace touch = imshell::touch;
 
 namespace {
     int failures = 0;

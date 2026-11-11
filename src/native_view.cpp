@@ -1,4 +1,4 @@
-#include "mydear/native_view.hpp"
+#include "imshell/native_view.hpp"
 #include "native_view.hpp"
 
 #include <unordered_map>
@@ -30,7 +30,7 @@ namespace {
     }
 } // namespace
 
-namespace mydear {
+namespace imshell {
     void* NativeView(const char* id, const ImVec2& size, const std::function<void*()>& create) {
         ImGuiWindow* window = ImGui::GetCurrentWindow();
         const ImGuiID key = window->GetID(id);
@@ -89,4 +89,4 @@ namespace mydear {
             gEntries.clear();
         }
     } // namespace detail
-} // namespace mydear
+} // namespace imshell

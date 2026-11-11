@@ -8,7 +8,7 @@ interface Props {
 
 const {
   title,
-  description = "mydear: a small C++ toolkit that turns a Dear ImGui frame into a real app on macOS, iOS, Windows, Linux, Android and the web.",
+  description = "imshell: a small C++ toolkit that turns a Dear ImGui frame into a real app on macOS, iOS, Windows, Linux, Android and the web.",
 } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const path = Astro.url.pathname.replace(/\/$/, "") || "/";
@@ -36,7 +36,7 @@ const year = new Date().getFullYear();
   <body class="pt-12">
     <header class="fixed top-0 inset-x-0 z-50 bg-crust border-b border-surface1">
       <nav class="max-w-2xl mx-auto px-4 py-2 flex flex-wrap items-center gap-x-1 text-sm">
-        <a href={`${base}/`} class="font-bold text-text no-underline mr-2">mydear</a>
+        <a href={`${base}/`} class="font-bold text-text no-underline mr-2">imshell</a>
         [
         {
           nav.map((n, i) => (
@@ -46,7 +46,7 @@ const year = new Date().getFullYear();
             </>
           ))
         }
-        <a href="https://github.com/dunkbing/mydear" target="_blank" class="no-underline hover:underline">github</a> ]
+        <a href="https://github.com/dunkbing/imshell" target="_blank" class="no-underline hover:underline">github</a> ]
       </nav>
     </header>
 
@@ -54,9 +54,9 @@ const year = new Date().getFullYear();
 
     <footer class="border-t border-surface1 py-4 px-4 text-xs text-subtext0">
       <div class="max-w-2xl mx-auto flex flex-wrap items-center justify-between gap-y-2">
-        <p>&copy; {year} mydear &middot; MIT License</p>
+        <p>&copy; {year} imshell &middot; MIT License</p>
         <p>
-          [<a href={`${base}/docs`} class="hover:text-text">docs</a>] [<a href="https://github.com/dunkbing/mydear" target="_blank" class="hover:text-text">github</a>] [<a href="https://dearsql.dev" target="_blank" class="hover:text-text">dearsql</a>]
+          [<a href={`${base}/docs`} class="hover:text-text">docs</a>] [<a href="https://github.com/dunkbing/imshell" target="_blank" class="hover:text-text">github</a>] [<a href="https://dearsql.dev" target="_blank" class="hover:text-text">dearsql</a>]
         </p>
       </div>
     </footer>

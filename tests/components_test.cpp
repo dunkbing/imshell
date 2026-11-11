@@ -1,7 +1,7 @@
-// every mydear::ui component on a bare imgui context for a few frames: imgui's asserts catch a
+// every imshell::ui component on a bare imgui context for a few frames: imgui's asserts catch a
 // broken push/pop, and the test engine's item hook (compiled into this test's own imgui) sees
-// every item id, so a duplicate fails. built with -DMYDEAR_BUILD_TESTS=ON
-#include "mydear/components.hpp"
+// every item id, so a duplicate fails. built with -DIMSHELL_BUILD_TESTS=ON
+#include "imshell/components.hpp"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -28,7 +28,7 @@ const char* ImGuiTestEngine_FindItemDebugLabel(ImGuiContext*, ImGuiID) {
     return nullptr;
 }
 
-namespace ui = mydear::ui;
+namespace ui = imshell::ui;
 
 namespace {
     std::string field = "x", empty;

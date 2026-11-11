@@ -1,4 +1,4 @@
-#include "mydear/haptics.hpp"
+#include "imshell/haptics.hpp"
 
 #include <TargetConditionals.h>
 #if TARGET_OS_IOS
@@ -7,7 +7,7 @@
 #import <AppKit/AppKit.h>
 #endif
 
-void mydear::PlayHaptic(const Haptic kind) {
+void imshell::PlayHaptic(const Haptic kind) {
 #if TARGET_OS_IOS
     switch (kind) {
     case Haptic::Tap:

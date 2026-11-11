@@ -3,14 +3,14 @@
 // framebuffer is scaled by the widget's scale factor
 #include <epoxy/gl.h> // before any other gl header
 
-#include "mydear/app.hpp"
+#include "imshell/app.hpp"
 #include "../activity.hpp"
 #include "../native_view.hpp"
 #include "imgui_impl_opengl3.h"
 #include "imgui_internal.h"
 #include "keymap.hpp"
-#include "mydear/themes.hpp"
-#include "mydear/title_bar.hpp"
+#include "imshell/themes.hpp"
+#include "imshell/title_bar.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -19,7 +19,7 @@
 #include <string>
 #include <utility>
 
-namespace mydear {
+namespace imshell {
     namespace {
         constexpr double kIdleAfterSeconds = 2.0; // no input for this long: stop the frame clock
 
@@ -293,7 +293,7 @@ namespace mydear {
         void onRealize(GtkGLArea* area, gpointer) {
             gtk_gl_area_make_current(area);
             if (gtk_gl_area_get_error(area)) {
-                std::fprintf(stderr, "mydear: no opengl context\n");
+                std::fprintf(stderr, "imshell: no opengl context\n");
                 return;
             }
             gGlReady = ImGui_ImplOpenGL3_Init("#version 330");
@@ -385,7 +385,7 @@ namespace mydear {
                     continue;
                 const ImVec2 min(x, centreY - kButtonSide / 2);
                 ImGui::SetCursorScreenPos(min);
-                const bool clicked = ImGui::InvisibleButton(("##mydear_" + name).c_str(),
+                const bool clicked = ImGui::InvisibleButton(("##imshell_" + name).c_str(),
                                                             ImVec2(kButtonSide, kButtonSide));
                 const ImVec2 m(x + kButtonSide / 2, centreY);
                 const bool hot = ImGui::IsItemHovered();
@@ -431,7 +431,7 @@ namespace mydear {
 
     bool App::create(const Config& config, Delegate& delegate) {
         if (!gtk_init_check()) {
-            std::fprintf(stderr, "mydear: gtk_init_check failed\n");
+            std::fprintf(stderr, "imshell: gtk_init_check failed\n");
             return false;
         }
         gDelegate = &delegate;
@@ -509,7 +509,7 @@ namespace mydear {
         g_signal_connect(gOverlay, "get-child-position",
                          G_CALLBACK(+[](GtkOverlay*, GtkWidget* child, GdkRectangle* out, gpointer) {
                              auto* r = static_cast<GdkRectangle*>(
-                                 g_object_get_data(G_OBJECT(child), "mydear-rect"));
+                                 g_object_get_data(G_OBJECT(child), "imshell-rect"));
                              if (r)
                                  *out = *r;
                              return r != nullptr;
@@ -524,7 +524,7 @@ namespace mydear {
         ImGuiIO& io = ImGui::GetIO();
         if (config.docking)
             io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-        io.BackendPlatformName = "mydear_gtk4";
+        io.BackendPlatformName = "imshell_gtk4";
         io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
         gClipboard = gdk_display_get_clipboard(gdk_display_get_default());
         g_signal_connect(gClipboard, "changed", G_CALLBACK(+[](GdkClipboard*, gpointer) {
@@ -621,7 +621,7 @@ namespace mydear {
 
     TitleBar BeginTitleBar() {
         if (ImGuiWindow* nav = GImGui->NavWindow;
-            nav && nav != ImGui::FindWindowByName("##mydear_title_bar"))
+            nav && nav != ImGui::FindWindowByName("##imshell_title_bar"))
             gFocusBeforeBar = nav;
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         TitleBar bar;
@@ -641,7 +641,7 @@ namespace mydear {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
-        ImGui::Begin("##mydear_title_bar", nullptr,
+        ImGui::Begin("##imshell_title_bar", nullptr,
                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoDocking |
                          ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoNav |
                          ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoMove);
@@ -719,7 +719,7 @@ namespace mydear {
             GtkWidget* clip = gtk_fixed_new();
             gtk_widget_set_overflow(clip, GTK_OVERFLOW_HIDDEN);
             gtk_widget_set_visible(clip, FALSE); // added mid-draw: no allocation until placed
-            g_object_set_data_full(G_OBJECT(clip), "mydear-rect", g_new0(GdkRectangle, 1), g_free);
+            g_object_set_data_full(G_OBJECT(clip), "imshell-rect", g_new0(GdkRectangle, 1), g_free);
             gtk_fixed_put(GTK_FIXED(clip), view, 0, 0);
             gtk_overlay_add_overlay(GTK_OVERLAY(gOverlay), clip);
             return clip;
@@ -727,7 +727,7 @@ namespace mydear {
 
         void nativePlace(void* clip, void* view, const ImRect& visible, const ImRect& full) {
             auto* c = static_cast<GtkWidget*>(clip);
-            auto* r = static_cast<GdkRectangle*>(g_object_get_data(G_OBJECT(c), "mydear-rect"));
+            auto* r = static_cast<GdkRectangle*>(g_object_get_data(G_OBJECT(c), "imshell-rect"));
             *r = {static_cast<int>(visible.Min.x), static_cast<int>(visible.Min.y),
                   static_cast<int>(visible.GetWidth()), static_cast<int>(visible.GetHeight())};
             gtk_widget_queue_allocate(gOverlay);
@@ -747,4 +747,4 @@ namespace mydear {
                 gtk_overlay_remove_overlay(GTK_OVERLAY(gOverlay), static_cast<GtkWidget*>(clip));
         }
     } // namespace detail
-} // namespace mydear
+} // namespace imshell

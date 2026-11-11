@@ -1,7 +1,7 @@
-#include "mydear/editor.hpp"
+#include "imshell/editor.hpp"
 
 #include "imgui_internal.h"
-#include "mydear/button.hpp"
+#include "imshell/button.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <cstring>
 
-namespace mydear {
+namespace imshell {
     namespace {
         constexpr int kAutocompleteMaxVisible = 8;
         constexpr size_t kMaxCompletions = 50;
@@ -1607,4 +1607,4 @@ namespace mydear {
                 withAlpha(palette_.type, static_cast<int>(mi) == findCurrentMatch_ ? 120 : 60));
         }
     }
-} // namespace mydear
+} // namespace imshell

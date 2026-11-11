@@ -1,14 +1,14 @@
 // android file dialogs: the system document picker (PickFile copies the pick in); saves and
 // folders are the documents folder in the app's internal storage
 #include "../activity.hpp"
-#include "mydear/android.hpp"
-#include "mydear/file_dialog.hpp"
+#include "imshell/android.hpp"
+#include "imshell/file_dialog.hpp"
 
 #include <algorithm>
 #include <filesystem>
 #include <string_view>
 
-namespace mydear {
+namespace imshell {
     namespace {
         // shortcut: a fixed table, any file for the rest; ask java's MimeTypeMap when an app
         // needs more types
@@ -78,4 +78,4 @@ namespace mydear {
     void PickFolderDialog(FileDone done) {
         done(DocumentsDir());
     }
-} // namespace mydear
+} // namespace imshell

@@ -1,5 +1,5 @@
 // the hello example on android: no native views yet, and android_main instead of main
-#include "mydear/android.hpp"
+#include "imshell/android.hpp"
 #include <cstdio>
 
 void* makeTextField() {
@@ -16,9 +16,9 @@ void describeNativeView(void*, char* out, int size) {
 
 int main();
 
-// mydear::Run keeps the app across a recreated activity
+// imshell::Run keeps the app across a recreated activity
 void android_main(android_app* state) {
-    mydear::SetAndroidApp(state);
+    imshell::SetAndroidApp(state);
     main();
 }
 

@@ -5,7 +5,7 @@
 
 struct GLFWwindow;
 
-namespace mydear {
+namespace imshell {
     // metal through a CAMetalLayer on the glfw window's content view
     class MetalBackend {
     public:
@@ -44,4 +44,4 @@ namespace mydear {
     private:
         GLFWwindow* window_ = nullptr;
     };
-} // namespace mydear
+} // namespace imshell

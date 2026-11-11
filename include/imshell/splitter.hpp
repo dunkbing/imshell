@@ -3,7 +3,7 @@
 #include "imgui.h"
 #include <algorithm>
 
-namespace mydear {
+namespace imshell {
 
     // invisible drag handle right above the lower pane: its top border is what you grab,
     // lit while hovered or dragged
@@ -51,4 +51,4 @@ namespace mydear {
         return changed;
     }
 
-} // namespace mydear
+} // namespace imshell

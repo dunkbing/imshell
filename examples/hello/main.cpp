@@ -1,10 +1,10 @@
-// the smallest mydear app: a themed window with its own title bar and a button
-#include "mydear/app.hpp"
-#include "mydear/button.hpp"
-#include "mydear/file_dialog.hpp"
-#include "mydear/themes.hpp"
-#include "mydear/title_bar.hpp"
-#include "mydear/native_view.hpp"
+// the smallest imshell app: a themed window with its own title bar and a button
+#include "imshell/app.hpp"
+#include "imshell/button.hpp"
+#include "imshell/file_dialog.hpp"
+#include "imshell/themes.hpp"
+#include "imshell/title_bar.hpp"
+#include "imshell/native_view.hpp"
 
 #if defined(__APPLE__) || defined(_WIN32)
 #include "imgui_impl_glfw.h"
@@ -22,13 +22,13 @@ void* makeDatePicker();
 void describeNativeView(void* view, char* out, int size);
 bool closeLikeUser(); // false where the platform cannot
 
-struct Hello : mydear::Delegate {
+struct Hello : imshell::Delegate {
     int clicks = 0;
-    // smoke tests: MYDEAR_HELLO_QUIT=<seconds> closes by itself (0: right after the first frame,
-    // which site/bench.sh times), MYDEAR_HELLO_PROBE=1 drives the window (title bar zoom, a bar
+    // smoke tests: IMSHELL_HELLO_QUIT=<seconds> closes by itself (0: right after the first frame,
+    // which site/bench.sh times), IMSHELL_HELLO_PROBE=1 drives the window (title bar zoom, a bar
     // button, native views, the close veto)
-    const char* quitAfter = std::getenv("MYDEAR_HELLO_QUIT");
-    const bool probe = std::getenv("MYDEAR_HELLO_PROBE");
+    const char* quitAfter = std::getenv("IMSHELL_HELLO_QUIT");
+    const bool probe = std::getenv("IMSHELL_HELLO_PROBE");
     std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
     ImVec2 sizeBefore;
     ImVec2 barButton;
@@ -41,40 +41,40 @@ struct Hello : mydear::Delegate {
     void frame() override {
         const int f = ImGui::GetFrameCount();
         if (probe)
-            mydear::requestFrames(); // the probe counts frames: no idling
+            imshell::requestFrames(); // the probe counts frames: no idling
         if (probe)
             runProbe(f);
 
-        const auto bar = mydear::BeginTitleBar();
+        const auto bar = imshell::BeginTitleBar();
         barEnd = bar.pos.x + bar.size.x - bar.rightInset;
-        if (mydear::SmallButton("Bar button"))
+        if (imshell::SmallButton("Bar button"))
             ++barClicks;
         barButton = ImVec2((ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) / 2,
                            (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) / 2);
-        const char* title = "Hello mydear";
+        const char* title = "Hello imshell";
         ImGui::SetCursorScreenPos(ImVec2(bar.pos.x + (bar.size.x - ImGui::CalcTextSize(title).x) / 2,
                                          bar.pos.y + (bar.size.y - ImGui::GetTextLineHeight()) / 2));
         ImGui::TextDisabled("%s", title);
-        mydear::EndTitleBar();
+        imshell::EndTitleBar();
 
-        const mydear::Rect content = mydear::ContentRect();
+        const imshell::Rect content = imshell::ContentRect();
         ImGui::SetNextWindowPos(content.pos);
         ImGui::SetNextWindowSize(content.size);
         ImGui::Begin("hello", nullptr, ImGuiWindowFlags_NoDecoration);
-        if (mydear::Button("Click me", mydear::ButtonVariant::Primary))
+        if (imshell::Button("Click me", imshell::ButtonVariant::Primary))
             ++clicks;
         ImGui::Text("Clicked %d times", clicks);
         ImGui::Spacing();
         ImGui::TextUnformatted("Native views, placed by the imgui layout:");
         const ImVec2 fieldsAt = ImGui::GetCursorScreenPos();
-        field = mydear::NativeView("##field", ImVec2(240, 22), makeTextField);
-        mydear::NativeView("##date", ImVec2(160, 22), makeDatePicker);
-        if (mydear::SmallButton("Open a file..."))
-            mydear::OpenFileDialog({{"Text", "txt,md"}, {"All files", "*"}},
+        field = imshell::NativeView("##field", ImVec2(240, 22), makeTextField);
+        imshell::NativeView("##date", ImVec2(160, 22), makeDatePicker);
+        if (imshell::SmallButton("Open a file..."))
+            imshell::OpenFileDialog({{"Text", "txt,md"}, {"All files", "*"}},
                                    [this](const std::string& path) { opened = path; });
         if (!opened.empty())
             ImGui::TextDisabled("%s", opened.c_str());
-        if (mydear::SmallButton("Open a popup over them") || std::exchange(wantPopup, false))
+        if (imshell::SmallButton("Open a popup over them") || std::exchange(wantPopup, false))
             ImGui::OpenPopup("##over");
         ImGui::SetNextWindowPos(ImVec2(fieldsAt.x + 40, fieldsAt.y + 4), ImGuiCond_Appearing);
         if (ImGui::BeginPopup("##over")) {
@@ -86,7 +86,7 @@ struct Hello : mydear::Delegate {
 
     void runProbe(int f) {
         auto& io = ImGui::GetIO();
-        const ImVec2 empty(barEnd - 40, mydear::TitleBarHeight() / 2);
+        const ImVec2 empty(barEnd - 40, imshell::TitleBarHeight() / 2);
         if (f == 10)
             sizeBefore = io.DisplaySize;
         if (f >= 10 && f <= 15 || f >= 50 && f <= 53) {
@@ -163,13 +163,13 @@ struct Hello : mydear::Delegate {
 };
 
 int main() {
-    mydear::Theme::Current() = &mydear::Theme::themeById("tokyo-night");
-    mydear::Config config;
-    config.title = "Hello mydear";
-    config.appName = "mydear hello"; // imgui.ini in DataDir("mydear hello")
+    imshell::Theme::Current() = &imshell::Theme::themeById("tokyo-night");
+    imshell::Config config;
+    config.title = "Hello imshell";
+    config.appName = "imshell hello"; // imgui.ini in DataDir("imshell hello")
     config.width = 480;
     config.height = 300;
     config.titleBar = true;
     static Hello hello; // android: outlives a recreated activity
-    return mydear::Run(config, hello);
+    return imshell::Run(config, hello);
 }

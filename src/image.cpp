@@ -3,9 +3,9 @@
 #define STBI_NO_STDIO
 #include "stb_image.h"
 
-#include "mydear/image.hpp"
+#include "imshell/image.hpp"
 
-namespace mydear {
+namespace imshell {
     ImTextureID LoadTexture(const uint8_t* data, const size_t size, const CreateTexture& create,
                             int* width, int* height) {
         int w = 0, h = 0, channels = 0;
@@ -21,4 +21,4 @@ namespace mydear {
             *height = h;
         return tex;
     }
-} // namespace mydear
+} // namespace imshell
