@@ -128,6 +128,41 @@ namespace imshell {
         return {};
     }
 
+    namespace {
+        // hangul: the chinese and japanese fonts above have none. linux and android's cjk
+        // collections (noto, wenquanyi) do, so they are merged again for it
+        std::string hangulFontPath() {
+#if defined(_WIN32) || defined(__APPLE__)
+            static const char* candidates[] = {
+#if defined(_WIN32)
+                "C:\\Windows\\Fonts\\malgun.ttf", // malgun gothic
+                "C:\\Windows\\Fonts\\gulim.ttc",
+#else
+                "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+                "/Library/Fonts/Arial Unicode.ttf",
+#endif
+            };
+            for (const char* path : candidates)
+                if (stbCanRead(path))
+                    return path;
+            return {};
+#else
+            return SystemCjkFontPath();
+#endif
+        }
+
+        std::span<char> hangulData() {
+            static const std::span<char> data = [] {
+                const std::string path = hangulFontPath();
+                return path.empty() ? std::span<char>{} : mapFile(path);
+            }();
+            return data;
+        }
+
+        // jamo and syllables, which GetGlyphRangesJapanese leaves out
+        constexpr ImWchar kHangulRanges[] = {0x1100, 0x11FF, 0x3131, 0x318E, 0xAC00, 0xD7A3, 0};
+    } // namespace
+
     ImFont* AddFont(std::span<const FontFile> files, float size, bool systemCjk) {
         ImFontAtlas* atlas = ImGui::GetIO().Fonts;
         ImFont* font = nullptr;
@@ -155,6 +190,14 @@ namespace imshell {
             // japanese also covers the common chinese ideographs
             atlas->AddFontFromMemoryTTF(cjkData().data(), static_cast<int>(cjkData().size()), size,
                                         &config, atlas->GetGlyphRangesJapanese());
+        }
+        if (font && systemCjk && !hangulData().empty()) {
+            ImFontConfig config;
+            config.FontDataOwnedByAtlas = false;
+            config.MergeMode = true;
+            config.DstFont = font;
+            atlas->AddFontFromMemoryTTF(hangulData().data(), static_cast<int>(hangulData().size()),
+                                        size, &config, kHangulRanges);
         }
         return font;
     }

@@ -22,13 +22,14 @@ namespace imshell {
     };
 
     // the first file is the base, the rest merge into it; null if the base fails to load.
-    // systemCjk merges SystemCjkFontPath() last (mapped, not read: those files are 20+ mb)
+    // systemCjk merges SystemCjkFontPath() last (mapped, not read: those files are 20+ mb), and
+    // a font with hangul after it (malgun gothic, apple sd gothic neo, or the same collection)
     ImFont* AddFont(std::span<const FontFile> files, float size = 16.0f, bool systemCjk = true);
     inline ImFont* AddFont(std::initializer_list<FontFile> files, float size = 16.0f,
                            bool systemCjk = true) {
         return AddFont(std::span(files.begin(), files.size()), size, systemCjk);
     }
 
-    // an installed font with chinese, japanese and korean glyphs, or empty
+    // an installed font with chinese and japanese glyphs (korean too on linux and android), or empty
     std::string SystemCjkFontPath();
 } // namespace imshell
