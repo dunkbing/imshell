@@ -1,6 +1,7 @@
 ---
 import { Code } from "astro:components";
 import Layout from "../layouts/Layout.astro";
+import bench from "../data/benchmarks.json";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -22,6 +23,13 @@ const features = [
   ["Components", "optional text fields, cards, badges, callouts, progress, avatars, metrics, chips and toasts.", "components"],
   ["Fonts and files", "one UI font from a text font, icon fonts and the system's CJK font; file dialogs; fonts and images baked into the binary.", "ui"],
   ["Auto-update", "Sparkle, WinSparkle or a checked AppImage swap, behind one call.", "auto-update"],
+];
+
+const stats = [
+  [`${bench.hello.firstFrameMs} ms`, "launch to first frame"],
+  [`${bench.gallery.idleCpu} %`, "CPU while idle"],
+  [`${bench.hello.sizeMB} MB`, "the whole app"],
+  [`${bench.web.wasmKB + bench.web.jsKB} KB`, "gallery in the browser"],
 ];
 
 const hello = `#include "mydear/app.hpp"
@@ -89,7 +97,7 @@ target_link_libraries(app PRIVATE mydear::mydear) # + mydear::components, option
     </section>
 
     <section class="py-6 border-t border-surface1">
-      <h2 class="text-base font-bold mb-2">## The whole app</h2>
+      <h2 class="text-[1rem] font-bold mb-2">## The whole app</h2>
       <p class="text-sm text-subtext0 mb-3">A delegate draws a frame; <code>mydear::Run</code> does the rest. The same file builds for every platform above.</p>
       <Code code={hello} lang="cpp" themes={{ light: "github-light", dark: "github-dark" }} class="code" />
       <p class="text-sm text-subtext0 mt-4 mb-3">In CMake, next to your own Dear ImGui:</p>
@@ -98,7 +106,7 @@ target_link_libraries(app PRIVATE mydear::mydear) # + mydear::components, option
     </section>
 
     <section class="py-6 border-t border-surface1">
-      <h2 class="text-base font-bold mb-3">## What it has</h2>
+      <h2 class="text-[1rem] font-bold mb-3">## What it has</h2>
       <ul class="text-sm space-y-2">
         {
           features.map(([name, text, page]) => (
@@ -108,6 +116,44 @@ target_link_libraries(app PRIVATE mydear::mydear) # + mydear::components, option
           ))
         }
       </ul>
+    </section>
+
+    <section class="py-6 border-t border-surface1">
+      <h2 class="text-[1rem] font-bold mb-2">## Performance</h2>
+      <p class="text-sm text-subtext0 mb-3">Native code and a loop that sleeps when nothing changes: small binaries, a first frame in milliseconds, and an idle window that costs next to nothing.</p>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+        {stats.map(([value, label]) => (
+          <div class="border border-surface1 bg-surface0 px-3 py-2">
+            <p class="text-lg font-bold text-peach">{value}</p>
+            <p class="text-xs text-subtext0">{label}</p>
+          </div>
+        ))}
+      </div>
+      <div class="border border-surface1 bg-surface0 text-sm">
+        <div class="flex items-center justify-between px-3 py-2 border-b border-surface1">
+          <p class="font-bold text-green">&gt; macOS, release build</p>
+          <p class="text-xs text-subtext0">hello &middot; gallery</p>
+        </div>
+        <table class="w-full text-sm">
+          <tbody>
+            {[
+              ["Executable, stripped", `${bench.hello.sizeMB} MB`, `${bench.gallery.sizeMB} MB`],
+              ["Memory at rest", `${bench.hello.memoryMB} MB`, `${bench.gallery.memoryMB} MB`],
+              ["CPU at rest", `${bench.hello.idleCpu} %`, `${bench.gallery.idleCpu} %`],
+              ["Launch to first frame", `${bench.hello.firstFrameMs} ms`, ""],
+            ].map(([what, hello, gallery]) => (
+              <tr class="border-b border-surface1 last:border-b-0">
+                <td class="px-3 py-1.5">{what}</td>
+                <td class="px-3 py-1.5 text-right tabular-nums">{hello}</td>
+                <td class="px-3 py-1.5 text-right tabular-nums text-subtext0">{gallery}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-subtext0 mt-3">
+        {bench.machine}, {bench.os}, mydear {bench.commit}, {bench.date}. <code>hello</code> is the app above; <code>gallery</code> has every component and the code editor. Release builds with Dear ImGui, mydear and GLFW linked in, stripped. First frame: from launching <code>hello</code> until it has drawn its first frame and quit, the median of 11 runs. At rest: the physical footprint 3 s after launch, and the CPU used over the next 10 s, the window focused and left alone. In the browser: the gallery's <code>.wasm</code> and <code>.js</code> as this site serves them (brotli), {bench.web.wasmKB} + {bench.web.jsKB} KB. Windows, Linux and the phones are not measured yet. <code>site/bench.sh</code> measures it again.
+      </p>
     </section>
   </main>
 </Layout>
