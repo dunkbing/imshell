@@ -82,9 +82,19 @@ namespace mydear {
             Type,
             Operator
         };
-        // the app's lexer or parser: fills tokens[i] for byte i of text (all Text on entry).
-        // runs again when the text changes, before the next draw; without one the text is plain
-        using Highlighter = std::function<void(std::string_view text, std::span<Token> tokens)>;
+        // what changed since the last call: text[start, newEnd) replaced what was [start, oldEnd).
+        // the first call (and the first after SetHighlighter) has the whole text as new
+        struct Edit {
+            size_t start = 0;
+            size_t oldEnd = 0;
+            size_t newEnd = 0;
+        };
+        // the app's lexer or parser: fills tokens[i] for byte i of text. on entry the edited bytes
+        // are Text and the rest keep the previous call's kinds, moved with the edit, so an
+        // incremental parser recolours only what changed; a lexer that redoes everything sets every
+        // byte. runs when the text changes, before the next draw; without one the text is plain
+        using Highlighter =
+            std::function<void(std::string_view text, std::span<Token> tokens, const Edit& edit)>;
         void SetHighlighter(Highlighter highlighter);
         // the highlight, brought up to date (tests)
         const std::vector<Token>& GetTokens();
@@ -199,6 +209,7 @@ namespace mydear {
         Palette palette_{};
         bool ownPalette_ = false;
         Highlighter highlighter_;
+        std::string highlighted_; // the text tokens_ was last highlighted for
         bool highlightDirty_ = true;
 
         struct Snapshot {

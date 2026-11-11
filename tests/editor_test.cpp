@@ -226,11 +226,17 @@ namespace {
     }
 
     void highlighting() {
-        // a fake lexer: digits are numbers, "let" is a keyword
+        // a fake lexer: digits are numbers, "let" is a keyword; it records what it was handed
         int runs = 0;
+        TextEditor::Edit lastEdit;
+        std::vector<Token> onEntry;
         TextEditor e;
-        e.SetHighlighter([&](std::string_view text, std::span<Token> tokens) {
+        e.SetHighlighter([&](std::string_view text, std::span<Token> tokens,
+                             const TextEditor::Edit& edit) {
             ++runs;
+            lastEdit = edit;
+            onEntry.assign(tokens.begin(), tokens.end());
+            std::fill(tokens.begin(), tokens.end(), Token::Text);
             for (size_t i = 0; i < text.size(); ++i) {
                 if (std::isdigit(static_cast<unsigned char>(text[i])))
                     tokens[i] = Token::Number;
@@ -250,6 +256,22 @@ namespace {
         type("7");
         CHECK(runs == before + 1);
         CHECK(e.GetTokens().size() == e.GetText().size() && e.GetTokens().back() == Token::Number);
+        // incremental: the edit, and the earlier kinds kept around it, moved with it
+        CHECK(lastEdit.start == 10 && lastEdit.oldEnd == 10 && lastEdit.newEnd == 11);
+        CHECK(std::equal(expected.begin(), expected.end(), onEntry.begin()) &&
+              onEntry[10] == Token::Text);
+        e.SetText("x let a = 427");
+        e.GetTokens();
+        CHECK(lastEdit.start == 0 && lastEdit.oldEnd == 0 && lastEdit.newEnd == 2);
+        CHECK(onEntry[0] == Token::Text && onEntry[2] == Token::Keyword &&
+              onEntry[12] == Token::Number);
+        e.SetHighlighter([&](std::string_view, std::span<Token> tokens, const TextEditor::Edit& edit) {
+            lastEdit = edit;
+            onEntry.assign(tokens.begin(), tokens.end());
+        });
+        e.GetTokens(); // a new highlighter starts over: everything new, all Text
+        CHECK(lastEdit.start == 0 && lastEdit.oldEnd == 0 && lastEdit.newEnd == 13);
+        CHECK(onEntry == std::vector<Token>(13, Token::Text));
 
         // colours: the theme's, or the host's palette
         const auto theme = TextEditor::FromTheme(mydear::Theme::Current()->colors);

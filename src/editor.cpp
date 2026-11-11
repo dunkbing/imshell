@@ -58,6 +58,8 @@ namespace mydear {
 
     void TextEditor::SetHighlighter(Highlighter highlighter) {
         highlighter_ = std::move(highlighter);
+        highlighted_.clear(); // the next call gets the whole text as new
+        tokens_.clear();
         highlightDirty_ = true;
     }
 
@@ -68,9 +70,24 @@ namespace mydear {
     }
 
     void TextEditor::rehighlight() {
-        tokens_.assign(content_.size(), Token::Text);
+        // the edit since the last highlight: what the old and new text share at both ends
+        Edit edit{0, highlighted_.size(), content_.size()};
+        while (edit.start < edit.oldEnd && edit.start < edit.newEnd &&
+               highlighted_[edit.start] == content_[edit.start])
+            ++edit.start;
+        while (edit.oldEnd > edit.start && edit.newEnd > edit.start &&
+               highlighted_[edit.oldEnd - 1] == content_[edit.newEnd - 1]) {
+            --edit.oldEnd;
+            --edit.newEnd;
+        }
+        // keep the kinds outside the edit, moved with it; the edited bytes start as Text
+        tokens_.erase(tokens_.begin() + static_cast<std::ptrdiff_t>(edit.start),
+                      tokens_.begin() + static_cast<std::ptrdiff_t>(edit.oldEnd));
+        tokens_.insert(tokens_.begin() + static_cast<std::ptrdiff_t>(edit.start),
+                       edit.newEnd - edit.start, Token::Text);
+        highlighted_ = content_;
         if (highlighter_ && !content_.empty())
-            highlighter_(content_, tokens_);
+            highlighter_(content_, tokens_, edit);
         highlightDirty_ = false;
     }
 

@@ -33,7 +33,7 @@ The editor knows nothing about a language. What depends on one is a hook:
 
 | Hook | Call | Notes |
 |---|---|---|
-| Highlighting | `SetHighlighter(fn)` | `fn(text, tokens)` sets `tokens[i]` for byte `i`: `Token::Text`, `Keyword`, `String`, `Number`, `Comment`, `Function`, `Type` or `Operator`. It runs when the text changes, once, before the next draw. Without one the text is plain. |
+| Highlighting | `SetHighlighter(fn)` | `fn(text, tokens, edit)` sets `tokens[i]` for byte `i`: `Token::Text`, `Keyword`, `String`, `Number`, `Comment`, `Function`, `Type` or `Operator`. It runs when the text changes, once, before the next draw. `edit` says what changed since the last call (`text[start, newEnd)` replaced `[start, oldEnd)`; the first call has the whole text as new). On entry the edited bytes are `Text` and the rest keep the previous call's kinds, moved with the edit, so an incremental parser (tree-sitter's `ts_tree_edit` takes these offsets) recolours only what changed; a lexer that redoes everything sets every byte. Without one the text is plain. |
 | Completion | `SetCompletionProvider(fn)` | `fn(content, cursor, forced)` returns the items and the byte range the picked one replaces. Asked after a typed word character or `.`, and on Ctrl+Space or Ctrl+. (`forced`). An item has `text`, `insertText`, `detailText` (dimmed, on the right), and an `icon` (a letter or an icon font glyph) with a token colour. |
 | Submit | `SetSubmitCallback(fn)` | Ctrl+Enter (Cmd on macOS) |
 | Line comments | `SetLineComment("//")` | Ctrl+/ toggles the prefix on the selected lines |

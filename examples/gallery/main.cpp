@@ -26,7 +26,7 @@ struct Gallery : mydear::Delegate {
         using Token = mydear::TextEditor::Token;
         static constexpr std::string_view words[] = {"const", "else", "for", "if", "let", "return"};
         // a lexer in a few lines: comments, strings, numbers and a handful of keywords
-        editor.SetHighlighter([](std::string_view text, std::span<Token> tokens) {
+        editor.SetHighlighter([](std::string_view text, std::span<Token> tokens, const auto&) {
             for (size_t i = 0; i < text.size();) {
                 size_t end = i + 1;
                 Token token = Token::Text;
