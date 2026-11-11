@@ -12,6 +12,7 @@ add_library(imshell STATIC
     src/activity.cpp
     src/alert.cpp
     src/app.cpp
+    src/data_dir.cpp
     src/button.cpp
     src/embedded.cpp
     src/fonts.cpp
