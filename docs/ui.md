@@ -65,7 +65,15 @@ On iOS the documents folder shows in the Files app under the app's name. Filters
 
 ## Clipboard (`imshell/clipboard.hpp`)
 
-Text is ImGui's (`GetClipboardText`). For the rest: `ClipboardImage()` returns the picture on the clipboard (a screenshot, a copied image) as PNG bytes, and `ClipboardFiles()` the paths of files copied in the file manager; both are empty when there is none. Call them on the paste chord, from the UI thread. macOS only so far: the other platforms return empty.
+One read and one write per kind of content, in `imshell::Clipboard`, from the UI thread:
+
+```cpp
+std::string text = Clipboard::ReadText();      Clipboard::WriteText("hi");
+std::string png  = Clipboard::ReadImage();     Clipboard::WriteImage(png);   // png bytes
+std::vector<std::string> paths = Clipboard::ReadFiles();                     // copied in the file manager
+```
+
+A read returns empty when the clipboard holds none of that kind, so a paste handler tries them in order: files, then a picture, then text. Text works everywhere (it is ImGui's clipboard). Pictures and files are macOS only so far: the other platforms read empty and ignore a written picture.
 
 ## Haptics (`imshell/haptics.hpp`)
 

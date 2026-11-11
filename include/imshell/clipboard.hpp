@@ -3,12 +3,17 @@
 #include <string>
 #include <vector>
 
-// what the clipboard holds besides text (text is imgui's: GetClipboardText). for a paste
-// into a chat box or an image field. macos only so far: empty on the other platforms.
-// ui thread
-namespace imshell {
-    // the picture on the clipboard (a screenshot, a copied image) as png bytes; empty = none
-    std::string ClipboardImage();
-    // the files copied in the file manager, as paths; empty = none
-    std::vector<std::string> ClipboardFiles();
-} // namespace imshell
+// the system clipboard: read and write, per kind of content. a read gives empty when the
+// clipboard holds none of that kind. ui thread.
+// text works everywhere; pictures and files on macos so far (empty / ignored elsewhere)
+namespace imshell::Clipboard {
+    std::string ReadText();
+    void WriteText(const std::string& text);
+
+    // a picture (a screenshot, a copied image), as png bytes
+    std::string ReadImage();
+    void WriteImage(const std::string& png);
+
+    // the files copied in the file manager, as paths
+    std::vector<std::string> ReadFiles();
+} // namespace imshell::Clipboard

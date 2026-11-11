@@ -1,11 +1,12 @@
 #include "imshell/clipboard.hpp"
 
-// no pictures or files from the clipboard on this platform yet
-namespace imshell {
-    std::string ClipboardImage() {
+// no pictures or files on this platform's clipboard yet
+namespace imshell::Clipboard {
+    std::string ReadImage() {
         return {};
     }
-    std::vector<std::string> ClipboardFiles() {
+    void WriteImage(const std::string&) {}
+    std::vector<std::string> ReadFiles() {
         return {};
     }
-} // namespace imshell
+} // namespace imshell::Clipboard

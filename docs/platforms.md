@@ -11,7 +11,7 @@
 | Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) | — (`PickFile` copies one in) | — |
 | File dialogs | NFD | document picker | NFD | NFD | document picker | — (the callbacks never run yet) |
 | Skips identical frames | yes | yes | no | no | no | yes |
-| Clipboard pictures and files (`ClipboardImage`, `ClipboardFiles`) | yes | — | — | — | — | — |
+| Clipboard pictures and files (`Clipboard::ReadImage`, `WriteImage`, `ReadFiles`) | yes | — | — | — | — | — |
 | Haptics (`PlayHaptic`) | Force Touch trackpad | taptic engine | — | — | vibrator | — |
 | Auto-update (`IMSHELL_UPDATER`) | Sparkle | — (App Store) | WinSparkle | AppImage swap, SHA-256 checked | — (the store) | — (reload the page) |
 

@@ -19,6 +19,7 @@ set(IMSHELL_NODE_EDITOR_DIR ${IMSHELL_EXTERNAL}/imgui-node-editor CACHE PATH "im
 add_library(imshell STATIC
     src/activity.cpp
     src/alert.cpp
+    src/clipboard.cpp
     src/app.cpp
     src/data_dir.cpp
     src/button.cpp
