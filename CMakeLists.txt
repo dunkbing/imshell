@@ -99,6 +99,7 @@ elseif(APPLE)
         src/macos/app.mm
         src/macos/metal_backend.mm
         src/macos/native_button.mm
+        src/macos/clipboard.mm
         src/apple/haptics.mm
         src/apple/native_view.mm
         src/native_view.cpp
@@ -107,7 +108,7 @@ elseif(APPLE)
     )
     # arc for both: they share MetalBackend, whose id members must be owned one way
     set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm src/macos/native_button.mm
-                                src/apple/haptics.mm src/apple/native_view.mm
+                                src/macos/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
@@ -223,6 +224,11 @@ if(IMSHELL_BUILD_EXAMPLES AND NOT IOS)
     endif()
 endif()
 
+# pictures and files from the clipboard: macos only so far
+if(NOT APPLE OR IOS)
+    target_sources(imshell PRIVATE src/clipboard_none.cpp)
+endif()
+
 # the touch engine's test: a bare imgui context, no platform
 option(IMSHELL_BUILD_TESTS "Build the tests" OFF)
 if(IMSHELL_BUILD_TESTS)
@@ -232,6 +238,14 @@ if(IMSHELL_BUILD_TESTS)
     target_include_directories(imshell_touch_test PRIVATE src ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_touch_test PRIVATE cxx_std_20)
     add_test(NAME imshell_touch_test COMMAND imshell_touch_test)
+    if(APPLE AND NOT IOS)
+        add_executable(imshell_clipboard_test tests/clipboard_test.mm src/macos/clipboard.mm)
+        set_source_files_properties(tests/clipboard_test.mm src/macos/clipboard.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+        target_include_directories(imshell_clipboard_test PRIVATE include)
+        target_compile_features(imshell_clipboard_test PRIVATE cxx_std_20)
+        target_link_libraries(imshell_clipboard_test PRIVATE "-framework AppKit")
+        add_test(NAME imshell_clipboard_test COMMAND imshell_clipboard_test)
+    endif()
     add_executable(imshell_frame_skip_test tests/frame_skip_test.cpp src/frame_skip.cpp ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_frame_skip_test PRIVATE src ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_frame_skip_test PRIVATE cxx_std_20)

@@ -63,6 +63,10 @@ imshell::AddFont({{text->data, text->size}, {icons->data, icons->size, kIcons, t
 
 On iOS the documents folder shows in the Files app under the app's name. Filters become content types (iOS) or MIME types (Android, from a short table; anything else allows any file). On the desktops, link Native File Dialog Extended (vcpkg `nativefiledialog-extended`); imshell finds it with `find_package(nfd)`.
 
+## Clipboard (`imshell/clipboard.hpp`)
+
+Text is ImGui's (`GetClipboardText`). For the rest: `ClipboardImage()` returns the picture on the clipboard (a screenshot, a copied image) as PNG bytes, and `ClipboardFiles()` the paths of files copied in the file manager; both are empty when there is none. Call them on the paste chord, from the UI thread. macOS only so far: the other platforms return empty.
+
 ## Haptics (`imshell/haptics.hpp`)
 
 `PlayHaptic(kind)` gives a short vibration, from the UI thread. Kinds: `Tap` (a button or toggle), `Selection` (a value ticks over), `LongPress`, `Success`, `Warning`, `Error`. iOS uses UIKit's feedback generators, Android `performHapticFeedback` (success and error are their own patterns from Android 11), and macOS the trackpad's feedback performer, felt only on a Force Touch trackpad while the finger is down. Windows and Linux do nothing. The system setting wins: with haptics turned off, nothing plays. The shells already play `LongPress` when a long press takes hold.
