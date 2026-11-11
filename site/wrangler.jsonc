@@ -1,8 +1,10 @@
-// cloudflare workers static assets, like dearsql.dev: site/build.sh, then `bunx wrangler deploy`
-// from site/ (the gallery is compiled with emscripten locally, so the build is not cloudflare's)
+// cloudflare workers static assets, like dearsql.dev. workers builds runs cloudflare-build.sh
+// (emscripten and imgui fetched there, then build.sh), then wrangler deploy
 {
   "name": "mydear",
   "compatibility_date": "2026-11-10",
+  // wrangler preview (pull request builds) needs the block, even empty
+  "previews": {},
   "assets": {
     "directory": "./dist",
     "html_handling": "drop-trailing-slash",
