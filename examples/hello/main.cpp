@@ -43,6 +43,18 @@ struct Hello : imshell::Delegate {
     bool wantPopup = false;
     std::string opened;
 
+    // a system font with vietnamese and the other latin scripts, so typed text shows as typed;
+    // imgui's own font has latin-1 only
+    void setup() override {
+        for (const char* path : {"/System/Library/Fonts/Supplemental/Arial.ttf", "C:\\Windows\\Fonts\\arial.ttf",
+                                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"})
+            if (std::FILE* f = std::fopen(path, "rb")) {
+                std::fclose(f);
+                ImGui::GetIO().Fonts->AddFontFromFileTTF(path, 15.0f);
+                return;
+            }
+    }
+
     void frame() override {
         const int f = ImGui::GetFrameCount();
         if (probe)
