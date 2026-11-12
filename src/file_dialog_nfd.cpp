@@ -30,8 +30,11 @@ namespace imshell {
 
         std::vector<nfdfilteritem_t> items(const std::vector<FileFilter>& filters) {
             std::vector<nfdfilteritem_t> out;
-            for (const FileFilter& f : filters)
-                out.push_back({f.name.c_str(), f.extensions.c_str()});
+            for (const FileFilter& f : filters) {
+                if (f.extensions != "*") { // nfd reads "*" as an extension nothing has: macos greys every file out
+                    out.push_back({f.name.c_str(), f.extensions.c_str()});
+                }
+            }
             return out;
         }
     } // namespace
