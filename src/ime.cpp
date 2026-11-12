@@ -1,4 +1,5 @@
 #include "ime.hpp"
+#include "imshell/text_input.hpp"
 
 #include "imgui_internal.h"
 #include "imshell/frames.hpp"
@@ -146,3 +147,20 @@ namespace imshell::detail {
         }
     } // namespace ime
 } // namespace imshell::detail
+
+namespace imshell {
+    namespace {
+        ImGuiStorage gKinds; // field id → kind; ids are stable, a few bytes each
+    } // namespace
+
+    void SetTextKind(TextKind kind) {
+        gKinds.SetInt(ImGui::GetItemID(), static_cast<int>(kind));
+    }
+
+    TextKind ActiveTextKind() {
+        const ImGuiContext& g = *GImGui;
+        if (const ImGuiInputTextState* s = ImGui::GetInputTextState(g.ActiveId); s && (s->Flags & ImGuiInputTextFlags_Password))
+            return TextKind::Password;
+        return static_cast<TextKind>(gKinds.GetInt(g.ActiveId, static_cast<int>(TextKind::Code)));
+    }
+} // namespace imshell

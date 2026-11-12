@@ -2,10 +2,12 @@
 #include "imshell/app.hpp"
 #include "imshell/button.hpp"
 #include "imshell/file_dialog.hpp"
+#include "imshell/fonts.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
 #include "imshell/native_view.hpp"
 #include "imshell/notifications.hpp"
+#include "imshell/text_input.hpp"
 
 #if defined(__APPLE__) || defined(_WIN32)
 #include "imgui_impl_glfw.h"
@@ -26,6 +28,7 @@ bool closeLikeUser(); // false where the platform cannot
 struct Hello : imshell::Delegate {
     int clicks = 0;
     char typed[256] = ""; // an imgui field: the platform's input methods and keyboard type into it
+    char prose[256] = "", code[16] = "", password[64] = ""; // the other kinds of field
     std::string notified; // what the notifications did
     // smoke tests: IMSHELL_HELLO_QUIT=<seconds> closes by itself (0: right after the first frame,
     // which site/bench.sh times), IMSHELL_HELLO_PROBE=1 drives the window (title bar zoom, a bar
@@ -40,6 +43,23 @@ struct Hello : imshell::Delegate {
     void* field = nullptr;
     bool wantPopup = false;
     std::string opened;
+
+    // a system font with vietnamese and the other latin scripts, plus the system's chinese,
+    // japanese and korean font (AddFont merges it), so typed text shows as typed; imgui's own
+    // font has latin-1 only
+    std::string fontData; // the atlas reads it in place
+    void setup() override {
+        for (const char* path : {"/System/Library/Fonts/Supplemental/Arial.ttf", "C:\\Windows\\Fonts\\arial.ttf",
+                                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"})
+            if (std::FILE* f = std::fopen(path, "rb")) {
+                char buf[65536];
+                for (size_t n; (n = std::fread(buf, 1, sizeof buf, f)) > 0;)
+                    fontData.append(buf, n);
+                std::fclose(f);
+                imshell::AddFont({{fontData.data(), fontData.size()}}, 15.0f);
+                return;
+            }
+    }
 
     void frame() override {
         const int f = ImGui::GetFrameCount();
@@ -69,6 +89,11 @@ struct Hello : imshell::Delegate {
         ImGui::Text("Clicked %d times", clicks);
         ImGui::SetNextItemWidth(320);
         ImGui::InputTextWithHint("##typed", "Type here, in any language", typed, sizeof typed);
+        ImGui::InputTextWithHint("##prose", "Prose: spell check, autocorrect", prose, sizeof prose);
+        imshell::SetTextKind(imshell::TextKind::Prose);
+        ImGui::InputTextWithHint("##code", "One-time code", code, sizeof code, ImGuiInputTextFlags_CharsDecimal);
+        imshell::SetTextKind(imshell::TextKind::OneTimeCode);
+        ImGui::InputTextWithHint("##password", "Password", password, sizeof password, ImGuiInputTextFlags_Password);
         ImGui::Spacing();
         ImGui::TextUnformatted("Native views, placed by the imgui layout:");
         const ImVec2 fieldsAt = ImGui::GetCursorScreenPos();

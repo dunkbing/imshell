@@ -8,6 +8,7 @@
 | Safe area (`SafeArea()`, `WorkPos`/`WorkSize`) | zero | top (status and navigation bar); the display stops above the home indicator and keyboard | zero | zero | top (status bar), edge to edge; the display stops at the navigation bar, side cutouts and keyboard | zero |
 | Native views | `NSView` | `UIView` | child `HWND` | `GtkWidget` (overlay) | — | — |
 | Text input | input methods inline (`NSTextInputClient` on GLFW's view), candidate window at the caret | `UITextInput` (input methods, soft keyboard) | input methods inline (`WM_IME_COMPOSITION` in the shell's window procedure), candidate window under the line | `GtkIMContext`: IBus, Fcitx, dead keys, compose sequences | an `InputConnection` through the activity (suggestions, composing, swipe typing), hardware keys | a hidden `<textarea>` at the caret: input methods, dead keys, the phone's keyboard |
+| Field kinds (`SetTextKind`) | secure input for passwords | keyboard and content type per kind | — | input purpose and hints | input type per kind | textarea attributes per kind |
 | Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) | — (`PickFile` copies one in) | — |
 | File dialogs | NFD | document picker | NFD | NFD | document picker | — (the callbacks never run yet) |
 | Skips identical frames | yes | yes | no | no | no | yes |

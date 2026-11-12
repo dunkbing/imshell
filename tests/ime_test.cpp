@@ -1,6 +1,7 @@
 // the composing underline on a bare imgui context: a focused field gets a line that ends at its
 // caret and is as wide as the composing text; no field, no line. built with -DIMSHELL_BUILD_TESTS=ON
 #include "ime.hpp"
+#include "imshell/text_input.hpp"
 
 #include "imgui.h"
 #include "imgui_internal.h"
@@ -100,6 +101,40 @@ int main() {
     im::compose("zz"); // no field: nothing typed, no backspaces for the app's shortcuts
     im::compose("z");
     check(GImGui->InputEventsQueue.Size == 0 && !im::composing(), "no field, no composition");
+
+    // a kind set after the widget is the active field's, single and multiline alike
+    using imshell::TextKind;
+    static char one[16], many[64], secret[16];
+    const auto kinds = [](int focus) {
+        ImGui::GetIO().DeltaTime = 1.0f / 60.0f;
+        ImGui::NewFrame();
+        ImGui::Begin("k");
+        if (focus == 0)
+            ImGui::SetKeyboardFocusHere();
+        ImGui::InputText("##one", one, sizeof one);
+        imshell::SetTextKind(TextKind::Prose);
+        if (focus == 1)
+            ImGui::SetKeyboardFocusHere();
+        ImGui::InputTextMultiline("##many", many, sizeof many);
+        imshell::SetTextKind(TextKind::OneTimeCode);
+        if (focus == 2)
+            ImGui::SetKeyboardFocusHere();
+        ImGui::InputText("##secret", secret, sizeof secret, ImGuiInputTextFlags_Password);
+        if (focus == 3)
+            ImGui::SetKeyboardFocusHere();
+        ImGui::InputText("##plain", one, sizeof one);
+        ImGui::End();
+        ImGui::Render();
+        return imshell::ActiveTextKind();
+    };
+    const auto twice = [&](int focus) {
+        kinds(focus);
+        return kinds(-1); // the focus lands a frame later
+    };
+    check(twice(0) == TextKind::Prose, "a prose field");
+    check(twice(1) == TextKind::OneTimeCode, "a multiline field");
+    check(twice(2) == TextKind::Password, "the password flag");
+    check(twice(3) == TextKind::Code, "no call: code");
     ImGui::DestroyContext();
     if (failures)
         return 1;

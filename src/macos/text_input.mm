@@ -4,8 +4,10 @@
 // methods: the composition is typed into the field and edited in place (ime.cpp), keys the ime
 // takes while composing stay away from the app, and the ime reads the field around the caret
 #include "../ime.hpp"
+#include "imshell/text_input.hpp"
 #include "imgui_internal.h"
 
+#import <Carbon/Carbon.h>
 #import <Cocoa/Cocoa.h>
 #import <objc/runtime.h>
 
@@ -206,6 +208,18 @@ namespace imshell::detail {
         if (ime::composing() && !GImGui->PlatformImeData.WantTextInput) {
             [gView.inputContext discardMarkedText];
             ime::forget();
+        }
+        // a password field takes the keys from other apps (key loggers), as the system's own do:
+        // only while it is active and the app is in front, since the hold is system-wide
+        static bool secure = false;
+        const bool password = GImGui->PlatformImeData.WantTextInput && NSApp.isActive &&
+                              ActiveTextKind() == TextKind::Password;
+        if (password != secure) {
+            secure = password;
+            if (secure)
+                EnableSecureEventInput();
+            else
+                DisableSecureEventInput();
         }
         drawComposingUnderline(ime::text().c_str());
     }

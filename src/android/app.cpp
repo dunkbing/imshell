@@ -8,6 +8,7 @@
 #include "imshell/android.hpp"
 #include "imshell/clipboard.hpp"
 #include "imshell/haptics.hpp"
+#include "imshell/text_input.hpp"
 #include "imshell/app.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
@@ -90,11 +91,11 @@ namespace {
         return out;
     }
 
-    // password: the keyboard neither suggests nor learns what is typed
-    void showKeyboard(bool show, bool password) {
-        if (jmethodID m = method("showKeyboard", "(ZZ)V"))
+    // the keyboard opens for the field's kind: a password's neither suggests nor learns
+    void showKeyboard(bool show, imshell::TextKind kind) {
+        if (jmethodID m = method("showKeyboard", "(ZI)V"))
             gEnv->CallVoidMethod(gAndroid->activity->clazz, m, static_cast<jboolean>(show),
-                                 static_cast<jboolean>(password));
+                                 static_cast<jint>(kind));
     }
 
     void pollChars() {
@@ -258,7 +259,7 @@ namespace {
     // what the current activity was told; a recreated one starts over
     int gLightBars = -1;
     bool gKeyboardShown = false;
-    bool gPasswordField = false; // the keyboard is open for a password field
+    imshell::TextKind gFieldKind = imshell::TextKind::Code; // the kind the keyboard is open for
     // the next frame draws even when it matches the last: a new or resized surface, or the
     // system asked for a redraw (an undrawn surface keeps its last frame otherwise)
     bool gMustDraw = true;
@@ -422,7 +423,7 @@ namespace imshell {
         gRecreating = false;
         gLightBars = -1;
         gKeyboardShown = false;
-        gPasswordField = false;
+        gFieldKind = imshell::TextKind::Code;
         gEditMenu = false;
         gAndroid->onAppCmd = onCmd;
         gAndroid->onInputEvent = onInput;
@@ -565,7 +566,7 @@ namespace imshell {
         ImGui::NewFrame();
         gDelegate->frame();
         touch::drawHandles();
-        if (gKeyboardShown && !gPasswordField)
+        if (gKeyboardShown && gFieldKind != imshell::TextKind::Password)
             detail::drawComposingUnderline(callString("composing").c_str());
         ImGui::Render();
 
@@ -574,14 +575,12 @@ namespace imshell {
         bool& keyboard = gKeyboardShown;
         // PlatformImeData.WantVisible: a custom editor that wants the keyboard (ios does the same)
         const bool wants = io.WantTextInput || GImGui->PlatformImeData.WantVisible;
-        const ImGuiContext& g = *GImGui;
-        const bool password = wants && g.ActiveId != 0 && g.InputTextState.ID == g.ActiveId &&
-                              (g.InputTextState.Flags & ImGuiInputTextFlags_Password);
-        // moving between a password field and another reopens the keyboard in the new kind
-        if (wants != keyboard || password != gPasswordField) {
+        const imshell::TextKind kind = wants ? imshell::ActiveTextKind() : imshell::TextKind::Code;
+        // moving between fields of different kinds reopens the keyboard in the new kind
+        if (wants != keyboard || kind != gFieldKind) {
             keyboard = wants;
-            gPasswordField = password;
-            showKeyboard(keyboard, password);
+            gFieldKind = kind;
+            showKeyboard(keyboard, kind);
         }
 
         const int fullW = ANativeWindow_getWidth(gAndroid->window);
