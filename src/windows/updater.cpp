@@ -1,6 +1,7 @@
 // winsparkle: the same appcast and ed25519 key as sparkle, its own dialogs
 #include "imshell/updater.hpp"
 
+#include <cwchar>
 #include <string>
 #include <windows.h>
 #include <winsparkle.h>
@@ -16,6 +17,24 @@ namespace imshell::updater {
                 MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, out.data(), n);
             return out;
         }
+
+        // the installer replaces the exe, so winsparkle asks the app to quit right after starting
+        // it: close the main window as the user would (closeRequested can still veto), from
+        // winsparkle's thread, so only PostMessage. glfw's class, not winsparkle's own dialogs
+        void requestShutdown() {
+            EnumWindows(
+                [](HWND hwnd, LPARAM) -> BOOL {
+                    DWORD pid = 0;
+                    GetWindowThreadProcessId(hwnd, &pid);
+                    wchar_t cls[16] = {};
+                    GetClassNameW(hwnd, cls, 16);
+                    if (pid != GetCurrentProcessId() || wcscmp(cls, L"GLFW30") != 0)
+                        return TRUE;
+                    PostMessageW(hwnd, WM_CLOSE, 0, 0);
+                    return FALSE;
+                },
+                0);
+        }
     } // namespace
 
     void Start(const Config& config) {
@@ -27,6 +46,7 @@ namespace imshell::updater {
         if (!config.publicKey.empty())
             win_sparkle_set_eddsa_public_key(config.publicKey.c_str());
         win_sparkle_set_automatic_check_for_updates(1);
+        win_sparkle_set_shutdown_request_callback(requestShutdown);
         win_sparkle_init();
         gStarted = true;
     }
