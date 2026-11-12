@@ -1,12 +1,19 @@
 #include "imshell/clipboard.hpp"
 
+#include <cstdlib>
+
 #import <AppKit/AppKit.h>
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 namespace imshell::Clipboard {
-    // the pasteboard used: a test names its own, so the user's is left alone
+    // the pasteboard used: a test names its own (or IMSHELL_PASTEBOARD does), so the user's is left alone
     NSPasteboard* board = nil;
     static NSPasteboard* pasteboard() {
+        if (!board) {
+            if (const char* name = std::getenv("IMSHELL_PASTEBOARD"); name && *name) {
+                board = [NSPasteboard pasteboardWithName:@(name)];
+            }
+        }
         return board ? board : NSPasteboard.generalPasteboard;
     }
 
