@@ -128,6 +128,11 @@ namespace imshell {
         [top presentViewController:picker animated:YES completion:nil];
     }
 
+    // shortcut: the system picker here takes one file; a list of one
+    void OpenFilesDialog(const std::vector<FileFilter>& filters, FilesDone done, const std::string& copyInto) {
+        OpenFileDialog(filters, [done = std::move(done)](const std::string& path) { done({path}); }, copyInto);
+    }
+
     void SaveFileDialog(const std::string& defaultName, const std::vector<FileFilter>&,
                         FileDone done) {
         NSURL* docs = [NSURL fileURLWithPath:@(DocumentsDir().c_str()) isDirectory:YES];

@@ -44,6 +44,35 @@ namespace imshell {
         });
     }
 
+    void OpenFilesDialog(const std::vector<FileFilter>& filters, FilesDone done, const std::string&) {
+        if (NFD_Init() != NFD_OKAY) {
+            std::fprintf(stderr, "imshell: file dialogs unavailable: %s\n", NFD_GetError());
+            return;
+        }
+        const auto list = items(filters);
+        const nfdpathset_t* set = nullptr;
+        const nfdresult_t result =
+            NFD_OpenDialogMultiple(&set, list.data(), static_cast<nfdfiltersize_t>(list.size()), nullptr);
+        std::vector<std::string> paths;
+        if (result == NFD_OKAY) {
+            nfdpathsetsize_t count = 0;
+            NFD_PathSet_GetCount(set, &count);
+            for (nfdpathsetsize_t i = 0; i < count; ++i) {
+                nfdchar_t* path = nullptr;
+                if (NFD_PathSet_GetPath(set, i, &path) == NFD_OKAY) {
+                    paths.emplace_back(path);
+                    NFD_PathSet_FreePath(path);
+                }
+            }
+            NFD_PathSet_Free(set);
+        } else if (result != NFD_CANCEL) {
+            std::fprintf(stderr, "imshell: file dialog: %s\n", NFD_GetError());
+        }
+        NFD_Quit();
+        if (!paths.empty())
+            done(paths);
+    }
+
     void SaveFileDialog(const std::string& defaultName, const std::vector<FileFilter>& filters,
                         FileDone done) {
         const auto list = items(filters);

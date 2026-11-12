@@ -70,6 +70,11 @@ namespace imshell {
         PickFile(mimeTypes(filters), copyInto.empty() ? DocumentsDir() : copyInto, std::move(done));
     }
 
+    // shortcut: the system picker here takes one file; a list of one
+    void OpenFilesDialog(const std::vector<FileFilter>& filters, FilesDone done, const std::string& copyInto) {
+        OpenFileDialog(filters, [done = std::move(done)](const std::string& path) { done({path}); }, copyInto);
+    }
+
     void SaveFileDialog(const std::string& defaultName, const std::vector<FileFilter>&,
                         FileDone done) {
         done(freePath(defaultName.empty() ? "Untitled" : defaultName));

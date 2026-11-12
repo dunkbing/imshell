@@ -21,9 +21,14 @@ namespace imshell {
         std::string extensions; // "csv,tsv" without dots; "*" = any file
     };
     using FileDone = std::function<void(const std::string& path)>;
+    using FilesDone = std::function<void(const std::vector<std::string>& paths)>;
 
     void OpenFileDialog(const std::vector<FileFilter>& filters, FileDone done,
                         const std::string& copyInto = {});
+    // the same, for any number of files: done gets all the picked ones at once. where the system
+    // picker takes one (ios, android), the list holds that one
+    void OpenFilesDialog(const std::vector<FileFilter>& filters, FilesDone done,
+                         const std::string& copyInto = {});
     void SaveFileDialog(const std::string& defaultName, const std::vector<FileFilter>& filters,
                         FileDone done);
     void PickFolderDialog(FileDone done);
