@@ -97,6 +97,9 @@ int main() {
     check(im::utf16ToByte("việt", 3) == 5, "utf-16 index to byte offset");
 
     check(frame(false, "lo")->VtxBuffer.Size == 0, "no field, no line");
+    im::compose("zz"); // no field: nothing typed, no backspaces for the app's shortcuts
+    im::compose("z");
+    check(GImGui->InputEventsQueue.Size == 0 && !im::composing(), "no field, no composition");
     ImGui::DestroyContext();
     if (failures)
         return 1;

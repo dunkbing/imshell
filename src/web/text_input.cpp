@@ -8,6 +8,8 @@
 #include "imgui_internal.h"
 
 #include <emscripten.h>
+#include <GLFW/emscripten_glfw3.h>
+#include <GLFW/glfw3.h>
 
 #include <cstdlib>
 #include <string>
@@ -96,6 +98,7 @@ EM_JS(void, imshell_text_follow, (int want, float x, float y, float h, const cha
         q.focused = true;
         q.stale = true;
         t.focus({preventScroll: true});
+        q.inGesture = false; // a focus from a frame, not a tap: phones show no keyboard for it
     }
     // the text before the caret, so backspace and the browser's suggestions have something to
     // work on; never under an open composition. a field imshell cannot read (an editor) gets
@@ -151,9 +154,13 @@ EM_JS(void, imshell_text_listen_taps, (), {
         const t = Module.imshellText.t;
         if (!Module._imshell_text_tap())
             return;
+        const q = Module.imshellText;
+        if (document.activeElement === t && q.inGesture)
+            return; // the keyboard is up already: a blur would make it bounce
         if (document.activeElement === t)
             t.blur();
         t.focus({preventScroll: true});
+        q.inGesture = true;
     };
     Module.canvas.addEventListener("touchend", tap);
     Module.canvas.addEventListener("click", tap);
@@ -260,6 +267,9 @@ namespace imshell::detail {
             const size_t from = caret > 200 ? ime::utf16ToByte(text, ime::utf16Length(text.substr(0, caret)) - 100) : 0;
             before = text.substr(from, caret - from);
         }
+        // glfw focuses the canvas on every press, which would take the keyboard off the textarea
+        if (GLFWwindow* window = glfwGetCurrentContext())
+            emscripten::glfw3::SetFocusOnMouseDown(window, !data.WantTextInput);
         imshell_text_follow(data.WantTextInput, data.InputPos.x, data.InputPos.y, data.InputLineHeight,
                             before.c_str(), known, reset);
         drawComposingUnderline(gComposing.c_str());

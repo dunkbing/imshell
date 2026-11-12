@@ -41,6 +41,12 @@ namespace imshell::detail {
                 return n;
             }
 
+            // no field wants text (last frame): nothing to edit in place, and its backspaces would
+            // reach the app's shortcuts. committed text still goes out as characters, as keys do
+            bool wanted() {
+                return GImGui && GImGui->PlatformImeData.WantTextInput;
+            }
+
             // the field shows `from`: make it show `to`
             void retype(std::string_view from, std::string_view to) {
                 const size_t keep = commonPrefix(from, to);
@@ -66,6 +72,10 @@ namespace imshell::detail {
         void compose(std::string_view utf8) {
             if (trace())
                 std::fprintf(stderr, "ime: compose \"%.*s\"\n", static_cast<int>(utf8.size()), utf8.data());
+            if (!wanted()) {
+                gText.clear();
+                return;
+            }
             retype(gText, utf8);
             gText = utf8;
         }
@@ -73,7 +83,7 @@ namespace imshell::detail {
         void commit(std::string_view utf8) {
             if (trace())
                 std::fprintf(stderr, "ime: commit \"%.*s\"\n", static_cast<int>(utf8.size()), utf8.data());
-            retype(gText, utf8);
+            retype(wanted() ? std::string_view(gText) : std::string_view(), utf8);
             gText.clear();
         }
 
