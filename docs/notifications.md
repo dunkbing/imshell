@@ -28,5 +28,7 @@ void notifyMe() {
 | | Notifications | Badge | Permission | Notes |
 |---|---|---|---|---|
 | macOS | the notification center (`UNUserNotificationCenter`) | the Dock tile | a prompt the first time | only from a signed `.app` outside temporary folders (`imshell_app` makes one); a bare exe is `Unavailable`. Clicking also brings the app forward |
+| iOS / iPadOS | the same notification center | the home screen icon (asks for the badge permission with the rest) | a prompt the first time | set `OnPress` before `RunUIKit`, so a tap that launched the app reaches it |
+| Android | `NotificationManager`, through `ImShellActivity`; a channel each for normal and silent ones | — (launchers only mark that there are notifications) | Android 13+: the system prompt, and the host's manifest needs `android.permission.POST_NOTIFICATIONS` (`imshell_android_apk(... PERMISSIONS android.permission.POST_NOTIFICATIONS)`); before 13: `Granted` unless the user turned them off | a tap reopens the activity (or starts the app) and reports the id |
 | Linux | the desktop's notification daemon, `org.freedesktop.Notifications` over D-Bus (gio) | the Unity launcher API, on docks that read it (Ubuntu's, Plasma, Dash to Dock) | no prompt: `Granted` while a daemon answers, `Unavailable` otherwise | the app's `.desktop` file is taken to be `<program name>.desktop`. A click reaches only a running app, and does not raise the window |
-| Windows, iOS, Android, web | — | — | `Unavailable` | not yet |
+| Windows, web | — | — | `Unavailable` | not yet |

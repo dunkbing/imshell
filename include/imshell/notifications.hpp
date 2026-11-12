@@ -7,7 +7,9 @@
 // only (imshell_app makes one; a bare exe is Unavailable), the badge on the dock tile. linux:
 // the desktop's notification daemon over d-bus (org.freedesktop.Notifications), the badge
 // through the unity launcher api on docks that read it; the app's .desktop file is taken to be
-// <program name>.desktop. elsewhere Unavailable for now. call from any thread (OnPress: the ui
+// <program name>.desktop. ios: the same center, the home screen badge. android: NotificationManager
+// (the manifest needs POST_NOTIFICATIONS), no badge. windows and the web: Unavailable for now.
+// see docs/notifications.md. call from any thread (OnPress: the ui
 // thread); every callback runs on the ui thread
 namespace imshell::notifications {
     enum class Permission {
