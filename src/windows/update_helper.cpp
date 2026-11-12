@@ -24,7 +24,7 @@ namespace {
 
     // a file stays locked for a moment after the app exits (explorer, an antivirus scan): retry
     // such a rename for up to 10 s, give up at once on anything else
-    bool rename(const fs::path& from, const fs::path& to) {
+    bool renameRetrying(const fs::path& from, const fs::path& to) {
         for (int attempt = 0; attempt < 100; ++attempt) {
             if (MoveFileExW(from.c_str(), to.c_str(), 0))
                 return true;
@@ -64,7 +64,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         CloseHandle(app);
     }
     const bool staged = imshell::detail::HasStagedUpdate(gDir);
-    const std::string error = imshell::detail::ApplyStagedUpdate(gDir, rename);
+    const std::string error = imshell::detail::ApplyStagedUpdate(gDir, renameRetrying);
     if (staged)
         log(error.empty() ? "update applied" : "update failed, old version kept: " + error);
     if (mutex) {
