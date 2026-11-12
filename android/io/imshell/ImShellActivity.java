@@ -224,8 +224,9 @@ public class ImShellActivity extends NativeActivity {
                 info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD;
                 info.imeOptions |= EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
                 break;
-            default: // code: suggestions (input methods compose through them), no autocorrect
-                info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE;
+            default: // code: as before kinds existed (suggestions, so input methods compose)
+                info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                    | InputType.TYPE_TEXT_FLAG_AUTO_CORRECT;
             }
             return new Connection(this);
         }

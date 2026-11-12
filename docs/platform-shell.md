@@ -53,16 +53,16 @@ Every ImGui text field, and `TextEditor`, takes text the way the platform's own 
 
 ### Field kinds
 
-A field says what it holds with `imshell::SetTextKind(kind)` (`imshell/text_input.hpp`), called right after the widget; a field without one is `Code`, and an `InputText` with `ImGuiInputTextFlags_Password` is a `Password`. What each platform does with it, and how far that is checked (✓ tried on the platform or its emulator, ◐ built only, — the system offers nothing for a field drawn by the app):
+A field says what it holds with `imshell::SetTextKind(kind)` (`imshell/text_input.hpp`), called right after an `InputText` or `InputTextMultiline`; a field without one is `Code`, which keeps what each platform did before kinds existed, and an `InputText` with `ImGuiInputTextFlags_Password` is a `Password`. What each platform does with it, and how far that is checked (✓ tried on the platform or its emulator, ◐ built only, — the system offers nothing for a field drawn by the app):
 
 | Kind | macOS | iOS | Windows | Linux | Android | Web |
 |---|---|---|---|---|---|---|
-| `Code` (default) | typed as is ✓ | ASCII keyboard, no autocorrect or capitals ◐ | typed as is | `NO_SPELLCHECK` hint ◐ | no autocorrect, suggestions kept so keyboards can compose ✓ | no spell check, autocorrect or capitals ✓ |
-| `Prose` | — (spell check marks need a checker the app draws) | the full keyboard (any language) ◐; no autocorrect yet, it reads the text around the caret and this view reports none | — | spell check, word completion, sentence capitals hints ◐ | autocorrect and sentence capitals ✓ | `spellcheck`, `autocorrect`, `autocapitalize=sentences`: the phone keyboard's corrections ✓ |
+| `Code` (default) | typed as is ✓ | ASCII keyboard, no autocorrect or capitals ◐ | typed as is | no hints ◐ | autocorrect and suggestions, as before ◐ | no spell check, autocorrect or capitals ✓ |
+| `Prose` | — (spell check marks need a checker the app draws) | the full keyboard (any language) ◐; no autocorrect yet, it reads the text around the caret and this view reports none | — | spell check, word completion, sentence capitals hints ◐ | autocorrect and sentence capitals ✓ | `spellcheck`, `autocorrect`, `autocapitalize=sentences`: the phone keyboard's corrections replace the word in the field ✓ (headless Chrome) |
 | `OneTimeCode` | — | number pad, the code from a text message (`oneTimeCode`) ◐ | — | `DIGITS` purpose ◐ | number keyboard ✓ | `inputmode=numeric`, `autocomplete=one-time-code` ✓ |
 | `Password` | secure keyboard input while the field is active and the app in front ◐ | secure entry, password AutoFill (`password`) ◐ | — | `PASSWORD` purpose ◐ | password keyboard: no suggestions, no learning ✓ | not read, no suggestions |
 
-A keyboard that is already open changes kind when a tap moves the focus to a field of another kind (on the web it can only change on a tap). Spell-check marks and a suggestions menu drawn in the field, and password AutoFill on the desktop (which the systems offer only to their own fields), are not done.
+`TextEditor` is always `Code`: it has no ImGui active id to tag, and on the web its text box holds spaces, so a keyboard has no text to correct there. A keyboard that is already open changes kind when a tap moves the focus to a field of another kind (on the web it can only change on a tap). Spell-check marks and a suggestions menu drawn in the field, and password AutoFill on the desktop (which the systems offer only to their own fields), are not done.
 
 To see what an input method sends, run with `IMSHELL_IME_TRACE=1` (macOS, logged to stderr).
 

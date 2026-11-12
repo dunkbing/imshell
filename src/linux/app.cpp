@@ -211,7 +211,7 @@ namespace imshell {
                     kind == TextKind::Prose
                         ? GtkInputHints(GTK_INPUT_HINT_SPELLCHECK | GTK_INPUT_HINT_WORD_COMPLETION |
                                         GTK_INPUT_HINT_UPPERCASE_SENTENCES)
-                        : GTK_INPUT_HINT_NO_SPELLCHECK;
+                        : GTK_INPUT_HINT_NONE; // code: as before kinds existed
                 g_object_set(gIm, "input-purpose", purpose, "input-hints", hints, nullptr);
             }
             if (data.WantTextInput != gImFocused) {
