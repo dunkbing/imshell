@@ -99,7 +99,7 @@ namespace {
     }
 
     void later(std::function<void()> job) {
-        imshell::detail::loopPass().store(pass);
+        imshell::detail::addLoopPass(pass);
         {
             std::lock_guard lock(gMutex);
             gJobs.push_back(std::move(job));
@@ -227,7 +227,7 @@ namespace imshell::notifications {
     }
 
     void OnPress(std::function<void(const std::string&)> handler) {
-        imshell::detail::loopPass().store(pass);
+        imshell::detail::addLoopPass(pass);
         gOnPress = std::move(handler);
         for (const std::string& id : std::exchange(gPending, {}))
             if (gOnPress)

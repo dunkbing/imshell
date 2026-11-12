@@ -87,7 +87,7 @@ namespace {
     }
 
     void hook() {
-        imshell::detail::loopPass().store(pass);
+        imshell::detail::addLoopPass(pass);
     }
 } // namespace
 

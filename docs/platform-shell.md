@@ -37,6 +37,22 @@ On macOS, iOS, Android and Windows a frame whose draw data matches the last one 
 
 A host that drives frames itself, such as the ImGui test engine, calls `pollEvents()` and `renderFrame()` in its own loop instead of `run()`.
 
+## Text input
+
+Every ImGui text field, and `TextEditor`, takes text the way the platform's own fields do: input methods (Vietnamese, Chinese, Japanese, Korean and the rest), dead keys and compose sequences, and the soft keyboard on phones. Nothing to set up; it follows whichever field is active (`PlatformImeData.WantTextInput`).
+
+- **The composition is typed into the field** as it goes and edited in place on each change (backspaces for what changed, then the new text), so the field shows it, and it is underlined under the caret as in a native field. Committing replaces it. This works through ImGui's own characters and keys, so any widget that reads them gets it.
+- **macOS:** imshell is the input method client on GLFW's view: it reports the field's text and caret (input methods that rewrite what is already typed read it), keeps Backspace, Enter and the arrows away from the field while a composition is open (a key the input method hands back commits the word and acts, in one press), and puts the candidate window at the caret.
+- **Linux:** a `GtkIMContext` (IBus, Fcitx or GTK's own) sees each key first; it gets the text around the caret and the caret's place for its popup. A key it leaves to the app mid-word commits the word and acts.
+- **Web:** a hidden `<textarea>` under the caret has the focus while a field is active, so the browser's input methods, dead keys and suggestions work on it, and what changes there is replayed into the field. A tap on a field focuses it within the tap itself, which is what makes phones open their keyboard. Keys that move or submit (arrows, Enter, Tab, shortcuts) go to ImGui from the textarea, since GLFW ignores keys while another element has the focus. A field imshell cannot read (`TextEditor`) gets spaces in the textarea, so a phone's Backspace has something to delete.
+- **iOS and Android:** `UITextInput` and an `InputConnection` (see below).
+- **Windows:** GLFW's characters; an input method composes in the system's own window at the caret and sends the result.
+- A click during a composition ends it where it is, so the next update cannot edit at the new caret.
+- Password fields are never read by an input method.
+- Limits: a composed character the field rejects (a numeric filter, a full buffer) still costs the backspaces of the next update; and replacing a composition takes a frame per backspace, which can show as a brief flicker.
+
+To see what an input method sends, run with `IMSHELL_IME_TRACE=1` (macOS, logged to stderr).
+
 ## Safe area
 
 `imshell::SafeArea()` (`imshell/app.hpp`) gives the edges system UI covers, in ImGui units (`x` left, `y` top, `z` right, `w` bottom): the status (and navigation) bar on iOS and Android, zero on desktops; the rest of what system UI covers is outside the ImGui display. The shells also hand it to ImGui (`Platform_GetWindowWorkAreaInsets`), so the main viewport's `WorkPos`/`WorkSize` leave it out from the next frame on; lay full-screen windows out from `ContentRect()` to avoid that frame of lag: the main viewport inside `SafeArea()` and below the title bar (on Android the bar starts below the status bar).

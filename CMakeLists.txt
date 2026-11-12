@@ -117,6 +117,7 @@ if(EMSCRIPTEN) # before UNIX, which emscripten's toolchain also sets
         src/web/app.cpp
         src/haptics_none.cpp
         src/web/notifications.cpp
+        src/web/text_input.cpp
         src/native_view.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
@@ -140,6 +141,7 @@ elseif(APPLE)
         src/macos/metal_backend.mm
         src/macos/native_button.mm
         src/macos/clipboard.mm
+        src/macos/text_input.mm
         src/apple/notifications.mm
         src/apple/haptics.mm
         src/apple/native_view.mm
@@ -149,7 +151,7 @@ elseif(APPLE)
     )
     # arc for both: they share MetalBackend, whose id members must be owned one way
     set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm src/macos/native_button.mm
-                                src/macos/clipboard.mm src/apple/notifications.mm src/apple/haptics.mm src/apple/native_view.mm
+                                src/macos/clipboard.mm src/macos/text_input.mm src/apple/notifications.mm src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
@@ -341,7 +343,7 @@ if(IMSHELL_BUILD_TESTS)
     target_compile_features(imshell_frame_skip_test PRIVATE cxx_std_20)
     add_test(NAME imshell_frame_skip_test COMMAND imshell_frame_skip_test)
     add_executable(imshell_ime_test tests/ime_test.cpp src/ime.cpp ${IMSHELL_TEST_IMGUI})
-    target_include_directories(imshell_ime_test PRIVATE src ${IMSHELL_IMGUI_DIR})
+    target_include_directories(imshell_ime_test PRIVATE src include ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_ime_test PRIVATE cxx_std_20)
     add_test(NAME imshell_ime_test COMMAND imshell_ime_test)
     add_executable(imshell_handles_test tests/handles_test.cpp src/touch.cpp ${IMSHELL_TEST_IMGUI})

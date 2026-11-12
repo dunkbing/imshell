@@ -5,6 +5,7 @@
 
 #include "imshell/app.hpp"
 #include "../activity.hpp"
+#include "../ime.hpp"
 #include "../native_view.hpp"
 #include "imgui_impl_opengl3.h"
 #include "imgui_internal.h"
@@ -27,6 +28,8 @@ namespace imshell {
         GtkWidget* gWindow = nullptr;
         GtkWidget* gOverlay = nullptr; // the gl area, and native views as overlay children
         GtkWidget* gArea = nullptr;
+        GtkIMContext* gIm = nullptr; // ibus, fcitx or gtk's own: dead keys, compose sequences, input methods
+        bool gImFocused = false;   // an imgui text field is active
         bool gTitleBar = false;
         float gBarHeight = 36;
         bool gShouldClose = false;
@@ -152,9 +155,33 @@ namespace imshell {
             return static_cast<GdkModifierType>(down ? (state | mask) : (state & ~mask));
         }
 
-        gboolean onKey(GdkModifierType state, guint keyval, bool down) {
+        // the composition stays as typed and the input method forgets it; what reset() sends
+        // back is ignored, so a method that commits on reset cannot type it twice
+        void endComposition(bool keep) {
+            if (keep)
+                detail::ime::commit(std::string(detail::ime::text()));
+            detail::ime::forget();
+            const bool focused = std::exchange(gImFocused, false);
+            gtk_im_context_reset(gIm);
+            gImFocused = focused;
+        }
+
+        gboolean onKey(GtkEventController* keys, GdkModifierType state, guint keyval, bool down) {
             ImGuiIO& io = ImGui::GetIO();
             noteInput();
+            // a text field: the input method sees the key first; what it takes comes back through
+            // commit and preedit-changed. a key it leaves to us mid-word (an arrow, enter) ends
+            // the word as it stands, then acts, so one press does both
+            if (gImFocused) {
+                GdkEvent* event = gtk_event_controller_get_current_event(keys);
+                if (event && gtk_im_context_filter_keypress(gIm, event)) {
+                    addMods(withKey(state, keyval, down));
+                    queueRender();
+                    return TRUE;
+                }
+                if (down && detail::ime::composing())
+                    endComposition(true);
+            }
             addMods(withKey(state, keyval, down));
             if (const ImGuiKey key = detail::gtkKeyToImGuiKey(keyval); key != ImGuiKey_None)
                 io.AddKeyEvent(key, down);
@@ -167,12 +194,87 @@ namespace imshell {
             return io.WantCaptureKeyboard;
         }
 
+        // the input method follows imgui's text field: focus, purpose, the caret for its popup.
+        // a composition whose field went away ends where it is
+        void followIme() {
+            const ImGuiPlatformImeData& data = GImGui->PlatformImeData;
+            if (data.WantTextInput != gImFocused) {
+                gImFocused = data.WantTextInput; // first: what reset() sends back is ignored
+                if (gImFocused) {
+                    ImGuiInputTextState* s = ImGui::GetInputTextState(GImGui->ActiveId);
+                    const bool password = s && (s->Flags & ImGuiInputTextFlags_Password);
+                    g_object_set(gIm, "input-purpose",
+                                 password ? GTK_INPUT_PURPOSE_PASSWORD : GTK_INPUT_PURPOSE_FREE_FORM, nullptr);
+                    gtk_im_context_focus_in(gIm);
+                } else {
+                    detail::ime::forget();
+                    gtk_im_context_reset(gIm);
+                    gtk_im_context_focus_out(gIm);
+                }
+            }
+            if (gImFocused) {
+                const GdkRectangle caret{static_cast<int>(data.InputPos.x), static_cast<int>(data.InputPos.y), 1,
+                                         static_cast<int>(data.InputLineHeight)};
+                gtk_im_context_set_cursor_location(gIm, &caret);
+            }
+            detail::drawComposingUnderline(detail::ime::text().c_str());
+        }
+
+        void createIme() {
+            gIm = gtk_im_multicontext_new();
+            gtk_im_context_set_client_widget(gIm, gArea);
+            g_signal_connect(gIm, "commit", G_CALLBACK(+[](GtkIMContext*, const char* text, gpointer) {
+                                 if (gImFocused) {
+                                     detail::ime::commit(text);
+                                     queueRender();
+                                 }
+                             }),
+                             nullptr);
+            g_signal_connect(gIm, "preedit-changed", G_CALLBACK(+[](GtkIMContext* im, gpointer) {
+                                 if (!gImFocused)
+                                     return;
+                                 char* text = nullptr;
+                                 gtk_im_context_get_preedit_string(im, &text, nullptr, nullptr);
+                                 detail::ime::compose(text ? text : "");
+                                 g_free(text);
+                                 queueRender();
+                             }),
+                             nullptr);
+            // imes that edit what is already typed read the field around the caret
+            // shortcut: the field's text includes a composition in progress; fine for imes that
+            // use either the preedit or the surrounding text, not both at once
+            g_signal_connect(gIm, "retrieve-surrounding", G_CALLBACK(+[](GtkIMContext* im, gpointer) -> gboolean {
+                                 std::string_view text;
+                                 int caret = 0; // one per line: a comma here would split the G_CALLBACK macro
+                                 int start = 0;
+                                 int end = 0;
+                                 if (!detail::ime::field(text, caret, start, end))
+                                     return FALSE;
+                                 gtk_im_context_set_surrounding_with_selection(
+                                     im, text.data(), static_cast<int>(text.size()), caret, caret == end ? start : end);
+                                 return TRUE;
+                             }),
+                             nullptr);
+            // only what ends at the caret, which is what they replace
+            g_signal_connect(gIm, "delete-surrounding",
+                             G_CALLBACK(+[](GtkIMContext*, int offset, int chars, gpointer) -> gboolean {
+                                 if (!gImFocused || offset >= 0 || offset + chars != 0)
+                                     return FALSE;
+                                 detail::ime::backspace(chars);
+                                 queueRender();
+                                 return TRUE;
+                             }),
+                             nullptr);
+        }
+
         int imguiButton(guint button) {
             return button == GDK_BUTTON_SECONDARY ? 1 : button == GDK_BUTTON_MIDDLE ? 2 : 0;
         }
 
         void onPress(GtkGestureClick* gesture, gint, gdouble, gdouble, gpointer) {
             noteInput();
+            if (detail::ime::composing())
+                endComposition(false); // the click may move the caret: the word stays as it is
             const guint button = gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture));
             if (GdkEvent* event = gtk_event_controller_get_current_event(GTK_EVENT_CONTROLLER(gesture))) {
                 if (gLastPress)
@@ -332,6 +434,7 @@ namespace imshell {
             ImGui_ImplOpenGL3_NewFrame();
             ImGui::NewFrame();
             gDelegate->frame();
+            followIme();
             ImGui::Render();
             if (const ImGuiMouseCursor cursor = ImGui::GetMouseCursor(); cursor != gCursor) {
                 // gtk loads a cursor image per call: only on change
@@ -475,18 +578,19 @@ namespace imshell {
         GtkEventController* keys = gtk_event_controller_key_new();
         gtk_event_controller_set_propagation_phase(keys, GTK_PHASE_CAPTURE);
         g_signal_connect(keys, "key-pressed",
-                         G_CALLBACK(+[](GtkEventControllerKey*, guint keyval, guint,
+                         G_CALLBACK(+[](GtkEventControllerKey* keys, guint keyval, guint,
                                         GdkModifierType state, gpointer) {
-                             return onKey(state, keyval, true);
+                             return onKey(GTK_EVENT_CONTROLLER(keys), state, keyval, true);
                          }),
                          nullptr);
         g_signal_connect(keys, "key-released",
-                         G_CALLBACK(+[](GtkEventControllerKey*, guint keyval, guint,
+                         G_CALLBACK(+[](GtkEventControllerKey* keys, guint keyval, guint,
                                         GdkModifierType state, gpointer) {
-                             onKey(state, keyval, false);
+                             onKey(GTK_EVENT_CONTROLLER(keys), state, keyval, false);
                          }),
                          nullptr);
         gtk_widget_add_controller(gArea, keys);
+        createIme();
         GtkEventController* motion = gtk_event_controller_motion_new();
         g_signal_connect(motion, "motion", G_CALLBACK(onMotion), nullptr);
         gtk_widget_add_controller(gArea, motion);

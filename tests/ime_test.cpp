@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <string_view>
 
 namespace {
     int failures = 0;
@@ -61,7 +62,44 @@ int main() {
     check(std::fabs(maxX - (ime.InputPos.x + 1)) < 1.5f, "ends at the caret");
     check(std::fabs((maxX - minX) - width) < 1.5f, "as wide as the composing text");
 
+    // a composition typed into the field and edited in place: telex "vieet" + "j" -> "việt"
+    namespace im = imshell::detail::ime;
+    const auto settle = [] {
+        for (int i = 0; i < 12; ++i) // queued backspaces trickle in one per frame
+            frame(true, nullptr);
+    };
+    io.AddKeyEvent(ImGuiKey_End, true); // focus selected everything: type after it instead
+    io.AddKeyEvent(ImGuiKey_End, false);
+    settle();
+    im::compose("vie");
+    settle();
+    check(std::string_view(text) == "hellovie", "the composition shows in the field");
+    im::compose("viê");
+    settle();
+    check(std::string_view(text) == "helloviê", "an update edits only what changed");
+    im::compose("việ");
+    settle();
+    im::commit("việt");
+    settle();
+    check(std::string_view(text) == "helloviệt", "the commit replaces the composition");
+    check(!im::composing(), "nothing composing after the commit");
+    im::compose("x");
+    settle();
+    im::compose("");
+    settle();
+    check(std::string_view(text) == "helloviệt", "an emptied composition removes itself");
+
+    std::string_view field;
+    int caret = 0, selStart = 0, selEnd = 0;
+    check(im::field(field, caret, selStart, selEnd) && field == "helloviệt" && caret == (int)field.size(),
+          "the ime reads the field and its caret");
+    check(im::utf16Length("việt😀") == 6, "utf-16 length counts surrogate pairs");
+    check(im::utf16ToByte("việt", 3) == 5, "utf-16 index to byte offset");
+
     check(frame(false, "lo")->VtxBuffer.Size == 0, "no field, no line");
+    im::compose("zz"); // no field: nothing typed, no backspaces for the app's shortcuts
+    im::compose("z");
+    check(GImGui->InputEventsQueue.Size == 0 && !im::composing(), "no field, no composition");
     ImGui::DestroyContext();
     if (failures)
         return 1;

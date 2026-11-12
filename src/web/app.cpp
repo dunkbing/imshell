@@ -25,6 +25,11 @@ namespace {
     imshell::App* gApp = nullptr; // run()'s, for the browser's frame callback
 } // namespace
 
+namespace imshell::detail {
+    void installTextInput(void (*runFrame)()); // text_input.cpp
+    void textInputFrame();
+} // namespace imshell::detail
+
 namespace imshell {
     struct App::Impl {};
 
@@ -63,6 +68,10 @@ namespace imshell {
         delegate.setup();
         ImGui_ImplGlfw_InitForOpenGL(gWindow, true);
         io.BackendPlatformName = "imshell_web";
+        detail::installTextInput([] {
+            if (gApp)
+                gApp->renderFrame();
+        });
         return ImGui_ImplOpenGL3_Init("#version 300 es");
     }
 
@@ -76,6 +85,7 @@ namespace imshell {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         gDelegate->frame();
+        detail::textInputFrame();
         ImGui::Render();
         const ImVec4 base = Theme::Current()->colors.base;
         // a canvas not drawn to keeps showing its last frame, so an unchanged one costs no gpu

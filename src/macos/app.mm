@@ -21,6 +21,11 @@
 #import <objc/runtime.h>
 
 namespace imshell {
+    namespace detail {
+        void installTextInput(NSView* view); // text_input.mm
+        void textInputFrame();
+    } // namespace detail
+
     namespace {
         Delegate* gDelegate = nullptr; // glfw and appkit callbacks have no user pointer
         NSWindow* gWindow = nil;
@@ -121,6 +126,7 @@ namespace imshell {
         }
 
         gWindow = glfwGetCocoaWindow(d.window);
+        detail::installTextInput(glfwGetCocoaView(d.window));
         gTitleBar = config.titleBar;
         gBarHeight = config.titleBarHeight > 0 ? config.titleBarHeight : 28;
         if (config.titleBar) {
@@ -194,6 +200,7 @@ namespace imshell {
             d.backend->beginFrame(Theme::Current()->colors.base);
             ImGui::NewFrame();
             d.delegate->frame();
+            detail::textInputFrame();
             ImGui::Render();
             detail::frameSkipped() =
                 detail::sameAsLastFrame(ImGui::GetDrawData(), Theme::Current()->colors.base);
