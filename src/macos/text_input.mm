@@ -84,14 +84,49 @@ namespace imshell::detail {
         using KeyDown = void (*)(id, SEL, NSEvent*);
         static KeyDown glfwKeyDown =
             reinterpret_cast<KeyDown>(method_getImplementation(class_getInstanceMethod(c, @selector(keyDown:))));
-        // while composing, the ime owns backspace, enter, arrows and escape: the app must not
-        // also see them
-        addMethod(c, @selector(keyDown:), ^(NSView* self, NSEvent* event) {
-          if (ime::composing())
-              [self interpretKeyEvents:@[ event ]];
-          else
-              glfwKeyDown(self, @selector(keyDown:), event);
+        using Interpret = void (*)(id, SEL, NSArray*);
+        static Interpret appkitInterpret = reinterpret_cast<Interpret>(
+            class_getMethodImplementation([NSView class], @selector(interpretKeyEvents:)));
+        static bool passedBack = false; // the ime handed the key back (doCommandBySelector)
+        static bool skipIme = false;    // glfw's keyDown, without the ime seeing the key again
+        addMethod(c, @selector(interpretKeyEvents:), ^(NSView* self, NSArray* events) {
+          if (!skipIme)
+              appkitInterpret(self, @selector(interpretKeyEvents:), events);
         });
+        addMethod(c, @selector(doCommandBySelector:), ^(NSView*, SEL) {
+          passedBack = true;
+        });
+        // while composing, the ime owns backspace, enter, arrows and escape: the app sees a key
+        // only when the ime hands it back (enter or an arrow that ends the word), after the
+        // composition is committed as it stands, so one press both commits and acts
+        addMethod(c, @selector(keyDown:), ^(NSView* self, NSEvent* event) {
+          if (!ime::composing()) {
+              glfwKeyDown(self, @selector(keyDown:), event);
+              return;
+          }
+          passedBack = false;
+          [self interpretKeyEvents:@[ event ]];
+          if (!passedBack)
+              return;
+          if (ime::composing()) {
+              ime::commit(std::string(ime::text()));
+              [self.inputContext discardMarkedText];
+          }
+          skipIme = true;
+          glfwKeyDown(self, @selector(keyDown:), event);
+          skipIme = false;
+        });
+        // a click can move the caret: the composition ends where it is, before the next update
+        // would edit at the new place
+        [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown |
+                                                      NSEventMaskOtherMouseDown
+                                              handler:^NSEvent*(NSEvent* e) {
+                                                if (ime::composing()) {
+                                                    ime::forget();
+                                                    [gView.inputContext discardMarkedText];
+                                                }
+                                                return e;
+                                              }];
         addMethod(c, @selector(setMarkedText:selectedRange:replacementRange:),
                   ^(NSView*, id string, NSRange, NSRange replacement) {
                     if (ime::trace())
@@ -112,14 +147,16 @@ namespace imshell::detail {
                            (long)replacement.location, (long)replacement.length);
           if (NSApp.currentEvent.modifierFlags & NSEventModifierFlagCommand)
               return; // a shortcut, not text
-          // function keys come as private-use characters (U+F700..U+F7FF, 3 bytes: EF 9C..9F)
+          // as glfw did: no control characters (C0, DEL, C1: the keys send those as key events)
+          // and no function keys, which come as private-use characters (U+F700..U+F7FF)
           std::string clean;
           for (size_t i = 0; i < text.size();) {
               const auto b = static_cast<unsigned char>(text[i]);
               const size_t n = b < 0x80 ? 1 : b < 0xE0 ? 2 : b < 0xF0 ? 3 : 4;
-              const bool function = n == 3 && b == 0xEF && i + 1 < text.size() &&
-                                    (static_cast<unsigned char>(text[i + 1]) & 0xFC) == 0x9C;
-              if (!function)
+              const auto next = i + 1 < text.size() ? static_cast<unsigned char>(text[i + 1]) : 0;
+              const bool function = n == 3 && b == 0xEF && (next & 0xFC) == 0x9C;
+              const bool control = b < 0x20 || b == 0x7F || (b == 0xC2 && next >= 0x80 && next < 0xA0);
+              if (!function && !control)
                   clean.append(text, i, n);
               i += n;
           }
