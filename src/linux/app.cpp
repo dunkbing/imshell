@@ -232,7 +232,9 @@ namespace imshell {
             // use either the preedit or the surrounding text, not both at once
             g_signal_connect(gIm, "retrieve-surrounding", G_CALLBACK(+[](GtkIMContext* im, gpointer) -> gboolean {
                                  std::string_view text;
-                                 int caret = 0, start = 0, end = 0;
+                                 int caret = 0; // one per line: a comma here would split the G_CALLBACK macro
+                                 int start = 0;
+                                 int end = 0;
                                  if (!detail::ime::field(text, caret, start, end))
                                      return FALSE;
                                  gtk_im_context_set_surrounding_with_selection(
