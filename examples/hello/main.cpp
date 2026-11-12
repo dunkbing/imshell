@@ -2,6 +2,7 @@
 #include "imshell/app.hpp"
 #include "imshell/button.hpp"
 #include "imshell/file_dialog.hpp"
+#include "imshell/fonts.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
 #include "imshell/native_view.hpp"
@@ -43,14 +44,19 @@ struct Hello : imshell::Delegate {
     bool wantPopup = false;
     std::string opened;
 
-    // a system font with vietnamese and the other latin scripts, so typed text shows as typed;
-    // imgui's own font has latin-1 only
+    // a system font with vietnamese and the other latin scripts, plus the system's chinese,
+    // japanese and korean font (AddFont merges it), so typed text shows as typed; imgui's own
+    // font has latin-1 only
+    std::string fontData; // the atlas reads it in place
     void setup() override {
         for (const char* path : {"/System/Library/Fonts/Supplemental/Arial.ttf", "C:\\Windows\\Fonts\\arial.ttf",
                                  "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"})
             if (std::FILE* f = std::fopen(path, "rb")) {
+                char buf[65536];
+                for (size_t n; (n = std::fread(buf, 1, sizeof buf, f)) > 0;)
+                    fontData.append(buf, n);
                 std::fclose(f);
-                ImGui::GetIO().Fonts->AddFontFromFileTTF(path, 15.0f);
+                imshell::AddFont({{fontData.data(), fontData.size()}}, 15.0f);
                 return;
             }
     }
