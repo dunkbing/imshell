@@ -4,6 +4,7 @@
 #include "activity.hpp"
 #include "frame_skip.hpp"
 #include "imshell/app.hpp"
+#include "loop_pass.hpp"
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -57,6 +58,7 @@ namespace imshell::detail {
                 lastInput = glfwGetTime();
             wasFocused = nowFocused;
             delegate.tick();
+            runLoopPass();
             // never render unfocused: on macos CAMetalLayer nextDrawable blocks while the
             // window is in the background, which makes switching apps sluggish. nor minimized:
             // a minimized window can stay active on windows, and imgui would lay out for a

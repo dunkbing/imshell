@@ -35,6 +35,10 @@
 #include <utility>
 #include <vector>
 
+namespace imshell::detail {
+    void runNotifications(); // notifications.cpp
+}
+
 namespace {
     namespace touch = imshell::touch; // the shared one-finger model (src/touch.cpp)
     android_app* gAndroid = nullptr;
@@ -394,6 +398,7 @@ namespace {
                 return true;
             timeoutMs = 0;
         }
+        imshell::detail::runNotifications(); // their queued calls, answers and clicks
         return gAndroid->destroyRequested != 0;
     }
 

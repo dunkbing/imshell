@@ -1,6 +1,11 @@
 package io.imshell;
 
 import android.app.NativeActivity;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.pm.PackageManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -56,6 +61,7 @@ public class ImShellActivity extends NativeActivity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        takePressed(getIntent()); // a click on a notification started the app
         editor = new Editor(this);
         addContentView(editor, new ViewGroup.LayoutParams(1, 1));
         getWindow().getAttributes().layoutInDisplayCutoutMode =
@@ -566,5 +572,90 @@ public class ImShellActivity extends NativeActivity {
         } catch (Exception e) {
             return "";
         }
+    }
+
+    // ---- notifications (imshell/notifications.hpp) ----
+    // the host's manifest lists android.permission.POST_NOTIFICATIONS (api 33+ asks for it)
+
+    private static final int NOTIFY = 0x6e74;
+    private static final String POST = "android.permission.POST_NOTIFICATIONS";
+    private static final String PRESSED = "io.imshell.notification";
+    private final ConcurrentLinkedQueue<String> pressed = new ConcurrentLinkedQueue<>();
+    private volatile int permissionAnswer = -1; // after a prompt; -1: none yet
+
+    // Permission's order: 0 not asked, 1 granted, 2 denied
+    public int notificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(POST) != PackageManager.PERMISSION_GRANTED)
+            return getPreferences(MODE_PRIVATE).getBoolean(NOTIFY + "", false) ? 2 : 0;
+        return getSystemService(NotificationManager.class).areNotificationsEnabled() ? 1 : 2;
+    }
+
+    // the system's prompt; the answer lands in pollPermission
+    public void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33 || checkSelfPermission(POST) == PackageManager.PERMISSION_GRANTED) {
+            permissionAnswer = notificationPermission();
+            wakeLoop();
+            return;
+        }
+        getPreferences(MODE_PRIVATE).edit().putBoolean(NOTIFY + "", true).apply();
+        runOnUiThread(() -> requestPermissions(new String[] {POST}, NOTIFY));
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(request, permissions, results);
+        if (request == NOTIFY) {
+            permissionAnswer = notificationPermission();
+            wakeLoop();
+        }
+    }
+
+    public int pollPermission() {
+        int answer = permissionAnswer;
+        permissionAnswer = -1;
+        return answer;
+    }
+
+    // tagged with the id: another with the same id replaces it. a click reopens this activity
+    // with the id in the intent (onNewIntent, or onCreate when the app was gone)
+    public boolean showNotification(String id, String title, String body, boolean silent) {
+        if (notificationPermission() != 1)
+            return false;
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        String channel = silent ? "imshell.quiet" : "imshell";
+        if (nm.getNotificationChannel(channel) == null)
+            nm.createNotificationChannel(new NotificationChannel(channel, silent ? "Quiet notifications" : "Notifications",
+                silent ? NotificationManager.IMPORTANCE_LOW : NotificationManager.IMPORTANCE_DEFAULT));
+        Intent open = new Intent(this, getClass()).setAction(PRESSED).putExtra(PRESSED, id)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent click = PendingIntent.getActivity(this, id.hashCode(), open,
+            PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+        int icon = getApplicationInfo().icon != 0 ? getApplicationInfo().icon : android.R.drawable.ic_dialog_info;
+        nm.notify(id, 0, new Notification.Builder(this, channel).setSmallIcon(icon).setContentTitle(title)
+            .setContentText(body).setContentIntent(click).setAutoCancel(true).build());
+        return true;
+    }
+
+    public void cancelNotification(String id) {
+        getSystemService(NotificationManager.class).cancel(id, 0);
+    }
+
+    public String pollPressed() {
+        return pressed.poll();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        takePressed(intent);
+    }
+
+    private void takePressed(Intent intent) {
+        String id = intent == null ? null : intent.getStringExtra(PRESSED);
+        if (id == null)
+            return;
+        intent.removeExtra(PRESSED); // not again when the activity is recreated
+        pressed.offer(id);
+        wakeLoop();
     }
 }

@@ -14,6 +14,7 @@
 | Colour emoji (`AddFont`, `MergeEmoji`) | CoreText | CoreText | DirectWrite + Direct2D, Segoe UI Emoji | FreeType + Noto Color Emoji (FreeType from the system) | FreeType + Noto Color Emoji, when the build has FreeType (the NDK has none) | — |
 | Clipboard (`Clipboard::Read`, `Write`) | every format with a mime type (NSPasteboard) | every format with a mime type (UIPasteboard) | text, HTML, RTF, PNG (and bitmaps as PNG), files, formats registered under a mime type | every format with a mime type (GdkClipboard) | text, HTML, URLs; pictures read, not written | text |
 | Haptics (`PlayHaptic`) | Force Touch trackpad | taptic engine | — | — | vibrator | — |
+| Notifications and badge (`notifications.hpp`) | notification center (signed `.app`), Dock badge | notification center, home screen badge | toasts, taskbar overlay badge | D-Bus daemon, Unity launcher badge | `NotificationManager` (API 33 prompt), no badge | `Notification` API, Badging API |
 | Auto-update (`IMSHELL_UPDATER`) | Sparkle | — (App Store) | WinSparkle | AppImage swap, SHA-256 checked | — (the store) | — (reload the page) |
 
 ## Keyboard shortcuts

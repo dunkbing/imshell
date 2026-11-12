@@ -4,6 +4,7 @@
 #include "imshell/app.hpp"
 #include "../activity.hpp"
 #include "../frame_skip.hpp"
+#include "../loop_pass.hpp"
 #include "../native_view.hpp"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
@@ -101,6 +102,7 @@ namespace imshell {
                     return;
                 }
                 glfwPollEvents();
+                detail::runLoopPass();
                 gApp->renderFrame();
             },
             0, true);

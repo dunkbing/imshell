@@ -5,6 +5,7 @@
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
 #include "imshell/native_view.hpp"
+#include "imshell/notifications.hpp"
 
 #if defined(__APPLE__) || defined(_WIN32)
 #include "imgui_impl_glfw.h"
@@ -24,6 +25,7 @@ bool closeLikeUser(); // false where the platform cannot
 
 struct Hello : imshell::Delegate {
     int clicks = 0;
+    std::string notified; // what the notifications did
     // smoke tests: IMSHELL_HELLO_QUIT=<seconds> closes by itself (0: right after the first frame,
     // which site/bench.sh times), IMSHELL_HELLO_PROBE=1 drives the window (title bar zoom, a bar
     // button, native views, the close veto)
@@ -74,6 +76,17 @@ struct Hello : imshell::Delegate {
                                    [this](const std::string& path) { opened = path; });
         if (!opened.empty())
             ImGui::TextDisabled("%s", opened.c_str());
+        if (imshell::SmallButton("Notify me")) {
+            namespace n = imshell::notifications;
+            n::RequestPermission([this](n::Permission p) {
+                notified = "permission " + std::to_string(static_cast<int>(p));
+                n::Show({.id = "hello", .title = "Hello imshell", .body = "Click to come back"},
+                        [this](bool shown) { notified += shown ? ", shown" : ", not shown"; });
+                n::SetBadge(1);
+            });
+        }
+        if (!notified.empty())
+            ImGui::TextDisabled("%s", notified.c_str());
         if (imshell::SmallButton("Open a popup over them") || std::exchange(wantPopup, false))
             ImGui::OpenPopup("##over");
         ImGui::SetNextWindowPos(ImVec2(fieldsAt.x + 40, fieldsAt.y + 4), ImGuiCond_Appearing);
@@ -171,5 +184,10 @@ int main() {
     config.height = 300;
     config.titleBar = true;
     static Hello hello; // android: outlives a recreated activity
+    // a click on the notification (set before the loop: one that launched the app waits for it)
+    imshell::notifications::OnPress([](const std::string& id) {
+        hello.notified = "pressed " + id;
+        imshell::notifications::SetBadge(0);
+    });
     return imshell::Run(config, hello);
 }
