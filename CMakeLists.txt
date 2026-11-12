@@ -126,12 +126,13 @@ if(EMSCRIPTEN) # before UNIX, which emscripten's toolchain also sets
     target_link_options(imshell PUBLIC --use-port=contrib.glfw3 -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=2
                                       -sALLOW_MEMORY_GROWTH=1)
 elseif(IOS)
-    target_sources(imshell PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/ios/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp src/notifications_none.cpp
+    target_sources(imshell PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/ios/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp src/apple/notifications.mm
                                   ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_metal.mm)
-    set_source_files_properties(src/ios/app.mm src/ios/file_dialog.mm src/ios/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm
+    set_source_files_properties(src/ios/app.mm src/ios/file_dialog.mm src/ios/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm src/apple/notifications.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell PUBLIC "-framework UIKit" "-framework Metal" "-framework MetalKit"
-        "-framework QuartzCore" "-framework Foundation" "-framework UniformTypeIdentifiers")
+        "-framework QuartzCore" "-framework Foundation" "-framework UniformTypeIdentifiers"
+        "-framework UserNotifications")
 elseif(APPLE)
     find_package(glfw3 CONFIG REQUIRED)
     target_sources(imshell PRIVATE
@@ -139,7 +140,7 @@ elseif(APPLE)
         src/macos/metal_backend.mm
         src/macos/native_button.mm
         src/macos/clipboard.mm
-        src/macos/notifications.mm
+        src/apple/notifications.mm
         src/apple/haptics.mm
         src/apple/native_view.mm
         src/native_view.cpp
@@ -148,7 +149,7 @@ elseif(APPLE)
     )
     # arc for both: they share MetalBackend, whose id members must be owned one way
     set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm src/macos/native_button.mm
-                                src/macos/clipboard.mm src/macos/notifications.mm src/apple/haptics.mm src/apple/native_view.mm
+                                src/macos/clipboard.mm src/apple/notifications.mm src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
@@ -176,7 +177,7 @@ elseif(ANDROID)
     target_sources(imshell PRIVATE
         src/android/app.cpp
         src/android/file_dialog.cpp
-        src/notifications_none.cpp
+        src/android/notifications.cpp
         src/touch.cpp
         src/native_view.cpp
         ${IMSHELL_GLUE_DIR}/android_native_app_glue.c
@@ -267,7 +268,8 @@ if(IMSHELL_BUILD_EXAMPLES AND NOT IOS)
     file(GLOB IMSHELL_IMGUI_CORE ${IMSHELL_IMGUI_DIR}/imgui*.cpp)
     if(ANDROID)
         add_library(imshell_hello SHARED examples/hello/main.cpp examples/hello/native_android.cpp ${IMSHELL_IMGUI_CORE})
-        imshell_android_apk(imshell_hello PACKAGE io.imshell.hello LABEL "Hello imshell")
+        imshell_android_apk(imshell_hello PACKAGE io.imshell.hello LABEL "Hello imshell"
+                            PERMISSIONS android.permission.POST_NOTIFICATIONS)
     elseif(EMSCRIPTEN) # hello.html (+ .js, .wasm); serve the folder
         add_executable(imshell_hello examples/hello/main.cpp examples/hello/native_web.cpp ${IMSHELL_IMGUI_CORE})
         set_target_properties(imshell_hello PROPERTIES SUFFIX .html)

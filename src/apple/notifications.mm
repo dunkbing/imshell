@@ -1,11 +1,18 @@
-// the notification center, for a signed .app (a bare exe has no bundle id and gets Unavailable),
-// and the dock tile's badge. the center answers on its own threads; answers go to the main queue
+// the notification center (macos: a signed .app; a bare exe has no bundle id and gets
+// Unavailable), and the badge: the dock tile on macos, the home screen icon on ios. the center
+// answers on its own threads; answers go to the main queue
 #include "imshell/notifications.hpp"
 #include "imshell/frames.hpp"
 
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#import <UIKit/UIKit.h>
+#else
 #import <AppKit/AppKit.h>
+#endif
 #import <UserNotifications/UserNotifications.h>
 
+#include <algorithm>
 #include <utility>
 #include <vector>
 
@@ -152,9 +159,21 @@ namespace imshell::notifications {
     }
 
     void SetBadge(int count) {
+#if TARGET_OS_IPHONE
+        // needs the badge permission, which RequestPermission asks for
+        const NSInteger n = std::max(count, 0);
+        if (@available(iOS 16, *)) {
+            [center() setBadgeCount:n withCompletionHandler:nil];
+        } else {
+            dispatch_async(dispatch_get_main_queue(), ^{
+              UIApplication.sharedApplication.applicationIconBadgeNumber = n;
+            });
+        }
+#else
         dispatch_async(dispatch_get_main_queue(), ^{ // appkit: the main thread
           NSApp.dockTile.badgeLabel = count > 0 ? [NSString stringWithFormat:@"%d", count] : nil;
         });
+#endif
     }
 
     void OnPress(std::function<void(const std::string&)> handler) {
