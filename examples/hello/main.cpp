@@ -25,6 +25,7 @@ bool closeLikeUser(); // false where the platform cannot
 
 struct Hello : imshell::Delegate {
     int clicks = 0;
+    char typed[256] = ""; // an imgui field: the platform's input methods and keyboard type into it
     std::string notified; // what the notifications did
     // smoke tests: IMSHELL_HELLO_QUIT=<seconds> closes by itself (0: right after the first frame,
     // which site/bench.sh times), IMSHELL_HELLO_PROBE=1 drives the window (title bar zoom, a bar
@@ -66,6 +67,8 @@ struct Hello : imshell::Delegate {
         if (imshell::Button("Click me", imshell::ButtonVariant::Primary))
             ++clicks;
         ImGui::Text("Clicked %d times", clicks);
+        ImGui::SetNextItemWidth(320);
+        ImGui::InputTextWithHint("##typed", "Type here, in any language", typed, sizeof typed);
         ImGui::Spacing();
         ImGui::TextUnformatted("Native views, placed by the imgui layout:");
         const ImVec2 fieldsAt = ImGui::GetCursorScreenPos();

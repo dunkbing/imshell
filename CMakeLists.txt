@@ -117,6 +117,7 @@ if(EMSCRIPTEN) # before UNIX, which emscripten's toolchain also sets
         src/web/app.cpp
         src/haptics_none.cpp
         src/web/notifications.cpp
+        src/web/text_input.cpp
         src/native_view.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
