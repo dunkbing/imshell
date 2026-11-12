@@ -116,6 +116,7 @@ if(EMSCRIPTEN) # before UNIX, which emscripten's toolchain also sets
     target_sources(imshell PRIVATE
         src/web/app.cpp
         src/haptics_none.cpp
+        src/notifications_none.cpp
         src/native_view.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
@@ -125,7 +126,7 @@ if(EMSCRIPTEN) # before UNIX, which emscripten's toolchain also sets
     target_link_options(imshell PUBLIC --use-port=contrib.glfw3 -sMAX_WEBGL_VERSION=2 -sMIN_WEBGL_VERSION=2
                                       -sALLOW_MEMORY_GROWTH=1)
 elseif(IOS)
-    target_sources(imshell PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/ios/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp
+    target_sources(imshell PRIVATE src/ios/app.mm src/ios/file_dialog.mm src/ios/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm src/native_view.cpp src/touch.cpp src/notifications_none.cpp
                                   ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_metal.mm)
     set_source_files_properties(src/ios/app.mm src/ios/file_dialog.mm src/ios/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
@@ -138,6 +139,7 @@ elseif(APPLE)
         src/macos/metal_backend.mm
         src/macos/native_button.mm
         src/macos/clipboard.mm
+        src/macos/notifications.mm
         src/apple/haptics.mm
         src/apple/native_view.mm
         src/native_view.cpp
@@ -146,11 +148,12 @@ elseif(APPLE)
     )
     # arc for both: they share MetalBackend, whose id members must be owned one way
     set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm src/macos/native_button.mm
-                                src/macos/clipboard.mm src/apple/haptics.mm src/apple/native_view.mm
+                                src/macos/clipboard.mm src/macos/notifications.mm src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
-        "-framework ImageIO" "-framework CoreGraphics" "-framework UniformTypeIdentifiers")
+        "-framework ImageIO" "-framework CoreGraphics" "-framework UniformTypeIdentifiers"
+        "-framework UserNotifications")
 elseif(WIN32)
     find_package(glfw3 CONFIG REQUIRED)
     target_sources(imshell PRIVATE
@@ -159,6 +162,7 @@ elseif(WIN32)
         src/windows/dx11_backend.cpp
         src/windows/native_view.cpp
         src/haptics_none.cpp
+        src/notifications_none.cpp
         src/native_view.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_dx11.cpp
@@ -172,6 +176,7 @@ elseif(ANDROID)
     target_sources(imshell PRIVATE
         src/android/app.cpp
         src/android/file_dialog.cpp
+        src/notifications_none.cpp
         src/touch.cpp
         src/native_view.cpp
         ${IMSHELL_GLUE_DIR}/android_native_app_glue.c
@@ -189,6 +194,7 @@ elseif(UNIX)
     target_sources(imshell PRIVATE
         src/linux/app.cpp
         src/linux/clipboard.cpp
+        src/linux/notifications.cpp
         src/haptics_none.cpp
         src/native_view.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
