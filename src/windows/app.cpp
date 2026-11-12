@@ -25,12 +25,6 @@
 #endif
 
 // imgui coordinates are client pixels here: glfw on windows has no points
-namespace imshell::detail {
-    bool imeMessage(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, LRESULT& result); // text_input.cpp
-    void installTextInput();
-    void textInputFrame();
-} // namespace imshell::detail
-
 namespace imshell {
     namespace {
         Delegate* gDelegate = nullptr; // glfw and window procedure callbacks have no user pointer
@@ -81,8 +75,6 @@ namespace imshell {
         }
 
         LRESULT CALLBACK windowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-            if (LRESULT result = 0; detail::imeMessage(hwnd, msg, wParam, lParam, result))
-                return result;
             switch (msg) {
             case WM_SIZE:
                 if (wParam != SIZE_MINIMIZED && gBackend)
@@ -312,8 +304,6 @@ namespace imshell {
         delegate.setup();
 
         ImGui_ImplGlfw_InitForOther(d.window, true);
-
-        detail::installTextInput();
         if (!d.backend->initializeImGui()) {
             std::fprintf(stderr, "imshell: the imgui dx11 backend failed\n");
             return false;
@@ -334,7 +324,6 @@ namespace imshell {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         d.delegate->frame();
-        detail::textInputFrame();
         ImGui::Render();
         // an unchanged frame is not drawn or presented: the window keeps showing the last one
         const ImVec4 base = Theme::Current()->colors.base;
