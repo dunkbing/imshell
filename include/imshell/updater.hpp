@@ -13,7 +13,7 @@ namespace imshell::updater {
         std::string publicKey;   // windows: the appcast's ed25519 key (macos: SUPublicEDKey)
         std::string manifestUrl; // linux: json manifest, see the docs for its shape
         std::string assetKey;    // linux: the entry under "downloads"; empty = appimage-<arch>
-        // windows: stage updates (zed's scheme) instead of running the installer as is. the
+        // windows: stage updates instead of running the installer over the app. the
         // downloaded installer runs with these arguments, e.g. "/verysilent /update=true" for an
         // inno setup installer that then installs into <app dir>\install\; the host ships
         // tools\imshell-update.exe, which swaps it in once the app exits. empty = winsparkle

@@ -78,7 +78,7 @@ The SHA-256 catches a broken or swapped download from the manifest's host, but i
 
 ## Staged updates on Windows
 
-An installer replaces files the running app holds, so by default the app has to close first and the user watches an installer. With `stageArguments` set, imshell does what Zed does instead: the new version is installed next to the running one and swapped in when the app exits.
+An installer replaces files the running app holds, so by default the app has to close first and the user watches an installer. With `stageArguments` set, the new version is installed next to the running one and swapped in when the app exits.
 
 1. WinSparkle checks the appcast, downloads the installer and verifies its ed25519 signature, as before.
 2. imshell runs the installer with `stageArguments` (`win_sparkle_set_user_run_installer_callback`) and waits for it. In update mode the installer writes the new version into `<app dir>\install\` and does not ask for the app to close. imshell then writes `install\.imshell-staged`, so only a complete stage is ever applied.
@@ -91,7 +91,7 @@ A stage that was not applied (the close was vetoed, the machine restarted) is ap
 config.stageArguments = "/verysilent /update=true";
 ```
 
-The host provides the installer's update mode and ships the helper (CMake target `imshell_update_helper`, built with `IMSHELL_UPDATER` on Windows). With Inno Setup, after Zed's `zed.iss`:
+The host provides the installer's update mode and ships the helper (CMake target `imshell_update_helper`, built with `IMSHELL_UPDATER` on Windows). With Inno Setup:
 
 ```pascal
 [Files]

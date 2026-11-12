@@ -1,5 +1,5 @@
 // winsparkle: the same appcast and ed25519 key as sparkle, its own dialogs; with stageArguments
-// the installer only stages the update and tools\imshell-update.exe swaps it in (zed's scheme)
+// the installer only stages the update and tools\imshell-update.exe swaps it in after exit
 #include "imshell/updater.hpp"
 
 #include "../staged_update.hpp"

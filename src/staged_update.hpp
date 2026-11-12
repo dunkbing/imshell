@@ -1,4 +1,4 @@
-// a staged update (zed's windows scheme): the installer, run in update mode, put the new
+// a staged windows update: the installer, run in update mode, put the new
 // version in <app dir>/install/ while the old one ran; after the app exits, the helper swaps it
 // in. portable and pure std::filesystem, so the plan is tested everywhere; the helper adds the
 // win32 parts (waiting for the app, retrying a locked file, the relaunch)
