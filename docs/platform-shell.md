@@ -57,7 +57,7 @@ A field says what it holds with `imshell::SetTextKind(kind)` (`imshell/text_inpu
 
 | Kind | macOS | iOS | Windows | Linux | Android | Web |
 |---|---|---|---|---|---|---|
-| `Code` (default) | typed as is ✓ | ASCII keyboard, no autocorrect or capitals ◐ | typed as is | no hints ◐ | autocorrect and suggestions, as before ◐ | no spell check, autocorrect or capitals ✓ |
+| `Code` (default) | typed as is ✓ | ASCII keyboard, no autocorrect or capitals ◐ | typed as is | no hints ◐ | autocorrect and suggestions, as before ✓ | no spell check, autocorrect or capitals ✓ |
 | `Prose` | — (spell check marks need a checker the app draws) | the full keyboard (any language) ◐; no autocorrect yet, it reads the text around the caret and this view reports none | — | spell check, word completion, sentence capitals hints ◐ | autocorrect and sentence capitals ✓ | `spellcheck`, `autocorrect`, `autocapitalize=sentences`: the phone keyboard's corrections replace the word in the field ✓ (headless Chrome) |
 | `OneTimeCode` | — | number pad, the code from a text message (`oneTimeCode`) ◐ | — | `DIGITS` purpose ◐ | number keyboard ✓ | `inputmode=numeric`, `autocomplete=one-time-code` ✓ |
 | `Password` | secure keyboard input while the field is active and the app in front ◐ | secure entry, password AutoFill (`password`) ◐ | — | `PASSWORD` purpose ◐ | password keyboard: no suggestions, no learning ✓ | not read, no suggestions |
