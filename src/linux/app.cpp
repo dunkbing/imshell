@@ -155,19 +155,32 @@ namespace imshell {
             return static_cast<GdkModifierType>(down ? (state | mask) : (state & ~mask));
         }
 
+        // the composition stays as typed and the input method forgets it; what reset() sends
+        // back is ignored, so a method that commits on reset cannot type it twice
+        void endComposition(bool keep) {
+            if (keep)
+                detail::ime::commit(std::string(detail::ime::text()));
+            detail::ime::forget();
+            const bool focused = std::exchange(gImFocused, false);
+            gtk_im_context_reset(gIm);
+            gImFocused = focused;
+        }
+
         gboolean onKey(GtkEventController* keys, GdkModifierType state, guint keyval, bool down) {
             ImGuiIO& io = ImGui::GetIO();
             noteInput();
-            // a text field: the input method sees the key first. what it takes comes back through
-            // commit and preedit-changed, and while it composes it owns every key
+            // a text field: the input method sees the key first; what it takes comes back through
+            // commit and preedit-changed. a key it leaves to us mid-word (an arrow, enter) ends
+            // the word as it stands, then acts, so one press does both
             if (gImFocused) {
-                const bool composing = detail::ime::composing();
                 GdkEvent* event = gtk_event_controller_get_current_event(keys);
-                if ((event && gtk_im_context_filter_keypress(gIm, event)) || composing) {
+                if (event && gtk_im_context_filter_keypress(gIm, event)) {
                     addMods(withKey(state, keyval, down));
                     queueRender();
                     return TRUE;
                 }
+                if (down && detail::ime::composing())
+                    endComposition(true);
             }
             addMods(withKey(state, keyval, down));
             if (const ImGuiKey key = detail::gtkKeyToImGuiKey(keyval); key != ImGuiKey_None)
@@ -260,6 +273,8 @@ namespace imshell {
 
         void onPress(GtkGestureClick* gesture, gint, gdouble, gdouble, gpointer) {
             noteInput();
+            if (detail::ime::composing())
+                endComposition(false); // the click may move the caret: the word stays as it is
             const guint button = gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture));
             if (GdkEvent* event = gtk_event_controller_get_current_event(GTK_EVENT_CONTROLLER(gesture))) {
                 if (gLastPress)
