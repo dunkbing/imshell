@@ -205,8 +205,7 @@ endif()
 
 # auto-update (imshell/updater.hpp). sparkle (macos) and winsparkle (windows) are downloaded at
 # configure time unless the host brings its own (IMSHELL_SPARKLE_FRAMEWORK, a WinSparkle target);
-# imshell_updater_runtime(<target>) puts them where the app finds them, scripts/embed-sparkle.sh
-# into a macos bundle. on linux imshell finds httplib, nlohmann_json and openssl
+# imshell_app() (at the end) ships them with the app. on linux imshell finds httplib, nlohmann_json and openssl
 option(IMSHELL_UPDATER "auto-update through sparkle, winsparkle or an appimage swap" OFF)
 set(IMSHELL_SPARKLE_FRAMEWORK "" CACHE PATH "macos: Sparkle.framework (empty: downloaded)")
 if(NOT IMSHELL_UPDATER OR IOS OR ANDROID OR EMSCRIPTEN)
@@ -216,7 +215,8 @@ elseif(APPLE)
         include(FetchContent)
         FetchContent_Declare(imshell_sparkle
             URL https://github.com/sparkle-project/Sparkle/releases/download/2.9.1/Sparkle-2.9.1.tar.xz
-            URL_HASH SHA256=c0dde519fd2a43ddfc6a1eb76aec284d7d888fe281414f9177de3164d98ba4c7)
+            URL_HASH SHA256=c0dde519fd2a43ddfc6a1eb76aec284d7d888fe281414f9177de3164d98ba4c7
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
         FetchContent_MakeAvailable(imshell_sparkle)
         set(IMSHELL_SPARKLE_FRAMEWORK ${imshell_sparkle_SOURCE_DIR}/Sparkle.framework CACHE PATH "" FORCE)
     endif()
@@ -229,7 +229,8 @@ elseif(WIN32)
         include(FetchContent)
         FetchContent_Declare(imshell_winsparkle
             URL https://github.com/vslavik/winsparkle/releases/download/v0.9.2/WinSparkle-0.9.2.zip
-            URL_HASH SHA256=2a5facf5a22056edf7afc4d0a4bf05620b7aa7cc1619c3078b281e374cdb9996)
+            URL_HASH SHA256=2a5facf5a22056edf7afc4d0a4bf05620b7aa7cc1619c3078b281e374cdb9996
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
         FetchContent_MakeAvailable(imshell_winsparkle)
         add_library(WinSparkle SHARED IMPORTED GLOBAL)
         set_target_properties(WinSparkle PROPERTIES
@@ -407,18 +408,41 @@ if(IMSHELL_BUILD_TESTS)
     endif()
 endif()
 
-# what an app that uses the updater needs at run time: windows, WinSparkle.dll next to the exe;
-# macos, the bundle's Frameworks folder on the rpath (scripts/embed-sparkle.sh puts Sparkle
-# there). nothing elsewhere, or with the updater off
-function(imshell_updater_runtime target)
-    if(NOT IMSHELL_UPDATER OR IOS OR ANDROID OR EMSCRIPTEN)
+# an app as people get it: imshell_app(<target> [NAME <name>] [ID <bundle id>] [VERSION <v>]
+# [APPCAST <url>] [PUBLIC_KEY <ed25519 key>]). windows, with the updater: WinSparkle.dll next to
+# the exe. macos: a <target>-app target that makes <NAME>.app and <target>-macos-<arch>.zip in the
+# build folder (cmake/macos-app.cmake: bundle, sparkle, signature, notarizing)
+function(imshell_app target)
+    cmake_parse_arguments(A "" "NAME;ID;VERSION;APPCAST;PUBLIC_KEY" "" ${ARGN})
+    if(IOS OR ANDROID OR EMSCRIPTEN)
         return()
     endif()
-    if(WIN32)
+    if(WIN32 AND IMSHELL_UPDATER)
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:WinSparkle> $<TARGET_FILE_DIR:${target}>)
     elseif(APPLE)
-        set_property(TARGET ${target} APPEND PROPERTY BUILD_RPATH "@executable_path/../Frameworks")
-        set_property(TARGET ${target} APPEND PROPERTY INSTALL_RPATH "@executable_path/../Frameworks")
+        set(sparkle "")
+        if(IMSHELL_UPDATER)
+            set(sparkle "${IMSHELL_SPARKLE_FRAMEWORK}")
+        endif()
+        set(arch "${CMAKE_OSX_ARCHITECTURES}")
+        if(NOT arch)
+            set(arch "${CMAKE_HOST_SYSTEM_PROCESSOR}")
+        elseif(arch MATCHES ";")
+            set(arch universal)
+        endif()
+        if(NOT A_NAME)
+            set(A_NAME ${target})
+        endif()
+        if(NOT A_VERSION)
+            set(A_VERSION "${PROJECT_VERSION}")
+        endif()
+        add_custom_target(${target}-app
+            COMMAND ${CMAKE_COMMAND} "-DEXE=$<TARGET_FILE:${target}>" "-DNAME=${A_NAME}" "-DID=${A_ID}"
+                    "-DVERSION=${A_VERSION}" "-DMIN_OS=${CMAKE_OSX_DEPLOYMENT_TARGET}" "-DAPPCAST=${A_APPCAST}"
+                    "-DPUBLIC_KEY=${A_PUBLIC_KEY}" "-DSPARKLE=${sparkle}" "-DOUT=${CMAKE_BINARY_DIR}"
+                    "-DZIP=${CMAKE_BINARY_DIR}/${target}-macos-${arch}.zip"
+                    -P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/cmake/macos-app.cmake"
+            DEPENDS ${target} VERBATIM USES_TERMINAL)
     endif()
 endfunction()

@@ -25,18 +25,19 @@ imshell::updater::Stop();
 
 ## Turning it on
 
-The updater is off by default, so imshell needs nothing extra. Configure with `-DIMSHELL_UPDATER=ON` and call `imshell_updater_runtime(<target>)` on the app's target:
+The updater is off by default, so imshell needs nothing extra. Configure with `-DIMSHELL_UPDATER=ON` and hand the app's target to `imshell_app`, which ships the updater with it:
 
 ```cmake
 set(IMSHELL_UPDATER ON CACHE BOOL "" FORCE) # before add_subdirectory(imshell)
 add_subdirectory(external/imshell)
 add_executable(app ...)
-imshell_updater_runtime(app)
+imshell_app(app NAME App ID com.example.app VERSION 1.2.0
+            APPCAST https://example.com/appcast.xml PUBLIC_KEY <ed25519 public key>)
 ```
 
-- **macOS:** imshell downloads Sparkle 2.9.1 at configure time (hash-checked); set `IMSHELL_SPARKLE_FRAMEWORK` to use your own `Sparkle.framework` instead. `imshell_updater_runtime` puts the bundle's `Frameworks` folder on the rpath. When packaging, `scripts/embed-sparkle.sh <App.app> "$IMSHELL_SPARKLE_FRAMEWORK" [identity]` copies Sparkle into the bundle and signs its parts inside out (with a Developer ID identity: hardened runtime and a timestamp, ready to notarize); sign the app after it. Sparkle reads the feed and the key from `Info.plist`: `SUFeedURL` and `SUPublicEDKey`; without the key it doesn't start. `appcastUrl` and `publicKey` are not used.
-- **Windows:** imshell downloads WinSparkle 0.9.2 (hash-checked) unless the host already defines a `WinSparkle` target; `imshell_updater_runtime` copies `WinSparkle.dll` next to the exe. Ship it with the app.
-- **Linux:** imshell finds `httplib`, `nlohmann_json` and `OpenSSL` with `find_package` (vcpkg has all three).
+- **macOS:** imshell downloads Sparkle 2.9.1 at configure time (hash-checked); set `IMSHELL_SPARKLE_FRAMEWORK` to use your own `Sparkle.framework` instead. `cmake --build <dir> --target app-app` makes `App.app` and `app-macos-<arch>.zip` in the build folder: the exe with its build-tree rpaths replaced by the bundle's `Frameworks`, an `Info.plist` (with `SUFeedURL` and `SUPublicEDKey` from `APPCAST` and `PUBLIC_KEY`; Sparkle doesn't start without the key), Sparkle embedded and signed inside out, then the app. It signs ad hoc unless `IMSHELL_SIGN_IDENTITY` names a Developer ID identity (hardened runtime, timestamped), and notarizes and staples when the environment has `IMSHELL_NOTARY_PROFILE` (a `notarytool` keychain profile) or `IMSHELL_NOTARY_KEY` (an App Store Connect `.p8`) with `IMSHELL_NOTARY_KEY_ID` and `IMSHELL_NOTARY_ISSUER`. Credentials are read when it runs, never stored in the cache. The dev exe in the build folder keeps running unbundled.
+- **Windows:** imshell downloads WinSparkle 0.9.2 (hash-checked) unless the host already defines a `WinSparkle` target; `imshell_app` copies `WinSparkle.dll` next to the exe after each build. Ship it with the app. The feed and key go to `Start` (`appcastUrl`, `publicKey`).
+- **Linux:** imshell finds `httplib`, `nlohmann_json` and `OpenSSL` with `find_package` (vcpkg has all three); the feed goes to `Start` (`manifestUrl`).
 - **iOS:** always a no-op; the App Store updates the app.
 
 ## What each platform does
