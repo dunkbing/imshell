@@ -166,12 +166,13 @@ elseif(WIN32)
         src/windows/native_view.cpp
         src/haptics_none.cpp
         src/windows/notifications.cpp
+        src/windows/text_input.cpp
         src/native_view.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_dx11.cpp
     )
     target_compile_definitions(imshell PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
-    target_link_libraries(imshell PUBLIC glfw d3d11 dxgi dwmapi shell32 shlwapi ole32 windowscodecs windowsapp)
+    target_link_libraries(imshell PUBLIC glfw d3d11 dxgi dwmapi shell32 shlwapi ole32 windowscodecs windowsapp imm32)
 elseif(ANDROID)
     # NativeActivity through the ndk's glue; its entry point must survive static linking
     enable_language(C)
