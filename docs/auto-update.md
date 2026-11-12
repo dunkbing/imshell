@@ -25,10 +25,17 @@ imshell::updater::Stop();
 
 ## Turning it on
 
-The updater is off by default, so imshell needs nothing extra. Configure with `-DIMSHELL_UPDATER=ON`; the host provides the platform's updater, because it also has to ship it:
+The updater is off by default, so imshell needs nothing extra. Configure with `-DIMSHELL_UPDATER=ON` and call `imshell_updater_runtime(<target>)` on the app's target:
 
-- **macOS:** set `IMSHELL_SPARKLE_FRAMEWORK` to a `Sparkle.framework` (Sparkle 2) and embed the framework in the app bundle (`Contents/Frameworks`). Sparkle reads the feed and the key from `Info.plist`: `SUFeedURL` and `SUPublicEDKey`; without the key it doesn't start. `appcastUrl` and `publicKey` are not used.
-- **Windows:** define an imported `WinSparkle` target (`winsparkle.h`, `WinSparkle.lib`) and ship `WinSparkle.dll` next to the exe.
+```cmake
+set(IMSHELL_UPDATER ON CACHE BOOL "" FORCE) # before add_subdirectory(imshell)
+add_subdirectory(external/imshell)
+add_executable(app ...)
+imshell_updater_runtime(app)
+```
+
+- **macOS:** imshell downloads Sparkle 2.9.1 at configure time (hash-checked); set `IMSHELL_SPARKLE_FRAMEWORK` to use your own `Sparkle.framework` instead. `imshell_updater_runtime` puts the bundle's `Frameworks` folder on the rpath. When packaging, `scripts/embed-sparkle.sh <App.app> "$IMSHELL_SPARKLE_FRAMEWORK" [identity]` copies Sparkle into the bundle and signs its parts inside out (with a Developer ID identity: hardened runtime and a timestamp, ready to notarize); sign the app after it. Sparkle reads the feed and the key from `Info.plist`: `SUFeedURL` and `SUPublicEDKey`; without the key it doesn't start. `appcastUrl` and `publicKey` are not used.
+- **Windows:** imshell downloads WinSparkle 0.9.2 (hash-checked) unless the host already defines a `WinSparkle` target; `imshell_updater_runtime` copies `WinSparkle.dll` next to the exe. Ship it with the app.
 - **Linux:** imshell finds `httplib`, `nlohmann_json` and `OpenSSL` with `find_package` (vcpkg has all three).
 - **iOS:** always a no-op; the App Store updates the app.
 
