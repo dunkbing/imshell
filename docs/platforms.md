@@ -7,7 +7,7 @@
 | Title bar | ImGui bar, native traffic lights | none (use the navigation bar) | ImGui bar and caption buttons, snap layouts | ImGui bar, window buttons drawn by imshell in GTK's layout | ImGui strip at the top, no OS buttons | ImGui strip at the top, no OS buttons |
 | Safe area (`SafeArea()`, `WorkPos`/`WorkSize`) | zero | top (status and navigation bar); the display stops above the home indicator and keyboard | zero | zero | top (status bar), edge to edge; the display stops at the navigation bar, side cutouts and keyboard | zero |
 | Native views | `NSView` | `UIView` | child `HWND` | `GtkWidget` (overlay) | — | — |
-| Text input | GLFW keys and chars | `UITextInput` (IME, soft keyboard) | GLFW keys and chars | GTK keys and chars (no IME yet) | an `InputConnection` through the activity (suggestions, composing, swipe typing), hardware keys | browser keys and chars (no IME, no soft keyboard yet) |
+| Text input | input methods inline (`NSTextInputClient` on GLFW's view), candidate window at the caret | `UITextInput` (input methods, soft keyboard) | GLFW keys and chars; input methods compose in the system's window at the caret | `GtkIMContext`: IBus, Fcitx, dead keys, compose sequences | an `InputConnection` through the activity (suggestions, composing, swipe typing), hardware keys | a hidden `<textarea>` at the caret: input methods, dead keys, the phone's keyboard |
 | Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) | — (`PickFile` copies one in) | — |
 | File dialogs | NFD | document picker | NFD | NFD | document picker | — (the callbacks never run yet) |
 | Skips identical frames | yes | yes | no | no | no | yes |
