@@ -9,8 +9,10 @@
 
 #include <emscripten.h>
 
+#include <cstdlib>
 #include <string>
 #include <string_view>
+#include <utility>
 
 // clang-format off
 EM_JS(void, imshell_text_install, (), {
@@ -33,12 +35,25 @@ EM_JS(void, imshell_text_install, (), {
             e.stopPropagation();
             return;
         }
-        // the rest moves, submits or is a shortcut: imgui's, through glfw. the textarea stays
-        // put, and its text is no longer what is before the caret
+        // the rest moves, submits or is a shortcut: imgui's. glfw ignores keys while another
+        // element has the focus, so they go to imgui from here. the textarea stays put (copy,
+        // cut and paste still fire their events, which glfw reads the clipboard from), and its
+        // text is no longer what is before the caret
+        e.stopPropagation();
         if (!["c", "x", "v"].includes(e.key.toLowerCase()) || !(e.ctrlKey || e.metaKey))
             e.preventDefault();
+        q.key(e, 1);
         q.stale = true;
     });
+    t.addEventListener("keyup", e => {
+        e.stopPropagation();
+        q.key(e, 0);
+    });
+    q.key = (e, down) => {
+        stringToUTF8(e.code || "", q.code, 32);
+        Module._imshell_text_key(down, e.ctrlKey, e.shiftKey, e.altKey, e.metaKey);
+    };
+    q.code = Module._imshell_text_code();
     // paste, drop and the textarea's own undo are imgui's (glfw passes the clipboard on)
     t.addEventListener("beforeinput", e => {
         if (/^(insertFromPaste|insertFromDrop|deleteByCut|historyUndo|historyRedo)$/.test(e.inputType))
@@ -63,7 +78,7 @@ EM_JS(void, imshell_text_install, (), {
 });
 
 // the textarea follows the field: focus, the caret's place, the text before the caret
-EM_JS(void, imshell_text_follow, (int want, float x, float y, float h, const char* context, int reset), {
+EM_JS(void, imshell_text_follow, (int want, float x, float y, float h, const char* context, int known, int reset), {
     const q = Module.imshellText;
     const t = q.t;
     if (!want) {
@@ -83,9 +98,11 @@ EM_JS(void, imshell_text_follow, (int want, float x, float y, float h, const cha
         t.focus({preventScroll: true});
     }
     // the text before the caret, so backspace and the browser's suggestions have something to
-    // work on; never under an open composition
-    if ((q.stale || reset) && !q.composing) {
-        const c = UTF8ToString(context);
+    // work on; never under an open composition. a field imshell cannot read (an editor) gets
+    // spaces instead, refilled as they run out: deleting one is a backspace in the field
+    const low = known ? t.value.length > 400 : t.value.length < 8 || t.value.length > 400;
+    if ((q.stale || reset || low) && !q.composing) {
+        const c = known ? UTF8ToString(context) : " ".repeat(16);
         if (t.value !== c)
             t.value = c;
         t.setSelectionRange(c.length, c.length);
@@ -111,17 +128,35 @@ EM_JS(int, imshell_text_composing, (char* out, int size), {
     return q && q.composing ? 1 : 0;
 });
 
-EM_JS(int, imshell_text_focused, (), {
-    return Module.imshellText && Module.imshellText.focused ? 1 : 0;
-});
-
 // phones open their keyboard only for a focus inside the tap's own event: on a click, run the
 // frames that let imgui see the tap, and focus the textarea then if a field took it
 EM_JS(void, imshell_text_listen_taps, (), {
-    Module.canvas.addEventListener("click", () => {
-        if (Module._imshell_text_tap())
-            Module.imshellText.t.focus({preventScroll: true});
+    // a press can move the caret: an open composition ends where it is, and the textarea
+    // reloads what is before the caret
+    Module.canvas.addEventListener("pointerdown", () => {
+        const q = Module.imshellText;
+        if (!q.focused)
+            return;
+        if (q.composing) {
+            q.composing = "";
+            q.t.blur();
+            q.t.focus({preventScroll: true});
+        }
+        q.stale = true;
     });
+    // touchend for phones (glfw takes touches over, so no click follows them), click for mice
+    // the field may have taken the focus already, between touch down and up: outside the
+    // gesture, so without a keyboard. focusing again inside it is what opens one
+    const tap = () => {
+        const t = Module.imshellText.t;
+        if (!Module._imshell_text_tap())
+            return;
+        if (document.activeElement === t)
+            t.blur();
+        t.focus({preventScroll: true});
+    };
+    Module.canvas.addEventListener("touchend", tap);
+    Module.canvas.addEventListener("click", tap);
 });
 // clang-format on
 
@@ -153,11 +188,54 @@ namespace {
     }
 } // namespace
 
+namespace {
+    char gCode[32]; // the key's KeyboardEvent.code, written by the textarea's listener
+
+    ImGuiKey keyFromCode(std::string_view code) {
+        if (code.size() == 4 && code.starts_with("Key") && code[3] >= 'A' && code[3] <= 'Z')
+            return static_cast<ImGuiKey>(ImGuiKey_A + (code[3] - 'A'));
+        if (code.size() == 6 && code.starts_with("Digit") && code[5] >= '0' && code[5] <= '9')
+            return static_cast<ImGuiKey>(ImGuiKey_0 + (code[5] - '0'));
+        if (code.size() >= 2 && code.size() <= 3 && code[0] == 'F') {
+            const int n = std::atoi(std::string(code.substr(1)).c_str());
+            if (n >= 1 && n <= 12)
+                return static_cast<ImGuiKey>(ImGuiKey_F1 + n - 1);
+        }
+        static constexpr std::pair<std::string_view, ImGuiKey> named[] = {
+            {"ArrowLeft", ImGuiKey_LeftArrow}, {"ArrowRight", ImGuiKey_RightArrow}, {"ArrowUp", ImGuiKey_UpArrow},
+            {"ArrowDown", ImGuiKey_DownArrow}, {"Home", ImGuiKey_Home},           {"End", ImGuiKey_End},
+            {"PageUp", ImGuiKey_PageUp},       {"PageDown", ImGuiKey_PageDown},   {"Enter", ImGuiKey_Enter},
+            {"NumpadEnter", ImGuiKey_KeypadEnter}, {"Tab", ImGuiKey_Tab},         {"Escape", ImGuiKey_Escape},
+            {"Backspace", ImGuiKey_Backspace}, {"Delete", ImGuiKey_Delete},       {"Insert", ImGuiKey_Insert},
+            {"Space", ImGuiKey_Space},
+        };
+        for (const auto& [name, key] : named)
+            if (code == name)
+                return key;
+        return ImGuiKey_None;
+    }
+} // namespace
+
+extern "C" EMSCRIPTEN_KEEPALIVE char* imshell_text_code() {
+    return gCode;
+}
+
+// a key the textarea does not type: to imgui, with the modifiers as they are now
+extern "C" EMSCRIPTEN_KEEPALIVE void imshell_text_key(int down, int ctrl, int shift, int alt, int meta) {
+    ImGuiIO& io = ImGui::GetIO();
+    io.AddKeyEvent(ImGuiMod_Ctrl, ctrl);
+    io.AddKeyEvent(ImGuiMod_Shift, shift);
+    io.AddKeyEvent(ImGuiMod_Alt, alt);
+    io.AddKeyEvent(ImGuiMod_Super, meta);
+    if (const ImGuiKey key = keyFromCode(gCode); key != ImGuiKey_None)
+        io.AddKeyEvent(key, down != 0);
+}
+
 extern "C" EMSCRIPTEN_KEEPALIVE int imshell_text_tap() {
     // the click's mouse events are queued: a few frames let the field take them
     for (int i = 0; i < 3 && gRunFrame; ++i)
         gRunFrame();
-    return GImGui->PlatformImeData.WantTextInput && !imshell_text_focused();
+    return GImGui->PlatformImeData.WantTextInput;
 }
 
 namespace imshell::detail {
@@ -177,12 +255,13 @@ namespace imshell::detail {
         std::string_view text;
         int caret = 0, start = 0, end = 0;
         std::string before;
-        if (data.WantTextInput && ime::field(text, caret, start, end)) {
+        const bool known = data.WantTextInput && ime::field(text, caret, start, end);
+        if (known) {
             const size_t from = caret > 200 ? ime::utf16ToByte(text, ime::utf16Length(text.substr(0, caret)) - 100) : 0;
             before = text.substr(from, caret - from);
         }
         imshell_text_follow(data.WantTextInput, data.InputPos.x, data.InputPos.y, data.InputLineHeight,
-                            before.c_str(), reset);
+                            before.c_str(), known, reset);
         drawComposingUnderline(gComposing.c_str());
     }
 } // namespace imshell::detail
