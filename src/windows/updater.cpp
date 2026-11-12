@@ -1,7 +1,12 @@
-// winsparkle: the same appcast and ed25519 key as sparkle, its own dialogs
+// winsparkle: the same appcast and ed25519 key as sparkle, its own dialogs; with stageArguments
+// the installer only stages the update and tools\imshell-update.exe swaps it in (zed's scheme)
 #include "imshell/updater.hpp"
 
+#include "../staged_update.hpp"
+
 #include <cwchar>
+#include <filesystem>
+#include <fstream>
 #include <string>
 #include <windows.h>
 #include <winsparkle.h>
@@ -35,6 +40,61 @@ namespace imshell::updater {
                 },
                 0);
         }
+
+        std::wstring gStageArguments;
+
+        std::filesystem::path exePath() {
+            std::wstring path(32768, L'\0');
+            path.resize(GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size())));
+            return path;
+        }
+
+        bool spawn(std::wstring command, const std::filesystem::path& cwd, DWORD flags, HANDLE* process) {
+            STARTUPINFOW si{};
+            si.cb = sizeof si;
+            PROCESS_INFORMATION pi{};
+            if (!CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE, flags, nullptr,
+                                cwd.c_str(), &si, &pi))
+                return false;
+            CloseHandle(pi.hThread);
+            if (process)
+                *process = pi.hProcess;
+            else
+                CloseHandle(pi.hProcess);
+            return true;
+        }
+
+        // tools\imshell-update.exe waits for this process to exit, swaps the stage in and, when
+        // the user chose to install now, opens the app again
+        bool armHelper(bool relaunch) {
+            const std::filesystem::path exe = exePath(), dir = exe.parent_path();
+            const std::filesystem::path helper = dir / L"tools" / L"imshell-update.exe";
+            std::wstring command = L"\"" + helper.wstring() + L"\" " + std::to_wstring(GetCurrentProcessId()) +
+                                   L" \"" + dir.wstring() + L"\"";
+            if (relaunch)
+                command += L" \"" + exe.wstring() + L"\"";
+            return spawn(command, dir, DETACHED_PROCESS, nullptr);
+        }
+
+        // winsparkle downloaded and verified the installer: run it in update mode, which installs
+        // into <app dir>\install\ while this version keeps running, then hand over to the helper.
+        // winsparkle asks the app to quit after this returns (requestShutdown)
+        int __cdecl stageUpdate(const wchar_t* installer) {
+            const std::filesystem::path dir = exePath().parent_path();
+            std::error_code ec;
+            std::filesystem::remove_all(dir / L"install", ec); // an earlier, unfinished stage
+            HANDLE process = nullptr;
+            if (!spawn(L"\"" + std::wstring(installer) + L"\" " + gStageArguments, dir, 0, &process))
+                return WINSPARKLE_RETURN_ERROR;
+            WaitForSingleObject(process, INFINITE);
+            DWORD code = 1;
+            GetExitCodeProcess(process, &code);
+            CloseHandle(process);
+            if (code != 0 || !std::filesystem::is_directory(dir / L"install", ec))
+                return WINSPARKLE_RETURN_ERROR;
+            std::ofstream(dir / L"install" / detail::kStagedMarker) << "staged\n";
+            return armHelper(true) ? 1 : WINSPARKLE_RETURN_ERROR;
+        }
     } // namespace
 
     void Start(const Config& config) {
@@ -47,6 +107,14 @@ namespace imshell::updater {
             win_sparkle_set_eddsa_public_key(config.publicKey.c_str());
         win_sparkle_set_automatic_check_for_updates(1);
         win_sparkle_set_shutdown_request_callback(requestShutdown);
+        if (!config.stageArguments.empty()) {
+            gStageArguments = wide(config.stageArguments);
+            win_sparkle_set_user_run_installer_callback(stageUpdate);
+            // staged earlier and not applied (a close was vetoed, the machine restarted): it
+            // goes in when this run exits, without opening the app again
+            if (detail::HasStagedUpdate(exePath().parent_path()))
+                armHelper(false);
+        }
         win_sparkle_init();
         gStarted = true;
     }

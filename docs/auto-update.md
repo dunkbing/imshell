@@ -45,7 +45,7 @@ imshell_app(app NAME App ID com.example.app VERSION 1.2.0
 | | Feed | Verified by | Installed by | Prompts |
 |---|---|---|---|---|
 | macOS | Sparkle appcast (`SUFeedURL`) | Sparkle: ed25519 signature, code signature | Sparkle, replacing the whole `.app` | Sparkle's own windows, on its schedule |
-| Windows | Sparkle appcast (`appcastUrl`) | WinSparkle: ed25519 signature (`publicKey`) | the downloaded installer (an MSI, for instance) | WinSparkle's own windows |
+| Windows | Sparkle appcast (`appcastUrl`) | WinSparkle: ed25519 signature (`publicKey`) | the downloaded installer (an MSI, for instance), or with `stageArguments` the installer stages it and `imshell-update.exe` swaps it in after exit (below) | WinSparkle's own windows |
 | Linux | JSON manifest (`manifestUrl`) | SHA-256 from the manifest, before anything is replaced | imshell: rename over the AppImage, then exec it | GTK dialogs, only after `Check()` |
 
 macOS and Windows share one appcast: publish each release once, signed with one ed25519 key (Sparkle's `generate_keys` and `sign_update`).
@@ -75,6 +75,54 @@ An update goes like this:
 Only an AppImage (`$APPIMAGE` set) updates itself. Run any other way, `Check()` explains that the package manager or a fresh download updates it, and `Available()` still reports a newer version.
 
 The SHA-256 catches a broken or swapped download from the manifest's host, but it doesn't prove who published the release: anyone who can change the manifest can change the hash. Serve the manifest over HTTPS from a host you control.
+
+## Staged updates on Windows
+
+An installer replaces files the running app holds, so by default the app has to close first and the user watches an installer. With `stageArguments` set, imshell does what Zed does instead: the new version is installed next to the running one and swapped in when the app exits.
+
+1. WinSparkle checks the appcast, downloads the installer and verifies its ed25519 signature, as before.
+2. imshell runs the installer with `stageArguments` (`win_sparkle_set_user_run_installer_callback`) and waits for it. In update mode the installer writes the new version into `<app dir>\install\` and does not ask for the app to close. imshell then writes `install\.imshell-staged`, so only a complete stage is ever applied.
+3. imshell starts `<app dir>\tools\imshell-update.exe`, which waits for the app to exit, and WinSparkle asks the app to quit (through `Delegate::closeRequested()`).
+4. The helper moves each entry of `install\` over the app dir, the old one to `old\` first, retrying a file that is still locked for a few seconds. A step that fails undoes the earlier ones, so the app is all old or all new, and the stage stays for the next try. It logs to `<app dir>\update.log` and opens the app again.
+
+A stage that was not applied (the close was vetoed, the machine restarted) is applied when the next run exits, without reopening the app: `Start()` arms the helper again.
+
+```cpp
+config.stageArguments = "/verysilent /update=true";
+```
+
+The host provides the installer's update mode and ships the helper (CMake target `imshell_update_helper`, built with `IMSHELL_UPDATER` on Windows). With Inno Setup, after Zed's `zed.iss`:
+
+```pascal
+[Files]
+Source: "dearsql.exe"; DestDir: "{code:GetInstallDir}"; Flags: ignoreversion
+Source: "WinSparkle.dll"; DestDir: "{code:GetInstallDir}"; Flags: ignoreversion
+; written in place: the helper is not running while the installer runs
+Source: "imshell-update.exe"; DestDir: "{app}\tools"; Flags: ignoreversion
+
+[Setup]
+AppMutex={code:GetAppMutex}
+
+[Code]
+function IsUpdating(): Boolean;
+begin
+  Result := (ExpandConstant('{param:update|false}') = 'true') and WizardSilent();
+end;
+
+function GetInstallDir(Param: string): string;
+begin
+  if IsUpdating() then Result := ExpandConstant('{app}\install') else Result := ExpandConstant('{app}');
+end;
+
+function GetAppMutex(Param: string): string;
+begin
+  if IsUpdating() then Result := '' else Result := 'MyAppMutex';
+end;
+```
+
+Everything the running app has loaded (the exe, `WinSparkle.dll`, other DLLs) must go to `{code:GetInstallDir}`; only the helper goes straight to `{app}\tools`. Install per user (`PrivilegesRequired=lowest`) so an update needs no elevation. An MSI cannot stage like this (its install location and upgrade removal act on the real folder), so this needs Inno Setup or another installer that can.
+
+Limits: the whole installer is downloaded each time (no deltas); a file the new version no longer ships stays in the app dir; after a vetoed close, the app reopens when the user quits later.
 
 ## Restart and unsaved work
 
