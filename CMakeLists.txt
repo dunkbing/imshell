@@ -140,6 +140,7 @@ elseif(APPLE)
         src/macos/metal_backend.mm
         src/macos/native_button.mm
         src/macos/clipboard.mm
+        src/macos/text_input.mm
         src/apple/notifications.mm
         src/apple/haptics.mm
         src/apple/native_view.mm
@@ -149,7 +150,7 @@ elseif(APPLE)
     )
     # arc for both: they share MetalBackend, whose id members must be owned one way
     set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm src/macos/native_button.mm
-                                src/macos/clipboard.mm src/apple/notifications.mm src/apple/haptics.mm src/apple/native_view.mm
+                                src/macos/clipboard.mm src/macos/text_input.mm src/apple/notifications.mm src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
