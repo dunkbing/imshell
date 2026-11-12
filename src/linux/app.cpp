@@ -10,6 +10,7 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_internal.h"
 #include "keymap.hpp"
+#include "imshell/text_input.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
 
@@ -30,6 +31,7 @@ namespace imshell {
         GtkWidget* gArea = nullptr;
         GtkIMContext* gIm = nullptr; // ibus, fcitx or gtk's own: dead keys, compose sequences, input methods
         bool gImFocused = false;   // an imgui text field is active
+        TextKind gImKind = TextKind::Code; // what the input method was told
         bool gTitleBar = false;
         float gBarHeight = 36;
         bool gShouldClose = false;
@@ -198,13 +200,23 @@ namespace imshell {
         // a composition whose field went away ends where it is
         void followIme() {
             const ImGuiPlatformImeData& data = GImGui->PlatformImeData;
+            // the field's kind as purpose and hints, also when the focus moves between fields
+            const TextKind kind = data.WantTextInput ? ActiveTextKind() : TextKind::Code;
+            if (data.WantTextInput && (!gImFocused || kind != gImKind)) {
+                gImKind = kind;
+                const GtkInputPurpose purpose = kind == TextKind::Password      ? GTK_INPUT_PURPOSE_PASSWORD
+                                                : kind == TextKind::OneTimeCode ? GTK_INPUT_PURPOSE_DIGITS
+                                                                                : GTK_INPUT_PURPOSE_FREE_FORM;
+                const GtkInputHints hints =
+                    kind == TextKind::Prose
+                        ? GtkInputHints(GTK_INPUT_HINT_SPELLCHECK | GTK_INPUT_HINT_WORD_COMPLETION |
+                                        GTK_INPUT_HINT_UPPERCASE_SENTENCES)
+                        : GTK_INPUT_HINT_NO_SPELLCHECK;
+                g_object_set(gIm, "input-purpose", purpose, "input-hints", hints, nullptr);
+            }
             if (data.WantTextInput != gImFocused) {
                 gImFocused = data.WantTextInput; // first: what reset() sends back is ignored
                 if (gImFocused) {
-                    ImGuiInputTextState* s = ImGui::GetInputTextState(GImGui->ActiveId);
-                    const bool password = s && (s->Flags & ImGuiInputTextFlags_Password);
-                    g_object_set(gIm, "input-purpose",
-                                 password ? GTK_INPUT_PURPOSE_PASSWORD : GTK_INPUT_PURPOSE_FREE_FORM, nullptr);
                     gtk_im_context_focus_in(gIm);
                 } else {
                     detail::ime::forget();

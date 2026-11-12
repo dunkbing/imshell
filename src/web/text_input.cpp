@@ -5,6 +5,7 @@
 // keys that move or submit (arrows, enter, tab, shortcuts) still go to glfw and imgui
 #include "../ime.hpp"
 #include "../loop_pass.hpp"
+#include "imshell/text_input.hpp"
 #include "imgui_internal.h"
 
 #include <emscripten.h>
@@ -80,9 +81,22 @@ EM_JS(void, imshell_text_install, (), {
 });
 
 // the textarea follows the field: focus, the caret's place, the text before the caret
-EM_JS(void, imshell_text_follow, (int want, float x, float y, float h, const char* context, int known, int reset), {
+EM_JS(void, imshell_text_follow, (int want, float x, float y, float h, const char* context, int known, int reset, int kind), {
     const q = Module.imshellText;
     const t = q.t;
+    // the field's kind (imshell::TextKind): what the phone's keyboard offers and corrects
+    // an open keyboard changes kind on the tap that moved the field (a refocus outside a tap
+    // would close it on phones)
+    if (want && q.kind !== kind) {
+        q.kind = kind;
+        q.kindChanged = true;
+        const prose = kind === 1, code = kind === 2;
+        t.setAttribute("spellcheck", prose ? "true" : "false");
+        t.setAttribute("autocorrect", prose ? "on" : "off");
+        t.setAttribute("autocapitalize", prose ? "sentences" : "off");
+        t.setAttribute("inputmode", code ? "numeric" : "text");
+        t.setAttribute("autocomplete", code ? "one-time-code" : "off");
+    }
     if (!want) {
         if (q.focused) {
             q.focused = false;
@@ -155,7 +169,9 @@ EM_JS(void, imshell_text_listen_taps, (), {
         if (!Module._imshell_text_tap())
             return;
         const q = Module.imshellText;
-        if (document.activeElement === t && q.inGesture)
+        const changed = q.kindChanged;
+        q.kindChanged = false;
+        if (document.activeElement === t && q.inGesture && !changed)
             return; // the keyboard is up already: a blur would make it bounce
         if (document.activeElement === t)
             t.blur();
@@ -271,7 +287,7 @@ namespace imshell::detail {
         if (GLFWwindow* window = glfwGetCurrentContext())
             emscripten::glfw3::SetFocusOnMouseDown(window, !data.WantTextInput);
         imshell_text_follow(data.WantTextInput, data.InputPos.x, data.InputPos.y, data.InputLineHeight,
-                            before.c_str(), known, reset);
+                            before.c_str(), known, reset, static_cast<int>(imshell::ActiveTextKind()));
         drawComposingUnderline(gComposing.c_str());
     }
 } // namespace imshell::detail

@@ -154,7 +154,7 @@ elseif(APPLE)
                                 src/macos/clipboard.mm src/macos/text_input.mm src/apple/notifications.mm src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell PUBLIC glfw
-        "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Foundation"
+        "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Carbon" "-framework Foundation"
         "-framework ImageIO" "-framework CoreGraphics" "-framework UniformTypeIdentifiers"
         "-framework UserNotifications")
 elseif(WIN32)

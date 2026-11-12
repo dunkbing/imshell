@@ -6,6 +6,7 @@
 #include "imshell/haptics.hpp"
 #include "imshell/ios.h"
 #include "imshell/themes.hpp"
+#include "imshell/text_input.hpp"
 #include "../native_view.hpp"
 #include "../touch.hpp"
 
@@ -300,9 +301,25 @@ namespace {
     wake();
     tapKey(ImGuiKey_Backspace);
 }
-// sql, not prose
+// the active field's kind (imshell::SetTextKind); code by default: typed as is
+// shortcut: prose gets the full keyboard but not autocorrect or capitals, which read the text
+// around the caret and this view reports none; turn them on once it does
+static imshell::TextKind gKind = imshell::TextKind::Code;
 - (UITextAutocorrectionType)autocorrectionType {
     return UITextAutocorrectionTypeNo;
+}
+- (BOOL)isSecureTextEntry {
+    return gKind == imshell::TextKind::Password;
+}
+- (UITextContentType)textContentType {
+    switch (gKind) {
+    case imshell::TextKind::OneTimeCode:
+        return UITextContentTypeOneTimeCode;
+    case imshell::TextKind::Password:
+        return UITextContentTypePassword;
+    default:
+        return nil;
+    }
 }
 - (UITextAutocapitalizationType)autocapitalizationType {
     return UITextAutocapitalizationTypeNone;
@@ -317,7 +334,14 @@ namespace {
     return UITextSmartDashesTypeNo;
 }
 - (UIKeyboardType)keyboardType {
-    return UIKeyboardTypeASCIICapable;
+    switch (gKind) {
+    case imshell::TextKind::Prose:
+        return UIKeyboardTypeDefault;
+    case imshell::TextKind::OneTimeCode:
+        return UIKeyboardTypeNumberPad;
+    default:
+        return UIKeyboardTypeASCIICapable;
+    }
 }
 
 - (void)sendPresses:(NSSet<UIPress*>*)presses down:(BOOL)down event:(UIPressesEvent*)event {
@@ -591,8 +615,10 @@ namespace {
     ImShellView* v = (ImShellView*)view;
     const BOOL want =
         ImGui::GetIO().WantTextInput || ImGui::GetCurrentContext()->PlatformImeData.WantVisible;
-    if (want != v.keyboardWanted) {
+    const imshell::TextKind kind = want ? imshell::ActiveTextKind() : imshell::TextKind::Code;
+    if (want != v.keyboardWanted || kind != gKind) {
         v.keyboardWanted = want;
+        gKind = kind; // the keyboard reloads in the new field's kind
         [v reloadInputViews];
     }
 }

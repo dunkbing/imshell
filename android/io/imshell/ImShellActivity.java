@@ -152,12 +152,13 @@ public class ImShellActivity extends NativeActivity {
         return c == null ? 0 : c;
     }
 
-    // the field kind the editor opens the keyboard for (onCreateInputConnection reads it)
-    private volatile boolean passwordField = false;
+    // the field kind the editor opens the keyboard for (onCreateInputConnection reads it):
+    // imshell::TextKind, 0 code, 1 prose, 2 one-time code, 3 password
+    private volatile int fieldKind = 0;
 
-    public void showKeyboard(boolean show, boolean password) {
+    public void showKeyboard(boolean show, int kind) {
         composing = "";
-        passwordField = password;
+        fieldKind = kind;
         runOnUiThread(() -> {
             InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
             if (show) {
@@ -210,12 +211,21 @@ public class ImShellActivity extends NativeActivity {
         public InputConnection onCreateInputConnection(EditorInfo info) {
             info.imeOptions = EditorInfo.IME_FLAG_NO_ENTER_ACTION | EditorInfo.IME_FLAG_NO_FULLSCREEN
                 | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
-            if (passwordField) { // no suggestions, no learning, no autocorrect
+            switch (fieldKind) {
+            case 1: // prose
+                info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                    | InputType.TYPE_TEXT_FLAG_AUTO_CORRECT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES;
+                break;
+            case 2: // one-time code
+                info.inputType = InputType.TYPE_CLASS_NUMBER;
+                info.imeOptions |= EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
+                break;
+            case 3: // password: no suggestions, no learning, no autocorrect
                 info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD;
                 info.imeOptions |= EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING;
-            } else {
-                info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE
-                    | InputType.TYPE_TEXT_FLAG_AUTO_CORRECT;
+                break;
+            default: // code: suggestions (input methods compose through them), no autocorrect
+                info.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE;
             }
             return new Connection(this);
         }
