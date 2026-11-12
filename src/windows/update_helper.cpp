@@ -1,18 +1,24 @@
-// tools\imshell-update.exe <pid> <app dir> [<exe to open after>]: the staged update's second half
-// (src/windows/updater.cpp stages it). waits for the app to exit, swaps <app dir>\install\ in
-// (staged_update.cpp: all or nothing), opens the app again when asked. logs to <app dir>\update.log
+// imshell-update.exe <pid> <app dir> [<exe to open after>]: the staged update's second half
+// (src/windows/updater.cpp stages it and runs a copy of this from %TEMP%, so an installer can
+// replace tools\imshell-update.exe meanwhile). waits for the app to exit, stops anything else
+// still running from the app dir, swaps <app dir>\install\ in (staged_update.cpp: all or nothing),
+// opens the app again when asked. logs to <app dir>\update.log
 #include "../staged_update.hpp"
 
 #include <windows.h>
 #include <shellapi.h>
+#include <tlhelp32.h>
 
 #include <chrono>
+#include <cwctype>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <string>
+#include <vector>
 
 namespace fs = std::filesystem;
+using imshell::detail::Utf8;
 
 namespace {
     fs::path gDir;
@@ -22,21 +28,76 @@ namespace {
         std::ofstream(gDir / L"update.log", std::ios::app) << std::format("{:%F %T} {}\n", now, line);
     }
 
+    std::wstring lower(std::wstring s) {
+        for (wchar_t& c : s)
+            c = static_cast<wchar_t>(std::towlower(c));
+        return s;
+    }
+
     // a file stays locked for a moment after the app exits (explorer, an antivirus scan): retry
-    // such a rename for up to 10 s, give up at once on anything else
+    // such a rename for up to 30 s, give up at once on anything else
     bool renameRetrying(const fs::path& from, const fs::path& to) {
-        for (int attempt = 0; attempt < 100; ++attempt) {
+        for (int attempt = 0; attempt < 300; ++attempt) {
             if (MoveFileExW(from.c_str(), to.c_str(), 0))
                 return true;
             const DWORD error = GetLastError();
             if (error != ERROR_SHARING_VIOLATION && error != ERROR_ACCESS_DENIED && error != ERROR_LOCK_VIOLATION) {
-                log(std::format("rename {} -> {} failed: error {}", imshell::detail::Utf8(from), imshell::detail::Utf8(to), error));
+                log(std::format("rename {} -> {} failed: error {}", Utf8(from), Utf8(to), error));
                 return false;
             }
             Sleep(100);
         }
-        log(std::format("rename {} -> {} still locked", imshell::detail::Utf8(from), imshell::detail::Utf8(to)));
+        log(std::format("rename {} -> {} still locked", Utf8(from), Utf8(to)));
         return false;
+    }
+
+    // processes running an exe from the app dir: another window, the app's cli, a server an
+    // editor started from it. they hold files the swap replaces
+    std::vector<HANDLE> runningFromAppDir() {
+        const std::wstring prefix = lower(gDir.wstring() + L"\\");
+        std::vector<HANDLE> found;
+        HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (snapshot == INVALID_HANDLE_VALUE)
+            return found;
+        PROCESSENTRY32W entry{};
+        entry.dwSize = sizeof entry;
+        for (BOOL ok = Process32FirstW(snapshot, &entry); ok; ok = Process32NextW(snapshot, &entry)) {
+            if (entry.th32ProcessID == GetCurrentProcessId())
+                continue;
+            HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE | PROCESS_TERMINATE, FALSE,
+                                         entry.th32ProcessID);
+            if (!process)
+                continue;
+            std::wstring image(32768, L'\0');
+            DWORD size = static_cast<DWORD>(image.size());
+            if (QueryFullProcessImageNameW(process, 0, image.data(), &size) &&
+                lower(image.substr(0, size)).starts_with(prefix))
+                found.push_back(process);
+            else
+                CloseHandle(process);
+        }
+        CloseHandle(snapshot);
+        return found;
+    }
+
+    // they get 30 s to finish on their own, then they are ended
+    void stopOthers() {
+        std::vector<HANDLE> others = runningFromAppDir();
+        if (others.empty())
+            return;
+        log(std::format("{} other process(es) running from the app dir: waiting up to 30 s", others.size()));
+        const ULONGLONG deadline = GetTickCount64() + 30000;
+        for (HANDLE process : others) {
+            const ULONGLONG now = GetTickCount64();
+            const DWORD wait = now < deadline ? static_cast<DWORD>(deadline - now) : 0;
+            if (WaitForSingleObject(process, wait) == WAIT_TIMEOUT) {
+                const DWORD pid = GetProcessId(process);
+                TerminateProcess(process, 1);
+                WaitForSingleObject(process, 5000);
+                log(std::format("ended process {}", pid));
+            }
+            CloseHandle(process);
+        }
     }
 } // namespace
 
@@ -64,6 +125,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         CloseHandle(app);
     }
     const bool staged = imshell::detail::HasStagedUpdate(gDir);
+    if (staged)
+        stopOthers();
     const std::string error = imshell::detail::ApplyStagedUpdate(gDir, renameRetrying);
     if (staged)
         log(error.empty() ? "update applied" : "update failed, old version kept: " + error);

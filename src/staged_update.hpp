@@ -27,6 +27,9 @@ namespace imshell::detail {
     // each entry of dir/install/ replaces the one in dir: the old moves to dir/old/ first. a failed
     // step undoes the earlier ones in reverse, so the app is either all old or all new. old/ and
     // install/ are removed after a success (errors there are ignored). returns the error, empty
-    // when applied or when there was nothing complete to apply
+    // when applied or when there was nothing complete to apply. a stage that failed
+    // kMaxStagedAttempts times is deleted (the next update downloads again), so a broken one
+    // does not retry at every exit forever
+    inline constexpr int kMaxStagedAttempts = 3;
     std::string ApplyStagedUpdate(const std::filesystem::path& dir, const RenameFn& rename = {});
 } // namespace imshell::detail

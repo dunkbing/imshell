@@ -67,8 +67,20 @@ namespace imshell::updater {
         // tools\imshell-update.exe waits for this process to exit, swaps the stage in and, when
         // the user chose to install now, opens the app again
         bool armHelper(bool relaunch) {
-            const std::filesystem::path exe = exePath(), dir = exe.parent_path();
-            const std::filesystem::path helper = dir / L"tools" / L"imshell-update.exe";
+            namespace fs = std::filesystem;
+            const fs::path exe = exePath(), dir = exe.parent_path();
+            // run a copy from %TEMP%: a waiting helper must not hold tools\imshell-update.exe,
+            // which the next update's installer replaces. older copies go first (a running one
+            // stays locked and is skipped)
+            std::error_code ec;
+            const fs::path temp = fs::temp_directory_path(ec);
+            for (const fs::directory_entry& entry : fs::directory_iterator(temp, ec))
+                if (entry.path().filename().wstring().starts_with(L"imshell-update-"))
+                    fs::remove(entry.path(), ec);
+            fs::path helper = temp / (L"imshell-update-" + std::to_wstring(GetCurrentProcessId()) + L".exe");
+            fs::copy_file(dir / L"tools" / L"imshell-update.exe", helper, fs::copy_options::overwrite_existing, ec);
+            if (ec)
+                helper = dir / L"tools" / L"imshell-update.exe";
             std::wstring command = L"\"" + helper.wstring() + L"\" " + std::to_wstring(GetCurrentProcessId()) +
                                    L" \"" + dir.wstring() + L"\"";
             if (relaunch)

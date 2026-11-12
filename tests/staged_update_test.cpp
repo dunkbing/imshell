@@ -1,5 +1,6 @@
 // the staged update's swap (src/staged_update.cpp), on a temp folder: applied, ignored without
-// the marker, undone when a step fails (the stage kept for the next try), old leftovers cleared
+// the marker, undone when a step fails (the stage kept for the next try), given up after the
+// last attempt, old leftovers cleared
 #include "staged_update.hpp"
 
 #include <cstdio>
@@ -88,6 +89,17 @@ int main() {
         check(read(dir / "install" / "app.exe") == "new" && fs::exists(dir / "install" / kStagedMarker),
               "the stage is kept for the next try");
         check(ApplyStagedUpdate(dir).empty() && read(dir / "app.exe") == "new", "the next try applies");
+        check(!fs::exists(dir / ".imshell-attempts"), "the attempt counter is not copied");
+    }
+    {
+        const fs::path dir = setup("gave-up");
+        const auto locked = [](const fs::path&, const fs::path&) { return false; };
+        for (int i = 1; i < imshell::detail::kMaxStagedAttempts; ++i)
+            check(!ApplyStagedUpdate(dir, locked).empty() && fs::exists(dir / "install" / kStagedMarker),
+                  "kept for another try");
+        const std::string error = ApplyStagedUpdate(dir, locked);
+        check(error.find("gave up") != std::string::npos, "gives up after the last attempt");
+        check(!fs::exists(dir / "install") && allOld(dir), "the stage is deleted, the old version kept");
     }
     fs::remove_all(fs::temp_directory_path() / "imshell_staged_update_test");
     if (failures) {

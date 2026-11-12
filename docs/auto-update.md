@@ -82,10 +82,10 @@ An installer replaces files the running app holds, so by default the app has to 
 
 1. WinSparkle checks the appcast, downloads the installer and verifies its ed25519 signature, as before.
 2. imshell runs the installer with `stageArguments` (`win_sparkle_set_user_run_installer_callback`) and waits for it. In update mode the installer writes the new version into `<app dir>\install\` and does not ask for the app to close. imshell then writes `install\.imshell-staged`, so only a complete stage is ever applied.
-3. imshell starts `<app dir>\tools\imshell-update.exe`, which waits for the app to exit, and WinSparkle asks the app to quit (through `Delegate::closeRequested()`).
-4. The helper moves each entry of `install\` over the app dir, the old one to `old\` first, retrying a file that is still locked for a few seconds. A step that fails undoes the earlier ones, so the app is all old or all new, and the stage stays for the next try. It logs to `<app dir>\update.log` and opens the app again.
+3. imshell starts a copy of `<app dir>\tools\imshell-update.exe` from `%TEMP%` (so the next installer can replace the original), which waits for the app to exit, and WinSparkle asks the app to quit (through `Delegate::closeRequested()`).
+4. The helper moves each entry of `install\` over the app dir, the old one to `old\` first, retrying a file that is still locked for up to 30 s. Before that, other processes still running an exe from the app dir (a second window, the app's command line, a server an editor started) get 30 s to exit and are then ended. A step that fails undoes the earlier ones, so the app is all old or all new, and the stage stays for the next try. It logs to `<app dir>\update.log` and opens the app again.
 
-A stage that was not applied (the close was vetoed, the machine restarted) is applied when the next run exits, without reopening the app: `Start()` arms the helper again.
+A stage that was not applied (the close was vetoed, the machine restarted) is applied when the next run exits, without reopening the app: `Start()` arms the helper again. A stage that failed three times is deleted, and the next update downloads again.
 
 ```cpp
 config.stageArguments = "/verysilent /update=true";
@@ -97,7 +97,7 @@ The host provides the installer's update mode and ships the helper (CMake target
 [Files]
 Source: "dearsql.exe"; DestDir: "{code:GetInstallDir}"; Flags: ignoreversion
 Source: "WinSparkle.dll"; DestDir: "{code:GetInstallDir}"; Flags: ignoreversion
-; written in place: the helper is not running while the installer runs
+; written in place: the running helper is a copy in %TEMP%
 Source: "imshell-update.exe"; DestDir: "{app}\tools"; Flags: ignoreversion
 
 [Setup]
