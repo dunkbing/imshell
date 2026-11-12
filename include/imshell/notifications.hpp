@@ -8,7 +8,8 @@
 // the desktop's notification daemon over d-bus (org.freedesktop.Notifications), the badge
 // through the unity launcher api on docks that read it; the app's .desktop file is taken to be
 // <program name>.desktop. ios: the same center, the home screen badge. android: NotificationManager
-// (the manifest needs POST_NOTIFICATIONS), no badge. windows and the web: Unavailable for now.
+// (the manifest needs POST_NOTIFICATIONS), no badge. windows: toasts under a registered app id,
+// the taskbar overlay. the web: the Notification and badging apis.
 // see docs/notifications.md. call from any thread (OnPress: the ui
 // thread); every callback runs on the ui thread
 namespace imshell::notifications {
