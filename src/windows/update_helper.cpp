@@ -1,8 +1,8 @@
-// imshell-update.exe <pid> <app dir> [<exe to open after>]: the staged update's second half
+// imshell-update.exe <pid> <app dir>: the staged update's second half
 // (src/windows/updater.cpp stages it and runs a copy of this from %TEMP%, so an installer can
 // replace tools\imshell-update.exe meanwhile). waits for the app to exit, stops anything else
 // still running from the app dir, swaps <app dir>\install\ in (staged_update.cpp: all or nothing),
-// opens the app again when asked. logs to <app dir>\update.log
+// opens the app again when the app left the reopen marker (restart now). logs to <app dir>\update.log
 #include "../staged_update.hpp"
 
 #include <windows.h>
@@ -13,6 +13,7 @@
 #include <cwctype>
 #include <filesystem>
 #include <format>
+#include <iterator>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -108,7 +109,6 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         return 2;
     const DWORD pid = wcstoul(argv[1], nullptr, 10);
     gDir = argv[2];
-    const std::wstring relaunch = argc > 3 ? argv[3] : L"";
     LocalFree(argv);
 
     // one helper at a time per app: a stage re-armed at launch and a new one both wait here
@@ -124,6 +124,18 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
         WaitForSingleObject(app, INFINITE);
         CloseHandle(app);
     }
+    // written while the app ran, so read once it is gone; a stale one never outlives a run
+    fs::path relaunch;
+    {
+        const fs::path reopen = gDir / imshell::detail::kReopenMarker;
+        std::ifstream in(reopen, std::ios::binary);
+        const std::string utf8{std::istreambuf_iterator<char>(in), {}};
+        in.close();
+        std::error_code ec;
+        fs::remove(reopen, ec);
+        if (!utf8.empty())
+            relaunch = fs::path(std::u8string(utf8.begin(), utf8.end()));
+    }
     const bool staged = imshell::detail::HasStagedUpdate(gDir);
     if (staged)
         stopOthers();
@@ -136,7 +148,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     }
 
     if (!relaunch.empty()) {
-        std::wstring command = L"\"" + relaunch + L"\"";
+        std::wstring command = L"\"" + relaunch.wstring() + L"\"";
         STARTUPINFOW si{};
         si.cb = sizeof si;
         PROCESS_INFORMATION pi{};

@@ -82,8 +82,8 @@ An installer replaces files the running app holds, so by default the app has to 
 
 1. WinSparkle checks the appcast, downloads the installer and verifies its ed25519 signature, as before.
 2. imshell runs the installer with `stageArguments` (`win_sparkle_set_user_run_installer_callback`) and waits for it. In update mode the installer writes the new version into `<app dir>\install\` and does not ask for the app to close. imshell then writes `install\.imshell-staged`, so only a complete stage is ever applied.
-3. imshell starts a copy of `<app dir>\tools\imshell-update.exe` from `%TEMP%` (so the next installer can replace the original), which waits for the app to exit, and WinSparkle asks the app to quit (through `Delegate::closeRequested()`).
-4. The helper moves each entry of `install\` over the app dir, the old one to `old\` first, retrying a file that is still locked for up to 30 s. Before that, other processes still running an exe from the app dir (a second window, the app's command line, a server an editor started) get 30 s to exit and are then ended. A step that fails undoes the earlier ones, so the app is all old or all new, and the stage stays for the next try. It logs to `<app dir>\update.log` and opens the app again.
+3. imshell starts a copy of `<app dir>\tools\imshell-update.exe` from `%TEMP%` (so the next installer can replace the original), which waits for the app to exit. The app keeps running: an imshell alert says the update is installed and offers **Restart Now** or **Later** (the host draws alerts with `Alert::render()`, as for any alert). **Restart Now** closes the main window (through `Delegate::closeRequested()`, so unsaved work can still be asked about) and the app opens again on the new version; **Later**, or no answer, leaves the update to go in when the user quits.
+4. The helper moves each entry of `install\` over the app dir, the old one to `old\` first, retrying a file that is still locked for up to 30 s. Before that, other processes still running an exe from the app dir (a second window, the app's command line, a server an editor started) get 30 s to exit and are then ended. A step that fails undoes the earlier ones, so the app is all old or all new, and the stage stays for the next try. It logs to `<app dir>\update.log` and, after **Restart Now**, opens the app again.
 
 A stage that was not applied (the close was vetoed, the machine restarted) is applied when the next run exits, without reopening the app: `Start()` arms the helper again. A stage that failed three times is deleted, and the next update downloads again.
 
@@ -122,7 +122,7 @@ end;
 
 Everything the running app has loaded (the exe, `WinSparkle.dll`, other DLLs) must go to `{code:GetInstallDir}`; only the helper goes straight to `{app}\tools`. Install per user (`PrivilegesRequired=lowest`) so an update needs no elevation. An MSI cannot stage like this (its install location and upgrade removal act on the real folder), so this needs Inno Setup or another installer that can.
 
-Limits: the whole installer is downloaded each time (no deltas); a file the new version no longer ships stays in the app dir; after a vetoed close, the app reopens when the user quits later.
+Limits: the whole installer is downloaded each time (no deltas); a file the new version no longer ships stays in the app dir; after **Restart Now** and a vetoed close, the app reopens when the user quits later.
 
 ## Restart and unsaved work
 

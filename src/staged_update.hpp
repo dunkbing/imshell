@@ -11,6 +11,8 @@
 namespace imshell::detail {
     // written into install/ last, once the installer exited cleanly: only a complete stage is applied
     inline constexpr const char* kStagedMarker = ".imshell-staged";
+    // in the app dir: restart now was picked, so the helper opens this exe (utf-8) after the swap
+    inline constexpr const char* kReopenMarker = ".imshell-reopen";
 
     // for messages: path::string() throws on windows when a name is not in the ansi code page
     // (a user name in %LOCALAPPDATA%), utf-8 never does

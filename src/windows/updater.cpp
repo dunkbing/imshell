@@ -2,8 +2,11 @@
 // the installer only stages the update and tools\imshell-update.exe swaps it in after exit
 #include "imshell/updater.hpp"
 
+#include "imshell/alert.hpp"
+
 #include "../staged_update.hpp"
 
+#include <atomic>
 #include <cwchar>
 #include <filesystem>
 #include <fstream>
@@ -23,10 +26,9 @@ namespace imshell::updater {
             return out;
         }
 
-        // the installer replaces the exe, so winsparkle asks the app to quit right after starting
-        // it: close the main window as the user would (closeRequested can still veto), from
-        // winsparkle's thread, so only PostMessage. glfw's class, not winsparkle's own dialogs
-        void requestShutdown() {
+        // close the main window as the user would (closeRequested can still veto); from any
+        // thread, so only PostMessage. glfw's class, not winsparkle's own dialogs
+        void closeMainWindow() {
             EnumWindows(
                 [](HWND hwnd, LPARAM) -> BOOL {
                     DWORD pid = 0;
@@ -42,6 +44,8 @@ namespace imshell::updater {
         }
 
         std::wstring gStageArguments;
+        std::string gAppName;
+        std::atomic<bool> gStaged = false; // this run staged an update: ask, do not quit
 
         std::filesystem::path exePath() {
             std::wstring path(32768, L'\0');
@@ -64,9 +68,9 @@ namespace imshell::updater {
             return true;
         }
 
-        // tools\imshell-update.exe waits for this process to exit, swaps the stage in and, when
-        // the user chose to install now, opens the app again
-        bool armHelper(bool relaunch) {
+        // tools\imshell-update.exe waits for this process to exit and swaps the stage in; it opens
+        // the app again when the reopen marker is there (restart now)
+        bool armHelper() {
             namespace fs = std::filesystem;
             const fs::path exe = exePath(), dir = exe.parent_path();
             // run a copy from %TEMP%: a waiting helper must not hold tools\imshell-update.exe,
@@ -77,14 +81,13 @@ namespace imshell::updater {
             for (const fs::directory_entry& entry : fs::directory_iterator(temp, ec))
                 if (entry.path().filename().wstring().starts_with(L"imshell-update-"))
                     fs::remove(entry.path(), ec);
-            fs::path helper = temp / (L"imshell-update-" + std::to_wstring(GetCurrentProcessId()) + L".exe");
+            fs::path helper = temp / (L"imshell-update-" + std::to_wstring(GetCurrentProcessId()) + L"-" +
+                                         std::to_wstring(GetTickCount64()) + L".exe");
             fs::copy_file(dir / L"tools" / L"imshell-update.exe", helper, fs::copy_options::overwrite_existing, ec);
             if (ec)
                 helper = dir / L"tools" / L"imshell-update.exe";
             std::wstring command = L"\"" + helper.wstring() + L"\" " + std::to_wstring(GetCurrentProcessId()) +
                                    L" \"" + dir.wstring() + L"\"";
-            if (relaunch)
-                command += L" \"" + exe.wstring() + L"\"";
             return spawn(command, dir, DETACHED_PROCESS, nullptr);
         }
 
@@ -105,7 +108,36 @@ namespace imshell::updater {
             if (code != 0 || !std::filesystem::is_directory(dir / L"install", ec))
                 return WINSPARKLE_RETURN_ERROR;
             std::ofstream(dir / L"install" / detail::kStagedMarker) << "staged\n";
-            return armHelper(true) ? 1 : WINSPARKLE_RETURN_ERROR;
+            // applied when the app quits, whatever the user answers below (or if never)
+            if (!armHelper())
+                return WINSPARKLE_RETURN_ERROR;
+            gStaged = true;
+            return 1;
+        }
+
+        // restart now: the armed helper opens this exe again after the swap
+        void markReopen() {
+            const std::filesystem::path exe = exePath();
+            const std::u8string path = exe.u8string();
+            std::ofstream(exe.parent_path() / detail::kReopenMarker, std::ios::binary)
+                .write(reinterpret_cast<const char*>(path.data()), static_cast<std::streamsize>(path.size()));
+        }
+
+        // winsparkle asks the app to quit after the installer ran (or the callback handled it).
+        // a staged update needs no quit: the user picks now or later. otherwise the installer
+        // replaces the exe, so close at once
+        void requestShutdown() {
+            if (!gStaged.exchange(false)) {
+                closeMainWindow();
+                return;
+            }
+            const std::string app = gAppName.empty() ? "The app" : gAppName;
+            Alert::show("Update ready", "The update is installed. Restart " + app + " now to finish it, or it finishes the next time you quit.",
+                        {{"Later", nullptr, AlertButton::Style::Cancel},
+                         {"Restart Now", [] {
+                              markReopen();
+                              closeMainWindow();
+                          }}});
         }
     } // namespace
 
@@ -121,11 +153,12 @@ namespace imshell::updater {
         win_sparkle_set_shutdown_request_callback(requestShutdown);
         if (!config.stageArguments.empty()) {
             gStageArguments = wide(config.stageArguments);
+            gAppName = config.appName;
             win_sparkle_set_user_run_installer_callback(stageUpdate);
             // staged earlier and not applied (a close was vetoed, the machine restarted): it
             // goes in when this run exits, without opening the app again
             if (detail::HasStagedUpdate(exePath().parent_path()))
-                armHelper(false);
+                armHelper();
         }
         win_sparkle_init();
         gStarted = true;
