@@ -25,8 +25,8 @@ namespace imshell {
     // systemCjk merges SystemCjkFontPath() last (mapped, not read: those files are 20+ mb), and
     // a font with hangul after it (malgun gothic, apple sd gothic neo, or the same collection).
     // emoji merges the system's colour emoji (apple; windows; linux and android when built with
-    // freetype; none on the web yet); emoji past U+FFFF need
-    // imgui built with IMGUI_USE_WCHAR32 (the IMSHELL_WCHAR32 option)
+    // freetype; none on the web yet); emoji past U+FFFF are drawn because
+    // imshell builds imgui with IMGUI_USE_WCHAR32
     ImFont* AddFont(std::span<const FontFile> files, float size = 16.0f, bool systemCjk = true, bool emoji = true);
     inline ImFont* AddFont(std::initializer_list<FontFile> files, float size = 16.0f, bool systemCjk = true,
                            bool emoji = true) {
