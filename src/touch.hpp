@@ -2,14 +2,16 @@
 
 #include "imgui.h"
 
-// one finger driving imgui's mouse, shared by the ios and android shells: a tap clicks, a drag
-// scrolls (or drags a splitter, a column edge, text), a flick coasts, a long press is the
-// shell's. android feeds raw events (down, move, up); ios lets its gesture recognizers decide
-// the slop and velocity and calls press() and fling() itself. coordinates are imgui units
+// one finger driving imgui's mouse, shared by the phone and browser shells: a tap clicks, a
+// drag scrolls (a held one drags the widget, a splitter or column edge drags at once), a flick
+// coasts, a long press is the shell's. android and the browser feed raw events (down, move,
+// up); ios lets its gesture recognizers decide the slop and velocity and calls press() and
+// fling() itself. coordinates are imgui units
 namespace imshell::touch {
     enum class State { None, Pending, Pressed, Scrolling };
 
     constexpr float kSlop = 8;          // before a touch becomes a drag
+    constexpr double kHold = 0.15;      // seconds still before a drag goes to the widget (as on ios)
     constexpr double kLongPress = 0.5;  // seconds
     constexpr float kFlingStop = 20;    // units per second
 

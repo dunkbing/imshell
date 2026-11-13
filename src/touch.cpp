@@ -11,6 +11,7 @@ namespace imshell::touch {
         State gState = State::None;
         ImVec2 gStart, gLast;
         double gStartTime = 0, gLastMoveTime = 0;
+        int gDownFrame = 0; // imgui's frame when the finger landed
         ImVec2 gVelocity, gFling;
         bool gLift = false;
 
@@ -91,6 +92,7 @@ namespace imshell::touch {
             return;
         gStart = p;
         gStartTime = gLastMoveTime = now;
+        gDownFrame = ImGui::GetFrameCount();
         gState = State::Pending;
         hover(p);
     }
@@ -118,12 +120,17 @@ namespace imshell::touch {
     }
 
     void move(ImVec2 p, double now) {
-        if (gState == State::Pending &&
+        // the cursor says what lies under the finger only once a frame has hovered there: a
+        // quick swipe passes the slop before that, and would read the last gesture's cursor
+        if (gState == State::Pending && ImGui::GetFrameCount() > gDownFrame &&
             length(ImVec2(p.x - gStart.x, p.y - gStart.y)) > kSlop) {
-            if (scrolls()) {
+            // a quick swipe scrolls, over text too; a finger held still first drags the widget
+            // (a slider, a text selection). a splitter or column edge drags at once
+            const bool held = now - gStartTime >= kHold;
+            if (!held && (scrolls() || ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput)) {
                 gState = State::Scrolling;
                 gLast = gStart;
-            } else { // a splitter, column edge or text: drag it
+            } else {
                 press(gStart, gStart);
             }
         }
