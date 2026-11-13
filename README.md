@@ -6,7 +6,7 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 
 - **[Platform shell](docs/platform-shell.md)** (`app.hpp`): the native window, graphics backend and frame loop on macOS (Metal), Windows (Direct3D 11), Linux (GTK4 + OpenGL), iOS (UIKit + Metal), Android (OpenGL ES) and the web (WebGL 2). The app implements `imshell::Delegate` and calls `imshell::Run(config, delegate)`.
 - **[Title bar](docs/title-bar.md)** (`title_bar.hpp`): the app draws its own bar with ImGui; imshell keeps the OS window buttons, dragging and double-click behaviour.
-- **[Auto-update](docs/auto-update.md)** (`updater.hpp`, `-DIMSHELL_UPDATER=ON`): Sparkle on macOS, WinSparkle on Windows, an AppImage swap on Linux; `imshell_app()` ships it and makes a signed, notarized macOS app.
+- **[Auto-update](docs/auto-update.md)** (`updater.hpp`, `-DIMSHELL_UPDATER=ON`): Sparkle on macOS, WinSparkle on Windows (optionally staged: installed next to the running app, swapped in after exit), an AppImage swap on Linux; `imshell_app()` ships it and makes a signed, notarized macOS app.
 - **[Notifications](docs/notifications.md)** (`notifications.hpp`): system notifications, their clicks and the app icon's badge on every platform.
 - **[Native views](docs/native-views.md)** (`native_view.hpp`): a real `NSView`, `UIView`, `HWND` or `GtkWidget` inside the ImGui layout.
 - **[Themes, widgets, menus and dialogs](docs/ui.md)**: eighteen palettes, buttons, select, toggle, splitter, spinner, menus, alerts and prompts, fonts, file dialogs, clipboard, haptics, images and embedded files.
