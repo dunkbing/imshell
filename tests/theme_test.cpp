@@ -50,19 +50,14 @@ int main() {
         need(t, "warningForeground on warning", t.warningForeground, t.warning, 3.0f);
         need(t, "destructive on background", t.destructive, t.background, 3.0f);
         need(t, "primary on background (links)", t.primary, t.background, 3.0f);
-        check(&imshell::ThemeById(t.id) == &t, t.id);
     }
-    // ids saved by older versions
-    check(std::string_view(imshell::ThemeById("light").id) == "one-light", "light");
-    check(std::string_view(imshell::ThemeById("dark").id) == "one-dark", "dark");
-    check(&imshell::ThemeById("no-such-theme") == &imshell::Themes()[0], "unknown id");
-
-    // the theme switch and the tag keys stored in settings
-    imshell::SetTheme("github-light");
-    check(std::string_view(imshell::CurrentTheme().id) == "github-light", "SetTheme");
-    for (const char* key : {"red", "peach", "yellow", "green", "blue", "purple"})
-        check(imshell::TagColor(key).has_value(), key);
-    check(!imshell::TagColor("") && !imshell::TagColor("teal"), "unknown tag");
+    // the switch, and an edited copy stays current
+    imshell::Theme edited = imshell::Themes()[1];
+    edited.primary = ImVec4(1, 0, 0, 1);
+    imshell::SetTheme(edited);
+    check(imshell::CurrentTheme().primary.x == 1 && imshell::CurrentTheme().primary.y == 0, "SetTheme keeps a copy");
+    imshell::SetTheme(imshell::Themes()[2]);
+    check(imshell::CurrentTheme().id == imshell::Themes()[2].id, "SetTheme");
 
     std::printf("%s\n", failures ? "theme: FAILED" : "theme: ok");
     return failures ? 1 : 0;

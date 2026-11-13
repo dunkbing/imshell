@@ -304,6 +304,7 @@ namespace imshell {
             t.chart[2] = p.peach;
             t.chart[3] = p.purple;
             t.chart[4] = p.red;
+            t.hues = {p.red, p.peach, p.yellow, p.green, p.teal, p.sky, p.blue, p.purple, p.magenta};
             // wcag aa: body text 4.5, quiet text, labels on fills and links 3 (tests/theme_test.cpp)
             t.primary = reach(t.primary, p.text, p.base, 3.0f);
             t.ring = t.primary;
@@ -327,39 +328,25 @@ namespace imshell {
             return t;
         }
 
-        size_t gCurrent = 0;
+        // a copy, so an edited theme stays current; a function static for static-init callers
+        Theme& current() {
+            static Theme t = table().themes[0];
+            return t;
+        }
     } // namespace
 
     std::span<const Theme> Themes() {
         return table().themes;
     }
 
-    const Theme& ThemeById(std::string_view id) {
-        if (id == "light")
-            id = "one-light";
-        else if (id == "dark")
-            id = "one-dark";
-        for (const Theme& t : Themes())
-            if (id == t.id)
-                return t;
-        return Themes()[0];
-    }
-
     const Theme& CurrentTheme() {
-        return table().themes[gCurrent];
+        return current();
     }
 
     void SetTheme(const Theme& t) {
-        const Theme* first = table().themes;
-        // a theme from Themes() by place; a copy of one by its id
-        gCurrent = &t >= first && &t < first + COUNT ? static_cast<size_t>(&t - first)
-                                                     : static_cast<size_t>(&ThemeById(t.id) - first);
+        current() = t;
         if (ImGui::GetCurrentContext())
             ApplyTheme();
-    }
-
-    void SetTheme(std::string_view id) {
-        SetTheme(ThemeById(id));
     }
 
     ImVec4 Mix(const ImVec4& a, const ImVec4& b, float t) {
@@ -376,19 +363,6 @@ namespace imshell {
 
     ImVec4 Pressed(const ImVec4& c) {
         return WithAlpha(mix(c, CurrentTheme().foreground, 0.20f), c.w);
-    }
-
-    std::optional<ImVec4> TagColor(std::string_view key) {
-        const Palette& p = ENTRIES[gCurrent].palette;
-        const struct {
-            std::string_view key;
-            const ImVec4& color;
-        } tags[] = {{"red", p.red}, {"peach", p.peach}, {"yellow", p.yellow},
-                    {"green", p.green}, {"blue", p.blue}, {"purple", p.purple}};
-        for (const auto& tag : tags)
-            if (key == tag.key)
-                return tag.color;
-        return std::nullopt;
     }
 
     void ApplyTheme() {

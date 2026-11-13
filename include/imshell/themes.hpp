@@ -2,9 +2,7 @@
 
 #include "imgui.h"
 
-#include <optional>
 #include <span>
-#include <string_view>
 
 // imshell's design tokens: colors named by what they are for, a radius scale and a spacing
 // scale. every theme sets every role for its light or dark look; widgets and apps draw with
@@ -12,10 +10,10 @@
 //
 //   const imshell::Theme& t = imshell::CurrentTheme();
 //   ImGui::TextColored(t.mutedForeground, "Last saved 2 min ago");
-//   imshell::SetTheme("github-dark");
+//   imshell::SetTheme(imshell::Themes()[0]);
 namespace imshell {
     struct Theme {
-        const char* id;   // stored in settings
+        const char* id;   // for an app to save the pick by
         const char* name; // for a picker
         bool dark;
 
@@ -43,6 +41,12 @@ namespace imshell {
 
         ImVec4 chart[5]; // data series, in this order
 
+        // named hues from the theme's palette, for categories (object kinds, a color the user
+        // picked); roles stay the rule for ui chrome
+        struct Hues {
+            ImVec4 red, orange, yellow, green, teal, sky, blue, purple, pink;
+        } hues;
+
         struct Syntax {
             ImVec4 keyword, string, number, comment, function, type, operator_;
         } syntax; // code in editors and markdown
@@ -65,16 +69,13 @@ namespace imshell {
     using Radius = Theme::Radius;
     using Spacing = Theme::Spacing;
 
+    // the built-in presets, for a picker; an app keeps the saved id and finds it here
     std::span<const Theme> Themes();
-    // by settings id; an unknown id is the first theme ("light" and "dark", from older
-    // versions, are One Light and One Dark)
-    const Theme& ThemeById(std::string_view id);
 
     // the theme widgets draw with
     const Theme& CurrentTheme();
     // makes it current and styles imgui with it (once a context exists; before, Run applies it)
-    void SetTheme(std::string_view id);
-    void SetTheme(const Theme& theme); // one of Themes(), or a copy of one
+    void SetTheme(const Theme& theme); // one of Themes(), or an edited copy
     // imgui's style from the current theme: the shells call it, an app with its own context too
     void ApplyTheme();
 
@@ -84,8 +85,4 @@ namespace imshell {
     ImVec4 Mix(const ImVec4& a, const ImVec4& b, float t);
     ImVec4 WithAlpha(const ImVec4& color, float alpha);
 
-    // a color the user picked for something (a connection), stored by key so it reads in every
-    // theme: "red", "peach" (orange), "yellow", "green", "blue", "purple"; none for an empty or
-    // unknown key
-    std::optional<ImVec4> TagColor(std::string_view key);
 } // namespace imshell

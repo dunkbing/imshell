@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cctype>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace ui = imshell::ui;
@@ -235,8 +236,12 @@ static Gallery gallery; // android: outlives a recreated activity
 
 int main() {
     const char* pick = std::getenv("IMSHELL_GALLERY_THEME"); // screenshots open one theme
-    imshell::SetTheme(pick ? pick : "tokyo-night");
-    gallery.theme = static_cast<int>(&imshell::CurrentTheme() - imshell::Themes().data());
+    const std::string_view want = pick ? pick : "tokyo-night";
+    for (size_t i = 0; i < imshell::Themes().size(); ++i)
+        if (want == imshell::Themes()[i].id) {
+            imshell::SetTheme(imshell::Themes()[i]);
+            gallery.theme = static_cast<int>(i);
+        }
     imshell::Config config;
     config.title = "imshell components";
     config.width = 960;

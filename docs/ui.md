@@ -5,7 +5,7 @@
 Eighteen themes: One Dark and One Light, Ayu (dark, mirage, light), Gruvbox, VS Code, Catppuccin, Tokyo Night, Nord, Dracula, Solarized and GitHub. A theme is a set of colours named by what they are for, so widgets and apps draw with a role and every theme reads right:
 
 ```cpp
-imshell::SetTheme("tokyo-night"); // by settings id; before Run or at any time after
+imshell::SetTheme(imshell::Themes()[0]); // One Dark; a preset or an edited copy, before Run or any time after
 const imshell::Theme& t = imshell::CurrentTheme();
 ImGui::TextColored(t.mutedForeground, "Last saved 2 min ago");
 if (imshell::Button("Delete", imshell::ButtonVariant::Destructive)) remove();
@@ -23,11 +23,12 @@ if (imshell::Button("Delete", imshell::ButtonVariant::Destructive)) remove();
 | `success`, `warning` | status, only for its meaning; `successForeground` and `warningForeground` are text on a filled badge |
 | `border`, `input`, `ring` | dividers and outlines, a text field's fill, the keyboard focus outline |
 | `chart[0..4]` | data series, in order |
+| `hues.red`, `.orange`, `.yellow`, `.green`, `.teal`, `.sky`, `.blue`, `.purple`, `.pink` | categories: object kinds, a colour the user picked; not for ui chrome |
 | `syntax.keyword`, `.string`, `.number`, `.comment`, `.function`, `.type`, `.operator_` | code in editors and markdown |
 
 States come from the role: `Hovered(c)` and `Pressed(c)` step a fill toward the foreground (10% and 20%), `WithAlpha(c, a)` tints (selection is `primary` at 20%, pressed rows 40%), `Mix(a, b, t)` blends. Every theme meets WCAG AA on its pairs (body text 4.5, quiet text, labels on fills and links 3); `tests/theme_test.cpp` checks them.
 
-`ApplyTheme()` styles ImGui from the current theme; the shells call it, `SetTheme` too once a context exists. `Themes()` lists them for a picker, `ThemeById(id)` finds one (the old ids `light` and `dark` are One Light and One Dark). `TagColor(key)` resolves a colour the user picked and saved by key (`red`, `peach`, `yellow`, `green`, `blue`, `purple`) in the current theme, or gives none for an unknown key.
+`ApplyTheme()` styles ImGui from the current theme; the shells call it, `SetTheme` too once a context exists. `Themes()` lists the presets for a picker. The library does not look themes up by name or save the pick: an app keeps `t.id` and finds it again (`std::string_view(t.id) == saved`). `SetTheme` copies the theme, so an app can start from a preset, change roles and set that.
 
 Sizes: `Radius::Sm` (4, tags and small controls), `Md` (6, controls and popups), `Lg` (8, cards and containers), `Full` (pills). `Spacing::XS` (2), `S` (4), `M` (8), `L` (16), `XL` (20); `Theme::Spacing` and `Theme::Radius` are the same.
 
@@ -37,7 +38,7 @@ Buttons (`button.hpp`): `Primary` for the one main action, `Secondary` (the defa
 
 | Before | Now |
 |---|---|
-| `Theme::Current() = &Theme::themeById(id); Theme::ApplyTheme(...)` | `SetTheme(id)` |
+| `Theme::Current() = &Theme::themeById(id); Theme::ApplyTheme(...)` | find `id` in `Themes()`, then `SetTheme(t)` |
 | `Theme::Current()->colors.x`, `Theme::Colors` | `CurrentTheme().role`, `Theme` |
 | `Theme::THEMES`, `Theme::ThemeDef` | `Themes()`, `Theme` |
 | `text`, `subtext0` / `subtext1`, `overlay1` | `foreground`, `mutedForeground` |
@@ -45,8 +46,8 @@ Buttons (`button.hpp`): `Primary` for the one main action, `Secondary` (the defa
 | `surface0`, `surface1`, `surface2` | `muted` or `input`, `accent`, `Pressed(accent)` |
 | `overlay0` | `border` |
 | `blue`, `red`, `green`, `peach` (as warning) | `primary`, `destructive`, `success`, `warning` |
-| other accents | `chart[n]`, `syntax.*`, `TagColor` |
-| `ConnectionPalette` | `TagColor(key)` (an optional) |
+| other accents | `hues.*`, `chart[n]`, `syntax.*` |
+| `ConnectionPalette` | `hues.*`, keyed by the app |
 | `CornerRadius::SMALL` / `MEDIUM`, `LARGE` | `Radius::Md`, `Radius::Lg` |
 | `ButtonVariant::Danger` | `ButtonVariant::Destructive` |
 

@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <utility>
 
 void* makeTextField();
@@ -208,7 +209,9 @@ struct Hello : imshell::Delegate {
 };
 
 int main() {
-    imshell::SetTheme("tokyo-night");
+    for (const imshell::Theme& t : imshell::Themes())
+        if (std::string_view(t.id) == "tokyo-night")
+            imshell::SetTheme(t);
     imshell::Config config;
     config.title = "Hello imshell";
     config.appName = "imshell hello"; // imgui.ini in DataDir("imshell hello")
