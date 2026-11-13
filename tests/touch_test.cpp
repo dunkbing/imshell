@@ -114,6 +114,31 @@ int main() {
     touch::up(2.7, true);
     frames(2);
 
+    // held still on empty space it still scrolls (nothing there to drag); on the button it
+    // presses
+    touch::down(ImVec2(200, 300), 3.0);
+    frames(2);
+    touch::move(ImVec2(200, 280), 3.3);
+    check(touch::state() == touch::State::Scrolling, "a held swipe on empty space scrolls");
+    touch::up(3.6, true);
+    frames(2);
+    touch::takeLift();
+    touch::down(ImVec2(50, 20), 3.7);
+    frames(2);
+    touch::move(ImVec2(50, 40), 4.0);
+    check(touch::state() == touch::State::Pressed, "a held drag on a button presses");
+    touch::cancel();
+    frames(2);
+
+    // a swipe that lifts before any frame decided it is no tap
+    clicked = false;
+    touch::down(ImVec2(50, 20), 4.1);
+    touch::move(ImVec2(50, 60), 4.11);
+    touch::up(4.12, true);
+    frames(4);
+    check(!clicked, "an undecided swipe does not click");
+    touch::takeLift();
+
     // after a flick has coasted out, an instant tap (no frame between down and up, as a
     // browser's touchend runs) still focuses the field
     touch::down(ImVec2(200, 300), 2.8);

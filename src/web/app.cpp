@@ -33,9 +33,9 @@ namespace imshell::detail {
 
 // clang-format off
 // a finger goes to the touch layer (a tap clicks, a swipe scrolls and coasts, a hold is a right
-// click), as on the phone shells. glfw listens on the document: stopping the touch here keeps
-// it from turning the finger into a left-button drag. listeners on the canvas still run (the
-// text field's tap, registered after this one)
+// click), as on the phone shells. glfw listens on the canvas and the document and would turn
+// the finger into a left-button drag, so the touch is caught on the window, in the capture
+// phase, before either sees it
 EM_JS(void, imshell_touch_listen, (), {
     const c = Module.canvas;
     let id = null;
@@ -44,31 +44,36 @@ EM_JS(void, imshell_touch_listen, (), {
         Module._imshell_touch(phase, t.clientX - r.left, t.clientY - r.top);
     };
     const mine = (e) => Array.from(e.changedTouches).find((t) => t.identifier === id);
-    c.addEventListener("touchstart", (e) => {
+    const listen = (type, f) => window.addEventListener(type, (e) => {
+        if (e.target !== c)
+            return;
         e.stopPropagation();
+        f(e);
+    }, {capture: true, passive: false});
+    listen("touchstart", (e) => {
         e.preventDefault(); // no page pan or zoom, no emulated mouse events
         if (id !== null)
             return; // shortcut: one finger, no pinch yet
         id = e.changedTouches[0].identifier;
         send(0, e.changedTouches[0]);
-    }, {passive: false});
-    c.addEventListener("touchmove", (e) => {
-        e.stopPropagation();
+    });
+    listen("touchmove", (e) => {
         e.preventDefault();
         const t = mine(e);
         if (t)
             send(1, t);
-    }, {passive: false});
+    });
     const end = (phase) => (e) => {
-        e.stopPropagation();
         const t = mine(e);
         if (!t)
             return;
         id = null;
         send(phase, t);
+        if (phase === 2)
+            Module.imshellText?.tap?.(); // a field's tap focuses the textarea inside the gesture
     };
-    c.addEventListener("touchend", end(2));
-    c.addEventListener("touchcancel", end(3));
+    listen("touchend", end(2));
+    listen("touchcancel", end(3));
 });
 // clang-format on
 
@@ -132,7 +137,7 @@ namespace imshell {
         delegate.setup();
         ImGui_ImplGlfw_InitForOpenGL(gWindow, true);
         io.BackendPlatformName = "imshell_web";
-        imshell_touch_listen(); // before the text field's tap, which needs the tap queued
+        imshell_touch_listen();
         detail::installTextInput([] {
             if (gApp)
                 gApp->renderFrame();

@@ -11,7 +11,8 @@ namespace imshell::touch {
         State gState = State::None;
         ImVec2 gStart, gLast;
         double gStartTime = 0, gLastMoveTime = 0;
-        int gDownFrame = 0; // imgui's frame when the finger landed
+        int gDownFrame = 0;  // imgui's frame when the finger landed
+        bool gMoved = false; // past the slop, though maybe not decided yet
         ImVec2 gVelocity, gFling;
         bool gLift = false;
 
@@ -93,6 +94,7 @@ namespace imshell::touch {
         gStart = p;
         gStartTime = gLastMoveTime = now;
         gDownFrame = ImGui::GetFrameCount();
+        gMoved = false;
         gState = State::Pending;
         hover(p);
     }
@@ -122,16 +124,21 @@ namespace imshell::touch {
     void move(ImVec2 p, double now) {
         // the cursor says what lies under the finger only once a frame has hovered there: a
         // quick swipe passes the slop before that, and would read the last gesture's cursor
-        if (gState == State::Pending && ImGui::GetFrameCount() > gDownFrame &&
-            length(ImVec2(p.x - gStart.x, p.y - gStart.y)) > kSlop) {
-            // a quick swipe scrolls, over text too; a finger held still first drags the widget
-            // (a slider, a text selection). a splitter or column edge drags at once
-            const bool held = now - gStartTime >= kHold;
-            if (!held && (scrolls() || ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput)) {
+        if (gState == State::Pending && length(ImVec2(p.x - gStart.x, p.y - gStart.y)) > kSlop)
+            gMoved = true;
+        if (gState == State::Pending && gMoved && ImGui::GetFrameCount() > gDownFrame) {
+            // a splitter or column edge drags at once. a quick swipe scrolls, over text too; a
+            // finger held still first drags the widget under it (a slider, a text selection),
+            // and still scrolls where there is none
+            const ImGuiMouseCursor cursor = ImGui::GetMouseCursor();
+            const bool text = cursor == ImGuiMouseCursor_TextInput;
+            const bool edge = !scrolls() && !text;
+            const bool widget = GImGui->HoveredId != 0 || text;
+            if (edge || (now - gStartTime >= kHold && widget)) {
+                press(gStart, gStart);
+            } else {
                 gState = State::Scrolling;
                 gLast = gStart;
-            } else {
-                press(gStart, gStart);
             }
         }
         if (gState == State::Scrolling) {
@@ -149,7 +156,7 @@ namespace imshell::touch {
 
     void up(double now, bool lift) {
         ImGuiIO& io = ImGui::GetIO();
-        if (gState == State::Pending) { // a tap
+        if (gState == State::Pending && !gMoved) { // a tap; a swipe lifted before any frame is none
             hover(gStart);
             io.AddMouseButtonEvent(0, true);
             io.AddMouseButtonEvent(0, false);
@@ -181,7 +188,7 @@ namespace imshell::touch {
     }
 
     bool longPressDue(double now) {
-        if (gState != State::Pending || now - gStartTime <= kLongPress)
+        if (gState != State::Pending || gMoved || now - gStartTime <= kLongPress)
             return false;
         gState = State::None;
         hover(gStart);

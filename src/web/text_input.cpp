@@ -161,7 +161,7 @@ EM_JS(void, imshell_text_listen_taps, (), {
         }
         q.stale = true;
     });
-    // touchend for phones (glfw takes touches over, so no click follows them), click for mice
+    // the touch layer calls it on a finger's lift (no click follows a touch), click for mice
     // the field may have taken the focus already, between touch down and up: outside the
     // gesture, so without a keyboard. focusing again inside it is what opens one
     const tap = () => {
@@ -178,7 +178,7 @@ EM_JS(void, imshell_text_listen_taps, (), {
         t.focus({preventScroll: true});
         q.inGesture = true;
     };
-    Module.canvas.addEventListener("touchend", tap);
+    Module.imshellText.tap = tap;
     Module.canvas.addEventListener("click", tap);
 });
 // clang-format on
