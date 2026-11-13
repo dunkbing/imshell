@@ -165,8 +165,8 @@ namespace imshell {
             ImU32 error;
             bool operator==(const Palette&) const = default;
         };
-        static Palette FromTheme(const Theme::Colors& colors);
-        // without one the editor follows Theme::Current()
+        static Palette FromTheme(const Theme& theme);
+        // without one the editor follows CurrentTheme()
         void SetPalette(const Palette& palette) {
             palette_ = palette;
             ownPalette_ = true;

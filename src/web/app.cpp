@@ -133,7 +133,7 @@ namespace imshell {
         // reload; mount idbfs here if a host needs settings to survive
         detail::useIniFile(config);
         ImGui::StyleColorsDark();
-        Theme::ApplyTheme(Theme::Current()->colors);
+        ApplyTheme();
         delegate.setup();
         ImGui_ImplGlfw_InitForOpenGL(gWindow, true);
         io.BackendPlatformName = "imshell_web";
@@ -172,7 +172,7 @@ namespace imshell {
         detail::textInputFrame();
         ImGui::Render();
         touch::takeLift(); // the finger is gone: nothing stays hovered
-        const ImVec4 base = Theme::Current()->colors.base;
+        const ImVec4 base = CurrentTheme().background;
         // a canvas not drawn to keeps showing its last frame, so an unchanged one costs no gpu
         detail::frameSkipped() = detail::sameAsLastFrame(ImGui::GetDrawData(), base);
         if (detail::frameSkipped())

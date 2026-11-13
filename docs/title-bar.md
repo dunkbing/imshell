@@ -53,7 +53,7 @@ In fullscreen the OS shows its own title bar when the mouse reaches the top edge
 
 ## Dark mode
 
-imshell gives the window `Theme::Current()`'s appearance (Dark Aqua or Aqua) and its `base` colour as the window background whenever the theme changes, so the traffic lights, sheets, native views and the edge of a live resize match.
+imshell gives the window `CurrentTheme()`'s appearance (Dark Aqua or Aqua) and its `background` colour as the window background whenever the theme changes, so the traffic lights, sheets, native views and the edge of a live resize match.
 
 ## Windows
 
@@ -63,7 +63,7 @@ There is no system frame: imshell removes it (`WM_NCCALCSIZE`), keeps the window
 - **Dragging:** empty bar space starts the system move loop, so Aero Snap (drag to an edge), shake and moving between screens work.
 - **Double-click** toggles maximize; **right-click** opens the window menu (Restore, Move, Size, Minimize, Maximize, Close).
 - **Resize:** the window edges still resize, by the system frame width.
-- **Dark mode:** imshell sets `DWMWA_USE_IMMERSIVE_DARK_MODE` from `Theme::Current()->dark` every time the theme changes, so borders and snap previews match.
+- **Dark mode:** imshell sets `DWMWA_USE_IMMERSIVE_DARK_MODE` from `CurrentTheme().dark` every time the theme changes, so borders and snap previews match.
 - **Maximized**, the window stays inside the work area instead of covering the taskbar.
 
 `Config::titleBarHeight` is in pixels on Windows; 32 matches the system caption.
@@ -74,6 +74,6 @@ The window gets an empty client-side titlebar, so GTK still draws the window sha
 
 - **Dragging:** empty bar space calls `gdk_toplevel_begin_move`, so the compositor moves the window (Wayland and X11).
 - **Double-click** toggles maximize; **right-click** opens the window manager's menu (`gdk_toplevel_show_window_menu`).
-- **Dark mode:** imshell sets `gtk-application-prefer-dark-theme` from `Theme::Current()->dark`, so GTK dialogs and native views match.
+- **Dark mode:** imshell sets `gtk-application-prefer-dark-theme` from `CurrentTheme().dark`, so GTK dialogs and native views match.
 
 `Config::titleBarHeight` is in logical pixels on Linux.

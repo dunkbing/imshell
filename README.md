@@ -34,8 +34,7 @@ target_link_libraries(app PRIVATE imshell::imshell)
 #include "imshell/button.hpp"
 #include "imshell/themes.hpp"
 
-imshell::Theme::Current() = &imshell::Theme::themeById("tokyo-night");
-imshell::Theme::ApplyTheme(imshell::Theme::Current()->colors);
+imshell::SetTheme(imshell::Themes()[0]); // One Dark
 if (imshell::Button("Save", imshell::ButtonVariant::Primary))
     save();
 ```

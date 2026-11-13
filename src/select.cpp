@@ -5,10 +5,10 @@
 
 bool imshell::Select(const char* label, int* currentItem, const char* const items[],
                      int itemCount) {
-    const auto& colors = Theme::Current()->colors;
-    ImGui::PushStyleColor(ImGuiCol_Button, colors.surface0);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, colors.surface1);
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, colors.surface2);
+    const Theme& t = CurrentTheme();
+    ImGui::PushStyleColor(ImGuiCol_Button, t.input);
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Hovered(t.input));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, Pressed(t.input));
     bool changed = false;
     const char* preview = *currentItem >= 0 && *currentItem < itemCount ? items[*currentItem] : "";
     if (BeginSelect(label, preview)) {

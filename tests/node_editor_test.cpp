@@ -1,5 +1,5 @@
 // imshell::NodeEditor on a bare imgui context: a graph draws, and the style and colours follow
-// Theme::Current(). built with -DIMSHELL_BUILD_TESTS=ON
+// CurrentTheme(). built with -DIMSHELL_BUILD_TESTS=ON
 #include "imshell/node_editor.hpp"
 #include "imshell/themes.hpp"
 
@@ -59,21 +59,21 @@ int main() {
     ed::EditorContext* editor = ed::CreateEditor(&config);
     ed::SetCurrentEditor(editor);
     imshell::NodeEditor::ApplyStyle();
-    CHECK(ed::GetStyle().NodeRounding == imshell::Theme::CornerRadius::MEDIUM);
+    CHECK(ed::GetStyle().NodeRounding == imshell::Radius::Md);
     CHECK(ed::GetStyle().NodeBorderWidth == 1.0f);
     ed::SetCurrentEditor(nullptr);
 
     for (int i = 0; i < 3; ++i)
         frame(editor);
     ed::SetCurrentEditor(editor);
-    CHECK(same(ed::GetStyle().Colors[ed::StyleColor_Bg], imshell::Theme::Current()->colors.mantle));
+    CHECK(same(ed::GetStyle().Colors[ed::StyleColor_Bg], imshell::CurrentTheme().sidebar));
     ed::SetCurrentEditor(nullptr);
 
     // another theme: the next frame takes its colours
-    imshell::Theme::Current() = &imshell::Theme::THEMES[1];
+    imshell::SetTheme(imshell::Themes()[1]);
     frame(editor);
     ed::SetCurrentEditor(editor);
-    CHECK(same(ed::GetStyle().Colors[ed::StyleColor_NodeBg], imshell::Theme::THEMES[1].colors.surface0));
+    CHECK(same(ed::GetStyle().Colors[ed::StyleColor_NodeBg], imshell::Themes()[1].muted));
     ed::SetCurrentEditor(nullptr);
 
     ed::DestroyEditor(editor);

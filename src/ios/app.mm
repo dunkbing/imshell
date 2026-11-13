@@ -719,7 +719,7 @@ namespace imshell {
             UIPasteboard.generalPasteboard.string = [NSString stringWithUTF8String:text];
         };
         ImGui::StyleColorsDark();
-        Theme::ApplyTheme(Theme::Current()->colors);
+        ApplyTheme();
         delegate.setup();
         return ImGui_ImplMetal_Init(gView.device);
     }

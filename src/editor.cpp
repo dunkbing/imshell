@@ -92,7 +92,7 @@ namespace imshell {
     }
 
     ImU32 TextEditor::TokenColor(Token token) const {
-        const Palette p = ownPalette_ ? palette_ : FromTheme(Theme::Current()->colors);
+        const Palette p = ownPalette_ ? palette_ : FromTheme(CurrentTheme());
         switch (token) {
         case Token::Keyword:
             return p.keyword;
@@ -125,25 +125,25 @@ namespace imshell {
         errorMessage_ = std::move(message);
     }
 
-    TextEditor::Palette TextEditor::FromTheme(const Theme::Colors& colors) {
+    TextEditor::Palette TextEditor::FromTheme(const Theme& t) {
         Palette p{};
-        p.background = toImU32(colors.base);
-        p.text = toImU32(colors.text);
-        p.keyword = toImU32(colors.purple);
-        p.string = toImU32(colors.green);
-        p.number = toImU32(colors.peach);
-        p.comment = toImU32(colors.overlay2);
-        p.function = toImU32(colors.blue);
-        p.type = toImU32(colors.yellow);
-        p.operator_ = toImU32(colors.teal);
-        p.cursor = toImU32(colors.text);
-        p.selection = toImU32(colors.blue, 90); // accent: a grey surface vanishes on the background
-        p.lineNumber = toImU32(colors.overlay2);
-        p.currentLineNumber = toImU32(colors.text);
-        p.currentLineBackground = toImU32(colors.surface0);
-        p.lineNumberBackground = toImU32(colors.base);
-        p.run = toImU32(colors.green);
-        p.error = toImU32(colors.red);
+        p.background = toImU32(t.background);
+        p.text = toImU32(t.foreground);
+        p.keyword = toImU32(t.syntax.keyword);
+        p.string = toImU32(t.syntax.string);
+        p.number = toImU32(t.syntax.number);
+        p.comment = toImU32(t.syntax.comment);
+        p.function = toImU32(t.syntax.function);
+        p.type = toImU32(t.syntax.type);
+        p.operator_ = toImU32(t.syntax.operator_);
+        p.cursor = toImU32(t.foreground);
+        p.selection = toImU32(t.primary, 90); // a grey surface vanishes on the background
+        p.lineNumber = toImU32(t.syntax.comment);
+        p.currentLineNumber = toImU32(t.foreground);
+        p.currentLineBackground = toImU32(t.muted);
+        p.lineNumberBackground = toImU32(t.background);
+        p.run = toImU32(t.success);
+        p.error = toImU32(t.destructive);
         return p;
     }
 
@@ -189,7 +189,7 @@ namespace imshell {
     void TextEditor::Render(const char* label, ImVec2 size, bool border) {
         ImGui::PushID(label);
         if (!ownPalette_)
-            palette_ = FromTheme(Theme::Current()->colors);
+            palette_ = FromTheme(CurrentTheme());
 
         lineHeight_ = ImGui::GetTextLineHeightWithSpacing();
 
@@ -1485,11 +1485,11 @@ namespace imshell {
         ImGui::SetNextWindowSize(ImVec2(barWidth, 0));
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, Radius::Md); // the popup style: a floating bar
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, withAlpha(palette_.currentLineBackground, 240));
-        ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette_.lineNumber, 200));
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, CurrentTheme().popover);
+        ImGui::PushStyleColor(ImGuiCol_Border, CurrentTheme().border);
 
         // one bar per editor: the name carries this editor's id
         char name[40];

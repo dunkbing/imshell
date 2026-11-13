@@ -9,7 +9,7 @@
 // optional markdown (target imshell::markdown) through imgui_rich_md, which the host provides:
 // headings, inline styles, lists, links, tables, and text that can be selected and copied. code
 // blocks are drawn by imshell::TextEditor, read-only, with a copy button. colours follow
-// Theme::Current()
+// CurrentTheme()
 namespace imshell::Markdown {
     // a font file in memory; it must outlive the renderer (an embedded file does)
     struct Font {

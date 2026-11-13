@@ -50,7 +50,7 @@ namespace imshell::Markdown {
         }
 
         void renderCode(const std::string& rawCode, const std::string& language) {
-            const auto& colors = Theme::Current()->colors;
+            const Theme& t = CurrentTheme();
             std::string code = rawCode;
             while (!code.empty() && code.back() == '\n')
                 code.pop_back();
@@ -76,8 +76,8 @@ namespace imshell::Markdown {
                                                                  : TextEditor::Highlighter());
             }
             // the frame's own colour behind the text: one box, not two
-            auto palette = TextEditor::FromTheme(colors);
-            palette.background = ImGui::ColorConvertFloat4ToU32(colors.crust);
+            auto palette = TextEditor::FromTheme(t);
+            palette.background = ImGui::ColorConvertFloat4ToU32(t.sidebar);
             view.editor->SetPalette(palette);
             if (view.text != code) { // streaming: the block grows
                 view.text = code;
@@ -87,10 +87,10 @@ namespace imshell::Markdown {
 
             ImGui::PushOverrideID(ImHashStr(key.c_str()));
             ImGui::PushFont(gScope.font, gScope.fontSize); // the caller's: its icons too
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, colors.crust);
-            ImGui::PushStyleColor(ImGuiCol_Border, colors.surface1);
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, t.sidebar);
+            ImGui::PushStyleColor(ImGuiCol_Border, t.border);
             ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
-            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, Theme::CornerRadius::SMALL);
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, Radius::Md);
             if (ImGui::BeginChild("##md_code", ImVec2(-1, 0),
                                   ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY)) {
                 const ImVec2 topRight(ImGui::GetCursorScreenPos().x +
@@ -129,11 +129,11 @@ namespace imshell::Markdown {
                         if (!applies(action))
                             continue;
                         if (smallButton(action.icon, std::format("action{}", i).c_str(),
-                                        action.tooltip, colors.subtext0))
+                                        action.tooltip, t.mutedForeground))
                             action.run(code, language);
                         ImGui::SameLine();
                     }
-                    if (smallButton(copyLabel, "copy", "", done ? colors.green : colors.subtext0)) {
+                    if (smallButton(copyLabel, "copy", "", done ? t.success : t.mutedForeground)) {
                         ImGui::SetClipboardText(code.c_str());
                         copied = copyId;
                         copiedAt = ImGui::GetTime();
@@ -199,7 +199,7 @@ namespace imshell::Markdown {
 
     void Render(const std::string& markdown, const std::string& idPrefix) {
         ensureContext();
-        RichMd::GetStyle().codeColor = Theme::Current()->colors.peach; // inline code
+        RichMd::GetStyle().codeColor = CurrentTheme().syntax.number; // inline code
         const Scope saved = gScope;
         gScope = {.idPrefix = &idPrefix,
                   .font = ImGui::GetFont(),

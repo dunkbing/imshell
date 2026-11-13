@@ -9,9 +9,11 @@
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
 
+#include <cstdlib>
 #include <algorithm>
 #include <cctype>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace ui = imshell::ui;
@@ -108,6 +110,12 @@ struct Gallery : imshell::Delegate {
         ImGui::SameLine();
         if (imshell::Button("Cancel"))
             ui::Toast("Nothing was saved");
+        ImGui::Spacing();
+        imshell::Button("Delete", imshell::ButtonVariant::Destructive);
+        ImGui::SameLine();
+        imshell::Button("Outline", imshell::ButtonVariant::Outline);
+        ImGui::SameLine();
+        imshell::Button("Ghost", imshell::ButtonVariant::Ghost);
         ui::EndCard();
 
         ImGui::Spacing();
@@ -212,14 +220,13 @@ struct Gallery : imshell::Delegate {
     void themePicker() {
         static std::vector<const char*> names = [] {
             std::vector<const char*> v;
-            for (const auto& t : imshell::Theme::THEMES)
+            for (const auto& t : imshell::Themes())
                 v.push_back(t.name);
             return v;
         }();
         ImGui::SetNextItemWidth(220);
         if (imshell::Select("##theme", &theme, names.data(), static_cast<int>(names.size()))) {
-            imshell::Theme::Current() = &imshell::Theme::THEMES[theme];
-            imshell::Theme::ApplyTheme(imshell::Theme::Current()->colors);
+            imshell::SetTheme(imshell::Themes()[theme]);
         }
         ImGui::Spacing();
     }
@@ -228,8 +235,13 @@ struct Gallery : imshell::Delegate {
 static Gallery gallery; // android: outlives a recreated activity
 
 int main() {
-    imshell::Theme::Current() = &imshell::Theme::themeById("tokyo-night");
-    gallery.theme = static_cast<int>(imshell::Theme::Current() - imshell::Theme::THEMES);
+    const char* pick = std::getenv("IMSHELL_GALLERY_THEME"); // screenshots open one theme
+    const std::string_view want = pick ? pick : "tokyo-night";
+    for (size_t i = 0; i < imshell::Themes().size(); ++i)
+        if (want == imshell::Themes()[i].id) {
+            imshell::SetTheme(imshell::Themes()[i]);
+            gallery.theme = static_cast<int>(i);
+        }
     imshell::Config config;
     config.title = "imshell components";
     config.width = 960;

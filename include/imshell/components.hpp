@@ -5,7 +5,7 @@
 #include <string>
 
 // optional components on top of plain imgui (target imshell::components): forms, status and
-// feedback pieces drawn with Theme::Current(). nothing in imshell's core uses them, so an app
+// feedback pieces drawn with CurrentTheme(). nothing in imshell's core uses them, so an app
 // that does not link the target pays nothing
 namespace imshell::ui {
     // what a status piece means; picks its colour from the theme

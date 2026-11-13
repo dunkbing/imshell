@@ -63,7 +63,7 @@ imshell::Markdown::Configure(options);
 
 ## Behaviour worth knowing
 
-- Colours come from `Theme::Current()` each frame: inline code is the theme's `peach`, a code block sits on `crust` with a `surface1` border, and its text uses the editor's palette.
+- Colours come from `CurrentTheme()` each frame: inline code is `syntax.number`, a code block sits on `sidebar` with a `border` outline, and its text uses the editor's palette.
 - A code block is a read-only `TextEditor` without line numbers: its text can be selected and copied, and a long line scrolls sideways. It draws with the font that was current when `Render` was called, not the markdown font, so labels can be glyphs of the app's icon font.
 - Code blocks are remembered by `idPrefix` and their position in the document, so a block that grows while a reply streams keeps its window and scroll. One not drawn for 600 frames is dropped.
 - There is one renderer for the whole app. Its fonts load on demand into ImGui's atlas, which needs a renderer backend with `ImGuiBackendFlags_RendererHasTextures` (Dear ImGui 1.92 or later); imshell's shells have it.

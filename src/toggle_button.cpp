@@ -4,7 +4,7 @@
 #include "imshell/themes.hpp"
 
 void imshell::ToggleButton(const char* str_id, bool* v) {
-    const auto& colors = Theme::Current()->colors;
+    const Theme& t = CurrentTheme();
     const ImVec2 p = ImGui::GetCursorScreenPos();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
@@ -20,16 +20,16 @@ void imshell::ToggleButton(const char* str_id, bool* v) {
     if (gg.LastActiveId == gg.CurrentWindow->GetID(str_id)) {
         if (ImGui::IsItemHovered()) {
             draw_list->AddRectFilled(p, ImVec2(p.x + width, p.y + height),
-                                     ImGui::GetColorU32(*v ? colors.blue : colors.overlay1),
+                                     ImGui::GetColorU32(*v ? Hovered(t.primary) : Hovered(t.border)),
                                      height * 0.5f);
         } else {
             draw_list->AddRectFilled(p, ImVec2(p.x + width, p.y + height),
-                                     ImGui::GetColorU32(*v ? colors.sapphire : colors.overlay0),
+                                     ImGui::GetColorU32(*v ? t.primary : t.border),
                                      height * 0.50f);
         }
     }
 
     draw_list->AddCircleFilled(
         ImVec2(p.x + radius + (*v ? 1.0f : 0.0f) * (width - radius * 2.0f), p.y + radius),
-        radius - 1.5f, ImGui::GetColorU32(colors.text));
+        radius - 1.5f, ImGui::GetColorU32(t.foreground));
 }
