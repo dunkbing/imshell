@@ -99,9 +99,13 @@ struct Hello : imshell::Delegate {
         const ImVec2 fieldsAt = ImGui::GetCursorScreenPos();
         field = imshell::NativeView("##field", ImVec2(240, 22), makeTextField);
         imshell::NativeView("##date", ImVec2(160, 22), makeDatePicker);
-        if (imshell::SmallButton("Open a file..."))
-            imshell::OpenFileDialog({{"Text", "txt,md"}, {"All files", "*"}},
-                                   [this](const std::string& path) { opened = path; });
+        if (imshell::SmallButton("Open files..."))
+            imshell::OpenDialog({.filters = {{"Text", "txt,md"}, {"All files", "*"}}, .multiple = true},
+                               [this](const std::vector<std::string>& paths) {
+                                   opened.clear();
+                                   for (const std::string& p : paths)
+                                       opened += (opened.empty() ? "" : "\n") + p;
+                               });
         if (!opened.empty())
             ImGui::TextDisabled("%s", opened.c_str());
         if (imshell::SmallButton("Notify me")) {
