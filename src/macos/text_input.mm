@@ -102,6 +102,16 @@ namespace imshell::detail {
         // only when the ime hands it back (enter or an arrow that ends the word), after the
         // composition is committed as it stands, so one press both commits and acts
         addMethod(c, @selector(keyDown:), ^(NSView* self, NSEvent* event) {
+          // no main menu means no "Emoji & Symbols" item to own ctrl+cmd+space: open the picker
+          // over the text input (it inserts through insertText:)
+          constexpr auto kPalette = NSEventModifierFlagControl | NSEventModifierFlagCommand;
+          const auto mods = event.modifierFlags & NSEventModifierFlagDeviceIndependentFlagsMask &
+                            ~NSEventModifierFlagFunction;
+          if (event.keyCode == 49 && mods == kPalette && ActiveTextKind() != TextKind::Password &&
+              GImGui->PlatformImeData.WantTextInput) {
+              [NSApp orderFrontCharacterPalette:nil];
+              return;
+          }
           if (!ime::composing()) {
               glfwKeyDown(self, @selector(keyDown:), event);
               return;
