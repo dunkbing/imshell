@@ -319,3 +319,11 @@ namespace imshell {
                    : nullptr;
     }
 } // namespace imshell
+
+#include "imshell/shortcut_key.hpp"
+
+namespace imshell {
+    bool ShortcutKeyDown() {
+        return (NSEvent.modifierFlags & NSEventModifierFlagCommand) != 0 || ImGui::GetIO().KeyCtrl;
+    }
+} // namespace imshell
