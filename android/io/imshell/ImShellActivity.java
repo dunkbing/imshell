@@ -39,6 +39,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 // the activity of a imshell app: NativeActivity plus what the ndk cannot reach. the native
@@ -46,7 +47,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class ImShellActivity extends NativeActivity {
     private static final int PICK = 0x6d79;
     private final ConcurrentLinkedQueue<Integer> chars = new ConcurrentLinkedQueue<>();
-    private final ConcurrentLinkedQueue<String> picked = new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<String[]> picked = new ConcurrentLinkedQueue<>();
     private final ConcurrentLinkedQueue<Integer> edits = new ConcurrentLinkedQueue<>();
     private ActionMode editMenu;
     private String pickInto;
@@ -529,8 +530,8 @@ public class ImShellActivity extends NativeActivity {
         return c == null ? 0 : c;
     }
 
-    // the document picker; the result lands in pollPicked: a path, or "" when cancelled
-    public void pickFile(String mimeTypes, String intoDir) {
+    // the document picker; the result lands in pollPicked: the copies' paths, none when cancelled
+    public void pickFile(String mimeTypes, String intoDir, boolean multiple) {
         pickInto = intoDir;
         runOnUiThread(() -> {
             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -538,11 +539,12 @@ public class ImShellActivity extends NativeActivity {
             intent.setType("*/*");
             if (!mimeTypes.isEmpty())
                 intent.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes.split(","));
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple);
             startActivityForResult(intent, PICK);
         });
     }
 
-    public String pollPicked() {
+    public String[] pollPicked() {
         return picked.poll();
     }
 
@@ -551,14 +553,23 @@ public class ImShellActivity extends NativeActivity {
         super.onActivityResult(request, result, data);
         if (request != PICK)
             return;
-        Uri uri = result == RESULT_OK && data != null ? data.getData() : null;
-        if (uri == null) {
-            picked.offer("");
-            wakeLoop();
-            return;
+        ArrayList<Uri> uris = new ArrayList<>();
+        if (result == RESULT_OK && data != null) {
+            ClipData clips = data.getClipData(); // several picks come here, one in getData
+            if (clips != null)
+                for (int i = 0; i < clips.getItemCount(); ++i)
+                    uris.add(clips.getItemAt(i).getUri());
+            else if (data.getData() != null)
+                uris.add(data.getData());
         }
         new Thread(() -> {
-            picked.offer(copy(uri));
+            ArrayList<String> paths = new ArrayList<>();
+            for (Uri uri : uris) {
+                String path = copy(uri);
+                if (!path.isEmpty())
+                    paths.add(path);
+            }
+            picked.offer(paths.toArray(new String[0]));
             wakeLoop();
         }).start();
     }
@@ -573,7 +584,12 @@ public class ImShellActivity extends NativeActivity {
         }
         File dir = new File(pickInto);
         dir.mkdirs();
+        // "name.ext", or "name 2.ext" when taken: two picks with one name must not overwrite
+        int dot = name.lastIndexOf('.');
+        String stem = dot > 0 ? name.substring(0, dot) : name, ext = dot > 0 ? name.substring(dot) : "";
         File out = new File(dir, name);
+        for (int n = 2; out.exists(); ++n)
+            out = new File(dir, stem + " " + n + ext);
         try (InputStream in = getContentResolver().openInputStream(uri);
              OutputStream os = new FileOutputStream(out)) {
             byte[] buf = new byte[1 << 16];
@@ -581,6 +597,7 @@ public class ImShellActivity extends NativeActivity {
                 os.write(buf, 0, n);
             return out.getAbsolutePath();
         } catch (Exception e) {
+            out.delete();
             return "";
         }
     }

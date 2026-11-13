@@ -191,24 +191,30 @@ namespace {
         }
     }
 
-    std::function<void(const std::string&)> gPickDone; // a picker is open
+    std::function<void(const std::vector<std::string>&)> gPickDone; // a picker is open
 
-    // java answers null while the picker is open, "" when cancelled, else the copy's path
+    // java answers null while the picker is open, else the copies' paths (none when cancelled)
     void pollPicked() {
-        static jmethodID m = method("pollPicked", "()Ljava/lang/String;");
+        static jmethodID m = method("pollPicked", "()[Ljava/lang/String;");
         if (!gPickDone || !m)
             return;
-        auto s = static_cast<jstring>(gEnv->CallObjectMethod(gAndroid->activity->clazz, m));
-        if (!s)
+        auto array = static_cast<jobjectArray>(gEnv->CallObjectMethod(gAndroid->activity->clazz, m));
+        if (!array)
             return;
-        const char* utf = gEnv->GetStringUTFChars(s, nullptr);
-        const std::string path = utf ? utf : "";
-        gEnv->ReleaseStringUTFChars(s, utf);
-        gEnv->DeleteLocalRef(s);
+        std::vector<std::string> paths;
+        for (jsize i = 0, n = gEnv->GetArrayLength(array); i < n; ++i) {
+            auto s = static_cast<jstring>(gEnv->GetObjectArrayElement(array, i));
+            if (const char* utf = gEnv->GetStringUTFChars(s, nullptr)) {
+                paths.emplace_back(utf);
+                gEnv->ReleaseStringUTFChars(s, utf);
+            }
+            gEnv->DeleteLocalRef(s);
+        }
+        gEnv->DeleteLocalRef(array);
         auto done = std::move(gPickDone);
         gPickDone = nullptr;
-        if (!path.empty())
-            done(path);
+        if (!paths.empty())
+            done(paths);
     }
 
     // ---- egl ----
@@ -443,15 +449,15 @@ namespace imshell {
         return gAndroid;
     }
 
-    void PickFile(const std::string& mimeTypes, const std::string& intoDir,
-                  std::function<void(const std::string&)> done) {
-        jmethodID m = method("pickFile", "(Ljava/lang/String;Ljava/lang/String;)V");
+    void PickFile(const std::string& mimeTypes, const std::string& intoDir, bool multiple,
+                  std::function<void(const std::vector<std::string>&)> done) {
+        jmethodID m = method("pickFile", "(Ljava/lang/String;Ljava/lang/String;Z)V");
         if (!m || gPickDone)
             return;
         gPickDone = std::move(done);
         jstring types = gEnv->NewStringUTF(mimeTypes.c_str());
         jstring dir = gEnv->NewStringUTF(intoDir.c_str());
-        gEnv->CallVoidMethod(gAndroid->activity->clazz, m, types, dir);
+        gEnv->CallVoidMethod(gAndroid->activity->clazz, m, types, dir, static_cast<jboolean>(multiple));
         gEnv->DeleteLocalRef(types);
         gEnv->DeleteLocalRef(dir);
     }

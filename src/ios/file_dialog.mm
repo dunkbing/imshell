@@ -8,16 +8,16 @@
 #include "imshell/file_dialog.hpp"
 
 @interface ImShellPickerDelegate : NSObject <UIDocumentPickerDelegate>
-@property(nonatomic, copy) void (^done)(NSURL*);
+@property(nonatomic, copy) void (^done)(NSArray<NSURL*>*);
 @end
 
 @implementation ImShellPickerDelegate
 - (void)documentPicker:(UIDocumentPickerViewController*)picker
     didPickDocumentsAtURLs:(NSArray<NSURL*>*)urls {
-    self.done(urls.firstObject);
+    self.done(urls);
 }
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController*)picker {
-    self.done(nil);
+    self.done(@[]);
 }
 @end
 
@@ -104,25 +104,29 @@ namespace imshell {
         return path(url);
     }
 
-    void OpenFileDialog(const std::vector<FileFilter>& filters, FileDone done,
-                        const std::string& copyInto) {
+    void OpenDialog(const OpenOptions& options, FilesDone done) {
+        if (options.directory) // no folder picker: the documents folder
+            return done({DocumentsDir()});
         UIViewController* top = topController();
         if (!top)
             return;
-        NSURL* into = [NSURL fileURLWithPath:@((copyInto.empty() ? DocumentsDir() : copyInto).c_str())
-                                 isDirectory:YES];
+        const std::string dir = options.copyInto.empty() ? DocumentsDir() : options.copyInto;
+        NSURL* into = [NSURL fileURLWithPath:@(dir.c_str()) isDirectory:YES];
         UIDocumentPickerViewController* picker =
-            [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:contentTypes(filters)
+            [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:contentTypes(options.filters)
                                                                         asCopy:NO];
+        picker.allowsMultipleSelection = options.multiple;
         gPicking = [ImShellPickerDelegate new];
-        __block FileDone callback = std::move(done);
-        gPicking.done = ^(NSURL* url) {
+        __block FilesDone callback = std::move(done);
+        gPicking.done = ^(NSArray<NSURL*>* urls) {
           gPicking = nil;
           [(__bridge UIView*)detail::nativeHost() becomeFirstResponder]; // keys back to imgui
-          if (!url)
-              return;
-          if (const std::string file = localCopy(url, into); !file.empty())
-              callback(file);
+          std::vector<std::string> files;
+          for (NSURL* url in urls)
+              if (std::string file = localCopy(url, into); !file.empty())
+                  files.push_back(std::move(file));
+          if (!files.empty())
+              callback(files);
         };
         picker.delegate = gPicking;
         [top presentViewController:picker animated:YES completion:nil];
@@ -132,9 +136,5 @@ namespace imshell {
                         FileDone done) {
         NSURL* docs = [NSURL fileURLWithPath:@(DocumentsDir().c_str()) isDirectory:YES];
         done(path(freeURL(docs, @((defaultName.empty() ? "Untitled" : defaultName).c_str()))));
-    }
-
-    void PickFolderDialog(FileDone done) {
-        done(DocumentsDir());
     }
 } // namespace imshell

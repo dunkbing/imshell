@@ -126,7 +126,7 @@ The activity must be `io.imshell.ImShellActivity` (`android/io/imshell/ImShellAc
 
 Touch works as on iOS, through the same touch engine (`src/touch.cpp`): iOS feeds it from its gesture recognizers, Android and the web from raw touch events. A quick swipe scrolls, over text too; a finger held still on text for 150 ms before it moves selects instead (anywhere else it still scrolls, since a rest before a swipe is common in lists), and a resize cursor (a splitter, a column edge) drags at once. The choice waits for a frame that has hovered the finger's spot, so it never reads the previous touch's cursor. A long press over text selects the word under the finger and shows the system's floating text toolbar (Cut, Copy, Paste, Select all, sent to ImGui as Ctrl chords); anywhere else it right-clicks. Both give the long-press haptic tick. A mouse or trackpad is a mouse. Hardware keys go through `imgui_impl_android`.
 
-`imshell::PickFile(mimeTypes, intoDir, done)` opens the system document picker. The picked file is copied into `intoDir`, because apps can't open another app's files by path, and `done` gets the copy's path a frame or two later. It is not called when the picker is cancelled.
+`imshell::PickFile(mimeTypes, intoDir, multiple, done)` opens the system document picker. The picked files are copied into `intoDir` (`name 2.ext` when the name is taken), because apps can't open another app's files by path, and `done` gets the copies' paths a frame or two later. It is not called when the picker is cancelled.
 
 ### Building an APK
 

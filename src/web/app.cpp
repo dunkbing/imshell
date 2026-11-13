@@ -292,9 +292,8 @@ namespace imshell {
 
     // shortcut: no file dialogs in the browser yet (an <input type=file> into memfs and a
     // download link for saves); the callbacks never run
-    void OpenFileDialog(const std::vector<FileFilter>&, FileDone, const std::string&) {}
+    void OpenDialog(const OpenOptions&, FilesDone) {}
     void SaveFileDialog(const std::string&, const std::vector<FileFilter>&, FileDone) {}
-    void PickFolderDialog(FileDone) {}
     std::string DocumentsDir() {
         return "/home/web_user";
     }

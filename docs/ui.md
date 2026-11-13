@@ -75,13 +75,28 @@ imshell::AddFont({{text->data, text->size}, {icons->data, icons->size, kIcons, t
 
 ## File dialogs (`imshell/file_dialog.hpp`)
 
-`OpenFileDialog(filters, done)`, `SaveFileDialog(defaultName, filters, done)` and `PickFolderDialog(done)` call `done` with the chosen path, and not at all when the user cancels. Filters are a name and extensions without dots (`{"CSV files", "csv,tsv"}`); `"*"` allows any file.
+`OpenDialog(options, done)` opens files or a folder and calls `done` with every chosen path, and not at all when the user cancels:
+
+```cpp
+imshell::OpenDialog({.filters = {{"CSV files", "csv,tsv"}, {"All files", "*"}}, .multiple = true},
+                    [](const std::vector<std::string>& paths) { for (auto& p : paths) open(p); });
+```
+
+| Option | Meaning |
+|---|---|
+| `filters` | a name and extensions without dots (`{"CSV files", "csv,tsv"}`); none, or any `"*"`, allows every file. Windows and Linux list "All files" themselves; macOS has no filter list, so a `"*"` there turns the filter off |
+| `multiple` | several files (or folders) at once |
+| `directory` | a folder instead of files |
+| `defaultPath` | the folder the desktop dialog opens in; empty lets the system choose |
+| `copyInto` | iOS and Android: where picked files are copied |
+
+`OpenFileDialog(filters, done)` and `PickFolderDialog(done)` are the one-path forms of the same call. `SaveFileDialog(defaultName, filters, done)` calls `done` with the path to write.
 
 | | Desktops | iOS and Android |
 |---|---|---|
-| Open | Native File Dialog, modal: `done` runs before the call returns | the system document picker; `done` runs a moment later. Another app's file is copied into `copyInto` (`DocumentsDir()` when empty), because it can't be opened by path |
+| Open | Native File Dialog, modal: `done` runs before the call returns | the system document picker (several files with `multiple`); `done` runs a moment later. Another app's file is copied into `copyInto` (`DocumentsDir()` when empty), because it can't be opened by path |
 | Save | the system save dialog | a free name in `DocumentsDir()` (`name 2.ext` when taken), at once |
-| Folder | the system folder picker | `DocumentsDir()`, at once |
+| Folder (`directory`) | the system folder picker | `DocumentsDir()`, at once |
 
 On iOS the documents folder shows in the Files app under the app's name. Filters become content types (iOS) or MIME types (Android, from a short table; anything else allows any file). On the desktops, link Native File Dialog Extended (vcpkg `nativefiledialog-extended`); imshell finds it with `find_package(nfd)`.
 

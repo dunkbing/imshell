@@ -1,4 +1,4 @@
-// android file dialogs: the system document picker (PickFile copies the pick in); saves and
+// android file dialogs: the system document picker (PickFile copies the picks in); saves and
 // folders are the documents folder in the app's internal storage
 #include "../activity.hpp"
 #include "imshell/android.hpp"
@@ -65,17 +65,16 @@ namespace imshell {
     }
 
     // shortcut: the copy is what the app opens; edits do not reach the picked original
-    void OpenFileDialog(const std::vector<FileFilter>& filters, FileDone done,
-                        const std::string& copyInto) {
-        PickFile(mimeTypes(filters), copyInto.empty() ? DocumentsDir() : copyInto, std::move(done));
+    void OpenDialog(const OpenOptions& options, FilesDone done) {
+        if (options.directory) // no folder picker: the documents folder
+            return done({DocumentsDir()});
+        PickFile(mimeTypes(options.filters),
+                 options.copyInto.empty() ? DocumentsDir() : options.copyInto, options.multiple,
+                 std::move(done));
     }
 
     void SaveFileDialog(const std::string& defaultName, const std::vector<FileFilter>&,
                         FileDone done) {
         done(freePath(defaultName.empty() ? "Untitled" : defaultName));
-    }
-
-    void PickFolderDialog(FileDone done) {
-        done(DocumentsDir());
     }
 } // namespace imshell

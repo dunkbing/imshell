@@ -16,6 +16,7 @@
 
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace imshell {
     void SetAndroidApp(android_app* app);
@@ -28,9 +29,9 @@ namespace imshell {
     // skip the host's setup and go straight to run()
     bool AndroidActivityRecreating();
 
-    // the system document picker. the picked file is copied into `intoDir` (apps cannot open
-    // another app's files by path) and `done` gets the copy's path on the ui thread, a frame
+    // the system document picker. the picked files are copied into `intoDir` (apps cannot open
+    // another app's files by path) and `done` gets the copies' paths on the ui thread, a frame
     // or two later; never when cancelled. mimeTypes: comma-separated, empty for any file
-    void PickFile(const std::string& mimeTypes, const std::string& intoDir,
-                  std::function<void(const std::string&)> done);
+    void PickFile(const std::string& mimeTypes, const std::string& intoDir, bool multiple,
+                  std::function<void(const std::vector<std::string>&)> done);
 } // namespace imshell
