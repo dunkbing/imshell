@@ -5,6 +5,7 @@
 #include "frame_skip.hpp"
 #include "imshell/app.hpp"
 #include "loop_pass.hpp"
+#include "imgui_internal.h" // the input queue
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
@@ -35,13 +36,14 @@ namespace imshell::detail {
         });
         double lastInput = glfwGetTime();
         bool wasFocused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
+        int trailing = 0; // frames still to draw after input, so what the input changed is shown
         while (!glfwWindowShouldClose(window)) {
             if (delegate.shouldQuit())
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
             const double start = glfwGetTime();
             const double sinceInput = start - lastInput;
             const bool focused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
-            const bool busy = delegate.wantsFrames();
+            const bool busy = delegate.wantsFrames() || trailing > 0;
 
             double wait = 0.0;
             if (!focused || glfwGetWindowAttrib(window, GLFW_ICONIFIED))
@@ -53,6 +55,13 @@ namespace imshell::detail {
             else
                 glfwPollEvents();
 
+            // input that is waiting for its frame: draw that one and a few more at full speed, since
+            // what the input changed can show only a frame later (a widget drawn before the code that
+            // reacted to it), and an idle loop would leave that for a second
+            if (const ImGuiContext* ctx = ImGui::GetCurrentContext(); ctx && ctx->InputEventsQueue.Size > 0) {
+                lastInput = glfwGetTime();
+                trailing = 3;
+            }
             const bool nowFocused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
             if (nowFocused && !wasFocused)
                 lastInput = glfwGetTime();
@@ -67,6 +76,8 @@ namespace imshell::detail {
                 continue;
 
             render();
+            if (trailing > 0)
+                --trailing;
             // nothing changed, so nothing was presented and vsync did not pace this frame
             if (frameSkipped()) {
                 frameSkipped() = false;
