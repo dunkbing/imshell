@@ -23,7 +23,8 @@ namespace imshell {
         constexpr D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0};
         HRESULT hr = E_FAIL;
         // no gpu (a vm, some remote sessions): warp, direct3d's software renderer
-        for (const D3D_DRIVER_TYPE type : {D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP}) {
+        constexpr D3D_DRIVER_TYPE types[] = {D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP};
+        for (const D3D_DRIVER_TYPE type : types) {
             hr = D3D11CreateDeviceAndSwapChain(nullptr, type, nullptr, 0, levels, 2,
                                                D3D11_SDK_VERSION, &sd, &swapChain_, &device_,
                                                &level, &context_);
