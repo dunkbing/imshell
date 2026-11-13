@@ -128,13 +128,11 @@ namespace imshell::touch {
             gMoved = true;
         if (gState == State::Pending && gMoved && ImGui::GetFrameCount() > gDownFrame) {
             // a splitter or column edge drags at once. a quick swipe scrolls, over text too; a
-            // finger held still first drags the widget under it (a slider, a text selection),
-            // and still scrolls where there is none
-            const ImGuiMouseCursor cursor = ImGui::GetMouseCursor();
-            const bool text = cursor == ImGuiMouseCursor_TextInput;
+            // finger held still on text first selects. anything else scrolls: a rest before a
+            // swipe is common in lists, and a row would take it
+            const bool text = ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput;
             const bool edge = !scrolls() && !text;
-            const bool widget = GImGui->HoveredId != 0 || text;
-            if (edge || (now - gStartTime >= kHold && widget)) {
+            if (edge || (text && now - gStartTime >= kHold)) {
                 press(gStart, gStart);
             } else {
                 gState = State::Scrolling;

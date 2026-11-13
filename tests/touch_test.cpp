@@ -114,8 +114,8 @@ int main() {
     touch::up(2.7, true);
     frames(2);
 
-    // held still on empty space it still scrolls (nothing there to drag); on the button it
-    // presses
+    // held still, it scrolls anywhere but on text: on empty space, and on a button (a row in a
+    // list)
     touch::down(ImVec2(200, 300), 3.0);
     frames(2);
     touch::move(ImVec2(200, 280), 3.3);
@@ -126,8 +126,10 @@ int main() {
     touch::down(ImVec2(50, 20), 3.7);
     frames(2);
     touch::move(ImVec2(50, 40), 4.0);
-    check(touch::state() == touch::State::Pressed, "a held drag on a button presses");
-    touch::cancel();
+    check(touch::state() == touch::State::Scrolling, "a held swipe on a button scrolls");
+    touch::up(4.05, true);
+    frames(2);
+    touch::takeLift();
     frames(2);
 
     // a swipe that lifts before any frame decided it is no tap
