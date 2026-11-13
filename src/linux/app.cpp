@@ -362,7 +362,7 @@ namespace imshell {
 
         // prefer-dark for gtk's own widgets (dialogs, native views) from the theme
         void followTheme() {
-            const int dark = theme().dark ? 1 : 0;
+            const int dark = CurrentTheme().dark ? 1 : 0;
             if (dark == gDark)
                 return;
             gDark = dark;
@@ -439,7 +439,7 @@ namespace imshell {
             io.DeltaTime = std::max(static_cast<float>(now - last) / 1e6f, 1e-4f);
             last = now;
 
-            const ImVec4 clear = theme().background;
+            const ImVec4 clear = CurrentTheme().background;
             glViewport(0, 0, w * scale, h * scale);
             glClearColor(clear.x, clear.y, clear.z, clear.w);
             glClear(GL_COLOR_BUFFER_BIT);
@@ -488,7 +488,7 @@ namespace imshell {
         }
 
         void windowButtons(const std::string& part, float x, float centreY) {
-            const Theme& c = theme();
+            const Theme& c = CurrentTheme();
             ImDrawList* dl = ImGui::GetWindowDrawList();
             const ImU32 text = ImGui::GetColorU32(c.foreground);
             size_t pos = 0;

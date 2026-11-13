@@ -46,6 +46,8 @@ int main() {
         need(t, "mutedForeground on background", t.mutedForeground, t.background, 3.0f);
         need(t, "primaryForeground on primary", t.primaryForeground, t.primary, 3.0f);
         need(t, "destructiveForeground on destructive", t.destructiveForeground, t.destructive, 3.0f);
+        need(t, "successForeground on success", t.successForeground, t.success, 3.0f);
+        need(t, "warningForeground on warning", t.warningForeground, t.warning, 3.0f);
         need(t, "destructive on background", t.destructive, t.background, 3.0f);
         need(t, "primary on background (links)", t.primary, t.background, 3.0f);
         check(&imshell::ThemeById(t.id) == &t, t.id);
@@ -57,11 +59,10 @@ int main() {
 
     // the theme switch and the tag keys stored in settings
     imshell::SetTheme("github-light");
-    check(std::string_view(imshell::theme().id) == "github-light", "SetTheme");
-    ImVec4 c;
+    check(std::string_view(imshell::CurrentTheme().id) == "github-light", "SetTheme");
     for (const char* key : {"red", "peach", "yellow", "green", "blue", "purple"})
-        check(imshell::TagColor(key, c), key);
-    check(!imshell::TagColor("", c) && !imshell::TagColor("teal", c), "unknown tag");
+        check(imshell::TagColor(key).has_value(), key);
+    check(!imshell::TagColor("") && !imshell::TagColor("teal"), "unknown tag");
 
     std::printf("%s\n", failures ? "theme: FAILED" : "theme: ok");
     return failures ? 1 : 0;

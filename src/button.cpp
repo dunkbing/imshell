@@ -11,7 +11,7 @@ namespace {
     // the variant's colors (secondary and custom keep the style's, which the theme sets); how
     // many it pushed, for popVariantColors
     int pushVariantColors(imshell::ButtonVariant variant) {
-        const Theme& t = theme();
+        const Theme& t = CurrentTheme();
         const auto push = [](const ImVec4& rest, const ImVec4& hovered, const ImVec4& pressed, const ImVec4& text) {
             ImGui::PushStyleColor(ImGuiCol_Button, rest);
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hovered);
@@ -38,7 +38,7 @@ namespace {
 
     // an icon button is transparent at rest; primary and destructive tint on hover
     void pushIconColors(imshell::ButtonVariant variant) {
-        const Theme& t = theme();
+        const Theme& t = CurrentTheme();
         ImVec4 hovered = t.accent;
         ImVec4 active = Pressed(t.accent);
         if (variant == imshell::ButtonVariant::Primary || variant == imshell::ButtonVariant::Destructive) {
@@ -60,7 +60,7 @@ namespace {
         const ImVec2 buttonSize =
             ImGui::CalcItemSize(size, textSize.x + padding.x * 2.0f, textSize.y + padding.y * 2.0f);
         const ImVec2 cursorPos = ImGui::GetCursorScreenPos();
-        const float baseAlpha = theme().dark ? 0.28f : 0.16f;
+        const float baseAlpha = CurrentTheme().dark ? 0.28f : 0.16f;
         constexpr int layers = 2; // a faint lift, not a drop shadow
 
         for (int layer = layers; layer >= 0; --layer) {
@@ -158,7 +158,7 @@ bool imshell::IconLabelButton(const char* icon, const char* label, ButtonVariant
 
 bool imshell::SegmentedTabs(const char* id, std::initializer_list<const char*> labels,
                             int* current) {
-    const Theme& t = theme();
+    const Theme& t = CurrentTheme();
     bool changed = false;
     ImGui::PushID(id);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);

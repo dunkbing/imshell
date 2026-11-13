@@ -38,7 +38,7 @@ namespace imshell {
 
         // the window (traffic lights, sheets, native views) follows the theme, as on windows and linux
         void followTheme() {
-            const Theme* theme = &imshell::theme();
+            const Theme* theme = &imshell::CurrentTheme();
             if (theme == gTheme || !gWindow)
                 return;
             gTheme = theme;
@@ -197,13 +197,13 @@ namespace imshell {
         auto& d = *impl_;
         followTheme();
         @autoreleasepool {
-            d.backend->beginFrame(theme().background);
+            d.backend->beginFrame(CurrentTheme().background);
             ImGui::NewFrame();
             d.delegate->frame();
             detail::textInputFrame();
             ImGui::Render();
             detail::frameSkipped() =
-                detail::sameAsLastFrame(ImGui::GetDrawData(), theme().background);
+                detail::sameAsLastFrame(ImGui::GetDrawData(), CurrentTheme().background);
             if (detail::frameSkipped()) {
                 d.backend->dropFrame();
             } else {

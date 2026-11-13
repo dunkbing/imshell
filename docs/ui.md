@@ -6,7 +6,7 @@ Eighteen themes: One Dark and One Light, Ayu (dark, mirage, light), Gruvbox, VS 
 
 ```cpp
 imshell::SetTheme("tokyo-night"); // by settings id; before Run or at any time after
-const imshell::Theme& t = imshell::theme();
+const imshell::Theme& t = imshell::CurrentTheme();
 ImGui::TextColored(t.mutedForeground, "Last saved 2 min ago");
 if (imshell::Button("Delete", imshell::ButtonVariant::Destructive)) remove();
 ```
@@ -20,14 +20,14 @@ if (imshell::Button("Delete", imshell::ButtonVariant::Destructive)) remove();
 | `secondary` / `secondaryForeground` | ordinary buttons |
 | `accent` / `accentForeground` | a hovered or focused row |
 | `destructive` / `destructiveForeground` | deleting and errors, nothing else |
-| `success`, `warning` | status, only for its meaning |
+| `success`, `warning` | status, only for its meaning; `successForeground` and `warningForeground` are text on a filled badge |
 | `border`, `input`, `ring` | dividers and outlines, a text field's fill, the keyboard focus outline |
 | `chart[0..4]` | data series, in order |
 | `syntax.keyword`, `.string`, `.number`, `.comment`, `.function`, `.type`, `.operator_` | code in editors and markdown |
 
 States come from the role: `Hovered(c)` and `Pressed(c)` step a fill toward the foreground (10% and 20%), `WithAlpha(c, a)` tints (selection is `primary` at 20%, pressed rows 40%), `Mix(a, b, t)` blends. Every theme meets WCAG AA on its pairs (body text 4.5, quiet text, labels on fills and links 3); `tests/theme_test.cpp` checks them.
 
-`ApplyTheme()` styles ImGui from the current theme; the shells call it, `SetTheme` too once a context exists. `Themes()` lists them for a picker, `ThemeById(id)` finds one (the old ids `light` and `dark` are One Light and One Dark). `TagColor(key, out)` resolves a colour the user picked and saved by key (`red`, `peach`, `yellow`, `green`, `blue`, `purple`) in the current theme.
+`ApplyTheme()` styles ImGui from the current theme; the shells call it, `SetTheme` too once a context exists. `Themes()` lists them for a picker, `ThemeById(id)` finds one (the old ids `light` and `dark` are One Light and One Dark). `TagColor(key)` resolves a colour the user picked and saved by key (`red`, `peach`, `yellow`, `green`, `blue`, `purple`) in the current theme, or gives none for an unknown key.
 
 Sizes: `Radius::Sm` (4, tags and small controls), `Md` (6, controls and popups), `Lg` (8, cards and containers), `Full` (pills). `Spacing::XS` (2), `S` (4), `M` (8), `L` (16), `XL` (20); `Theme::Spacing` and `Theme::Radius` are the same.
 
@@ -38,7 +38,7 @@ Buttons (`button.hpp`): `Primary` for the one main action, `Secondary` (the defa
 | Before | Now |
 |---|---|
 | `Theme::Current() = &Theme::themeById(id); Theme::ApplyTheme(...)` | `SetTheme(id)` |
-| `Theme::Current()->colors.x`, `Theme::Colors` | `theme().role`, `Theme` |
+| `Theme::Current()->colors.x`, `Theme::Colors` | `CurrentTheme().role`, `Theme` |
 | `Theme::THEMES`, `Theme::ThemeDef` | `Themes()`, `Theme` |
 | `text`, `subtext0` / `subtext1`, `overlay1` | `foreground`, `mutedForeground` |
 | `base`, `mantle`, `crust` | `background`, `sidebar` |
@@ -46,7 +46,7 @@ Buttons (`button.hpp`): `Primary` for the one main action, `Secondary` (the defa
 | `overlay0` | `border` |
 | `blue`, `red`, `green`, `peach` (as warning) | `primary`, `destructive`, `success`, `warning` |
 | other accents | `chart[n]`, `syntax.*`, `TagColor` |
-| `ConnectionPalette` | `TagColor(key, out)` |
+| `ConnectionPalette` | `TagColor(key)` (an optional) |
 | `CornerRadius::SMALL` / `MEDIUM`, `LARGE` | `Radius::Md`, `Radius::Lg` |
 | `ButtonVariant::Danger` | `ButtonVariant::Destructive` |
 

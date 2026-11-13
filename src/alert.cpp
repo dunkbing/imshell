@@ -134,7 +134,7 @@ namespace {
                                                 ImGuiInputTextFlags_EnterReturnsTrue);
         if (!p.error.empty()) {
             ImGui::PushTextWrapPos(480.0f);
-            ImGui::TextColored(theme().destructive, "%s",
+            ImGui::TextColored(CurrentTheme().destructive, "%s",
                                p.error.c_str());
             ImGui::PopTextWrapPos();
         }

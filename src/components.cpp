@@ -18,7 +18,7 @@
 namespace imshell::ui {
     namespace {
         const Theme& colors() {
-            return theme();
+            return CurrentTheme();
         }
 
         ImVec4 toneColor(Tone tone) {

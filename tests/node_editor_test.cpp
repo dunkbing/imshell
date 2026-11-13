@@ -1,5 +1,5 @@
 // imshell::NodeEditor on a bare imgui context: a graph draws, and the style and colours follow
-// theme(). built with -DIMSHELL_BUILD_TESTS=ON
+// CurrentTheme(). built with -DIMSHELL_BUILD_TESTS=ON
 #include "imshell/node_editor.hpp"
 #include "imshell/themes.hpp"
 
@@ -66,7 +66,7 @@ int main() {
     for (int i = 0; i < 3; ++i)
         frame(editor);
     ed::SetCurrentEditor(editor);
-    CHECK(same(ed::GetStyle().Colors[ed::StyleColor_Bg], imshell::theme().sidebar));
+    CHECK(same(ed::GetStyle().Colors[ed::StyleColor_Bg], imshell::CurrentTheme().sidebar));
     ed::SetCurrentEditor(nullptr);
 
     // another theme: the next frame takes its colours

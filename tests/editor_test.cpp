@@ -274,7 +274,7 @@ namespace {
         CHECK(onEntry == std::vector<Token>(13, Token::Text));
 
         // colours: the theme's, or the host's palette
-        const auto theme = TextEditor::FromTheme(imshell::theme());
+        const auto theme = TextEditor::FromTheme(imshell::CurrentTheme());
         CHECK(e.TokenColor(Token::Number) == theme.number);
         CHECK(e.TokenColor(Token::Keyword) == theme.keyword && theme.keyword != theme.text);
         auto palette = theme;

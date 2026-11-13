@@ -255,8 +255,14 @@ namespace imshell {
         }
 
         // text on a colored fill: whichever of the theme's two ends reads better on it
+        // the theme's background or text, whichever reads on the fill; black or white when
+        // neither reaches 3:1 (a mid-tone green or orange in a light theme)
         ImVec4 onFill(const ImVec4& fill, const Palette& p) {
-            return contrast(fill, p.base) >= contrast(fill, p.text) ? p.base : p.text;
+            const ImVec4 best = contrast(fill, p.base) >= contrast(fill, p.text) ? p.base : p.text;
+            if (contrast(fill, best) >= 3.0f)
+                return best;
+            const ImVec4 black(0, 0, 0, 1), white(1, 1, 1, 1);
+            return contrast(fill, black) >= contrast(fill, white) ? black : white;
         }
 
         Theme roles(const Entry& e) {
@@ -287,7 +293,9 @@ namespace imshell {
             t.destructive = p.red;
             t.destructiveForeground = onFill(p.red, p);
             t.success = p.green;
+            t.successForeground = onFill(p.green, p);
             t.warning = p.peach;
+            t.warningForeground = onFill(p.peach, p);
             t.border = p.overlay0;
             t.input = p.surface0;
             t.ring = p.blue;
@@ -337,7 +345,7 @@ namespace imshell {
         return Themes()[0];
     }
 
-    const Theme& theme() {
+    const Theme& CurrentTheme() {
         return table().themes[gCurrent];
     }
 
@@ -363,14 +371,14 @@ namespace imshell {
     }
 
     ImVec4 Hovered(const ImVec4& c) {
-        return WithAlpha(mix(c, theme().foreground, 0.10f), c.w);
+        return WithAlpha(mix(c, CurrentTheme().foreground, 0.10f), c.w);
     }
 
     ImVec4 Pressed(const ImVec4& c) {
-        return WithAlpha(mix(c, theme().foreground, 0.20f), c.w);
+        return WithAlpha(mix(c, CurrentTheme().foreground, 0.20f), c.w);
     }
 
-    bool TagColor(std::string_view key, ImVec4& out) {
+    std::optional<ImVec4> TagColor(std::string_view key) {
         const Palette& p = ENTRIES[gCurrent].palette;
         const struct {
             std::string_view key;
@@ -378,19 +386,13 @@ namespace imshell {
         } tags[] = {{"red", p.red}, {"peach", p.peach}, {"yellow", p.yellow},
                     {"green", p.green}, {"blue", p.blue}, {"purple", p.purple}};
         for (const auto& tag : tags)
-            if (key == tag.key) {
-                out = tag.color;
-                return true;
-            }
-        return false;
-    }
-
-    float BottomBarHeight() {
-        return ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y * 2;
+            if (key == tag.key)
+                return tag.color;
+        return std::nullopt;
     }
 
     void ApplyTheme() {
-        const Theme& t = theme();
+        const Theme& t = CurrentTheme();
         ImGuiStyle& style = ImGui::GetStyle();
 
         style.WindowPadding = ImVec2(16.0f, 16.0f);

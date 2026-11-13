@@ -1,6 +1,6 @@
 # Components
 
-`imshell/components.hpp` adds ready-made pieces for forms, status and feedback, in namespace `imshell::ui`. They are optional: they live in their own target, `imshell::components`, and nothing in imshell's core uses them, so an app that doesn't link it pays nothing. They draw with `theme()`, so they follow the app's theme, and they are plain ImGui items: they take part in layout, keyboard navigation and imshell's touch handling like any other.
+`imshell/components.hpp` adds ready-made pieces for forms, status and feedback, in namespace `imshell::ui`. They are optional: they live in their own target, `imshell::components`, and nothing in imshell's core uses them, so an app that doesn't link it pays nothing. They draw with `CurrentTheme()`, so they follow the app's theme, and they are plain ImGui items: they take part in layout, keyboard navigation and imshell's touch handling like any other.
 
 ```cmake
 target_link_libraries(myapp PRIVATE imshell::imshell imshell::components)

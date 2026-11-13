@@ -145,7 +145,7 @@ namespace imshell {
 
         // dark title bar, borders and snap previews when the theme is dark
         void followTheme() {
-            const int dark = theme().dark ? 1 : 0;
+            const int dark = CurrentTheme().dark ? 1 : 0;
             if (dark == gDark || !gHwnd)
                 return;
             gDark = dark;
@@ -191,9 +191,9 @@ namespace imshell {
 
         // the caption buttons, drawn like windows' own (segoe-style glyphs as lines)
         void captionButtons(const TitleBar& bar) {
-            const Theme& c = theme();
+            const Theme& c = CurrentTheme();
             ImDrawList* dl = ImGui::GetWindowDrawList();
-            const bool dark = theme().dark;
+            const bool dark = CurrentTheme().dark;
             const ImU32 hoverBg = dark ? IM_COL32(255, 255, 255, 26) : IM_COL32(0, 0, 0, 15);
             const ImU32 activeBg = dark ? IM_COL32(255, 255, 255, 38) : IM_COL32(0, 0, 0, 26);
             const ImU32 text = ImGui::GetColorU32(c.foreground);
@@ -337,7 +337,7 @@ namespace imshell {
         detail::textInputFrame();
         ImGui::Render();
         // an unchanged frame is not drawn or presented: the window keeps showing the last one
-        const ImVec4 base = theme().background;
+        const ImVec4 base = CurrentTheme().background;
         const bool mustDraw = std::exchange(d.backend->mustDraw, false);
         detail::frameSkipped() = detail::sameAsLastFrame(ImGui::GetDrawData(), base) && !mustDraw;
         if (!detail::frameSkipped()) {

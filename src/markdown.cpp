@@ -50,7 +50,7 @@ namespace imshell::Markdown {
         }
 
         void renderCode(const std::string& rawCode, const std::string& language) {
-            const Theme& t = theme();
+            const Theme& t = CurrentTheme();
             std::string code = rawCode;
             while (!code.empty() && code.back() == '\n')
                 code.pop_back();
@@ -199,7 +199,7 @@ namespace imshell::Markdown {
 
     void Render(const std::string& markdown, const std::string& idPrefix) {
         ensureContext();
-        RichMd::GetStyle().codeColor = theme().syntax.number; // inline code
+        RichMd::GetStyle().codeColor = CurrentTheme().syntax.number; // inline code
         const Scope saved = gScope;
         gScope = {.idPrefix = &idPrefix,
                   .font = ImGui::GetFont(),

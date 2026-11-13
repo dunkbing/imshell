@@ -4,7 +4,7 @@
 #include "imshell/themes.hpp"
 
 void imshell::ToggleButton(const char* str_id, bool* v) {
-    const Theme& t = theme();
+    const Theme& t = CurrentTheme();
     const ImVec2 p = ImGui::GetCursorScreenPos();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 

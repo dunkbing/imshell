@@ -92,7 +92,7 @@ namespace imshell {
     }
 
     ImU32 TextEditor::TokenColor(Token token) const {
-        const Palette p = ownPalette_ ? palette_ : FromTheme(theme());
+        const Palette p = ownPalette_ ? palette_ : FromTheme(CurrentTheme());
         switch (token) {
         case Token::Keyword:
             return p.keyword;
@@ -189,7 +189,7 @@ namespace imshell {
     void TextEditor::Render(const char* label, ImVec2 size, bool border) {
         ImGui::PushID(label);
         if (!ownPalette_)
-            palette_ = FromTheme(theme());
+            palette_ = FromTheme(CurrentTheme());
 
         lineHeight_ = ImGui::GetTextLineHeightWithSpacing();
 
@@ -1488,8 +1488,8 @@ namespace imshell {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, Radius::Md); // the popup style: a floating bar
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, theme().popover);
-        ImGui::PushStyleColor(ImGuiCol_Border, theme().border);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, CurrentTheme().popover);
+        ImGui::PushStyleColor(ImGuiCol_Border, CurrentTheme().border);
 
         // one bar per editor: the name carries this editor's id
         char name[40];

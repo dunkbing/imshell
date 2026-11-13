@@ -2,6 +2,7 @@
 
 #include "imgui.h"
 
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -9,7 +10,7 @@
 // scale. every theme sets every role for its light or dark look; widgets and apps draw with
 // roles, never a fixed color, so a theme change reaches everything (docs/ui.md)
 //
-//   const imshell::Theme& t = imshell::theme();
+//   const imshell::Theme& t = imshell::CurrentTheme();
 //   ImGui::TextColored(t.mutedForeground, "Last saved 2 min ago");
 //   imshell::SetTheme("github-dark");
 namespace imshell {
@@ -31,8 +32,9 @@ namespace imshell {
         ImVec4 accent, accentForeground;           // a hovered or focused row
         ImVec4 destructive, destructiveForeground; // destructive actions and errors only
 
-        // status, only for its meaning
-        ImVec4 success, warning;
+        // status, only for its meaning; the foreground is text on a filled badge
+        ImVec4 success, successForeground;
+        ImVec4 warning, warningForeground;
 
         // structure
         ImVec4 border; // dividers, outlines of cards, popups and fields
@@ -69,7 +71,7 @@ namespace imshell {
     const Theme& ThemeById(std::string_view id);
 
     // the theme widgets draw with
-    const Theme& theme();
+    const Theme& CurrentTheme();
     // makes it current and styles imgui with it (once a context exists; before, Run applies it)
     void SetTheme(std::string_view id);
     void SetTheme(const Theme& theme); // one of Themes(), or a copy of one
@@ -83,10 +85,7 @@ namespace imshell {
     ImVec4 WithAlpha(const ImVec4& color, float alpha);
 
     // a color the user picked for something (a connection), stored by key so it reads in every
-    // theme: "red", "peach" (orange), "yellow", "green", "blue", "purple". false for an empty or
-    // unknown key, leaving out as it was
-    bool TagColor(std::string_view key, ImVec4& out);
-
-    // a strip along the bottom of a tab (pagination); tabs without one leave it free too
-    float BottomBarHeight();
+    // theme: "red", "peach" (orange), "yellow", "green", "blue", "purple"; none for an empty or
+    // unknown key
+    std::optional<ImVec4> TagColor(std::string_view key);
 } // namespace imshell

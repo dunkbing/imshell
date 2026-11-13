@@ -14,7 +14,7 @@ namespace imshell::NodeEditor {
     }
 
     void ApplyColors() {
-        const Theme& c = theme();
+        const Theme& c = CurrentTheme();
         auto& s = ed::GetStyle();
         const auto a = [](ImVec4 v, float alpha) { return ImVec4(v.x, v.y, v.z, alpha); };
         s.Colors[ed::StyleColor_Bg] = c.sidebar;

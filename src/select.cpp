@@ -5,7 +5,7 @@
 
 bool imshell::Select(const char* label, int* currentItem, const char* const items[],
                      int itemCount) {
-    const Theme& t = theme();
+    const Theme& t = CurrentTheme();
     ImGui::PushStyleColor(ImGuiCol_Button, t.input);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, Hovered(t.input));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, Pressed(t.input));

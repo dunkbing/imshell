@@ -236,7 +236,7 @@ static Gallery gallery; // android: outlives a recreated activity
 int main() {
     const char* pick = std::getenv("IMSHELL_GALLERY_THEME"); // screenshots open one theme
     imshell::SetTheme(pick ? pick : "tokyo-night");
-    gallery.theme = static_cast<int>(&imshell::theme() - imshell::Themes().data());
+    gallery.theme = static_cast<int>(&imshell::CurrentTheme() - imshell::Themes().data());
     imshell::Config config;
     config.title = "imshell components";
     config.width = 960;

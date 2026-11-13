@@ -172,7 +172,7 @@ namespace imshell {
         detail::textInputFrame();
         ImGui::Render();
         touch::takeLift(); // the finger is gone: nothing stays hovered
-        const ImVec4 base = theme().background;
+        const ImVec4 base = CurrentTheme().background;
         // a canvas not drawn to keeps showing its last frame, so an unchanged one costs no gpu
         detail::frameSkipped() = detail::sameAsLastFrame(ImGui::GetDrawData(), base);
         if (detail::frameSkipped())
