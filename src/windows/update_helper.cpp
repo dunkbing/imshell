@@ -81,22 +81,51 @@ namespace {
         return found;
     }
 
-    // they get 30 s to finish on their own, then they are ended
+    // asks each visible top-level window of pid to close, as a user would; false when it has none
+    bool askToClose(DWORD pid) {
+        struct Find {
+            DWORD pid;
+            bool asked;
+        } find{pid, false};
+        EnumWindows(
+            [](HWND hwnd, LPARAM param) -> BOOL {
+                auto* f = reinterpret_cast<Find*>(param);
+                DWORD owner = 0;
+                GetWindowThreadProcessId(hwnd, &owner);
+                if (owner == f->pid && IsWindowVisible(hwnd) && !GetWindow(hwnd, GW_OWNER)) {
+                    PostMessageW(hwnd, WM_CLOSE, 0, 0);
+                    f->asked = true;
+                }
+                return TRUE;
+            },
+            reinterpret_cast<LPARAM>(&find));
+        return find.asked;
+    }
+
+    void end(HANDLE process) {
+        TerminateProcess(process, 1);
+        WaitForSingleObject(process, 5000);
+        log(std::format("ended process {}", GetProcessId(process)));
+    }
+
+    // windows are asked to close (their own unsaved-work prompt still shows) and get 30 s, then
+    // are ended; windowless ones (a command line, a server an editor started) are ended at once
     void stopOthers() {
-        std::vector<HANDLE> others = runningFromAppDir();
-        if (others.empty())
-            return;
-        log(std::format("{} other process(es) running from the app dir: waiting up to 30 s", others.size()));
-        const ULONGLONG deadline = GetTickCount64() + 30000;
-        for (HANDLE process : others) {
-            const ULONGLONG now = GetTickCount64();
-            const DWORD wait = now < deadline ? static_cast<DWORD>(deadline - now) : 0;
-            if (WaitForSingleObject(process, wait) == WAIT_TIMEOUT) {
-                const DWORD pid = GetProcessId(process);
-                TerminateProcess(process, 1);
-                WaitForSingleObject(process, 5000);
-                log(std::format("ended process {}", pid));
+        std::vector<HANDLE> windows;
+        for (HANDLE process : runningFromAppDir()) {
+            if (askToClose(GetProcessId(process))) {
+                log(std::format("asked process {} to close", GetProcessId(process)));
+                windows.push_back(process);
+            } else {
+                end(process);
+                CloseHandle(process);
             }
+        }
+        const ULONGLONG deadline = GetTickCount64() + 30000;
+        for (HANDLE process : windows) {
+            const ULONGLONG now = GetTickCount64();
+            if (WaitForSingleObject(process, now < deadline ? static_cast<DWORD>(deadline - now) : 0) == WAIT_TIMEOUT)
+                end(process);
             CloseHandle(process);
         }
     }
