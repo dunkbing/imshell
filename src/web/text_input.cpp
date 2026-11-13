@@ -161,7 +161,7 @@ EM_JS(void, imshell_text_listen_taps, (), {
         }
         q.stale = true;
     });
-    // touchend for phones (glfw takes touches over, so no click follows them), click for mice
+    // the touch layer calls it on a finger's lift (no click follows a touch), click for mice
     // the field may have taken the focus already, between touch down and up: outside the
     // gesture, so without a keyboard. focusing again inside it is what opens one
     const tap = () => {
@@ -178,7 +178,7 @@ EM_JS(void, imshell_text_listen_taps, (), {
         t.focus({preventScroll: true});
         q.inGesture = true;
     };
-    Module.canvas.addEventListener("touchend", tap);
+    Module.imshellText.tap = tap;
     Module.canvas.addEventListener("click", tap);
 });
 // clang-format on
@@ -255,8 +255,9 @@ extern "C" EMSCRIPTEN_KEEPALIVE void imshell_text_key(int down, int ctrl, int sh
 }
 
 extern "C" EMSCRIPTEN_KEEPALIVE int imshell_text_tap() {
-    // the click's mouse events are queued: a few frames let the field take them
-    for (int i = 0; i < 3 && gRunFrame; ++i)
+    // the click's mouse events are queued: frames until imgui has taken them (a finger's press
+    // waits a frame after its move, which imgui gives no hover), then the field's own frames
+    for (int i = 0; i < 8 && gRunFrame && (i < 3 || GImGui->InputEventsQueue.Size > 0); ++i)
         gRunFrame();
     return GImGui->PlatformImeData.WantTextInput;
 }

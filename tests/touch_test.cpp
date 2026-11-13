@@ -4,6 +4,7 @@
 #include "touch.hpp"
 
 #include "imgui.h"
+#include "imgui_internal.h" // ClearActiveID
 
 #include <cstdio>
 #include <cstdlib>
@@ -76,17 +77,91 @@ int main() {
     }
     check(!touch::animating(), "the coast stops");
 
-    // a drag that starts on the text field presses (text selection), not scrolls
-    touch::down(ImVec2(60, 62), 2.0);
+    // a quick swipe over the text field scrolls the page; held still first, it selects text
+    touch::down(ImVec2(60, 62), 1.9);
     frames(2);
     check(ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput, "the field shows a text cursor");
-    touch::move(ImVec2(90, 62), 2.05);
+    touch::move(ImVec2(60, 40), 1.95);
+    check(touch::state() == touch::State::Scrolling, "a quick swipe over text scrolls");
+    touch::up(1.96, true);
+    for (int i = 0; i < 600 && touch::animating(); ++i) {
+        touch::coast(1.0f / 60.0f);
+        frame();
+        touch::takeLift();
+    }
+    touch::down(ImVec2(60, 62), 2.0);
+    frames(2);
+    touch::move(ImVec2(90, 62), 2.2);
     frames(1);
-    check(touch::state() == touch::State::Pressed, "a drag on text presses");
+    check(touch::state() == touch::State::Pressed, "a held drag on text presses");
     check(ImGui::IsMouseDown(0), "the button is down while pressed");
     touch::up(2.1, true);
     frames(2);
     check(!ImGui::IsMouseDown(0), "the press lets go");
+
+    // a quick swipe passes the slop before any frame: it waits for the hover, so the field's
+    // text cursor from the last touch does not turn it into a press
+    touch::down(ImVec2(60, 62), 2.5);
+    frames(2);
+    touch::cancel();
+    check(ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput, "the last touch left a text cursor");
+    touch::down(ImVec2(200, 300), 2.6);
+    touch::move(ImVec2(200, 280), 2.61);
+    check(touch::state() == touch::State::Pending, "no decision before a frame");
+    frames(1);
+    touch::move(ImVec2(200, 270), 2.62);
+    check(touch::state() == touch::State::Scrolling, "then the swipe scrolls");
+    touch::up(2.7, true);
+    frames(2);
+
+    // held still, it scrolls anywhere but on text: on empty space, and on a button (a row in a
+    // list)
+    touch::down(ImVec2(200, 300), 3.0);
+    frames(2);
+    touch::move(ImVec2(200, 280), 3.3);
+    check(touch::state() == touch::State::Scrolling, "a held swipe on empty space scrolls");
+    touch::up(3.6, true);
+    frames(2);
+    touch::takeLift();
+    touch::down(ImVec2(50, 20), 3.7);
+    frames(2);
+    touch::move(ImVec2(50, 40), 4.0);
+    check(touch::state() == touch::State::Scrolling, "a held swipe on a button scrolls");
+    touch::up(4.05, true);
+    frames(2);
+    touch::takeLift();
+    frames(2);
+
+    // a swipe that lifts before any frame decided it is no tap
+    clicked = false;
+    touch::down(ImVec2(50, 20), 4.1);
+    touch::move(ImVec2(50, 60), 4.11);
+    touch::up(4.12, true);
+    frames(4);
+    check(!clicked, "an undecided swipe does not click");
+    touch::takeLift();
+
+    // after a flick has coasted out, an instant tap (no frame between down and up, as a
+    // browser's touchend runs) still focuses the field
+    touch::down(ImVec2(200, 300), 2.8);
+    frames(1);
+    touch::move(ImVec2(200, 200), 2.81);
+    touch::move(ImVec2(200, 100), 2.82);
+    touch::up(2.83, true);
+    for (int i = 0; i < 600 && touch::animating(); ++i) {
+        touch::coast(1.0f / 60.0f);
+        frame();
+        touch::takeLift();
+    }
+    touch::down(ImVec2(60, 62), 4.0);
+    touch::up(4.01, true);
+    for (int i = 0; i < 3; ++i) {
+        frame();
+        touch::takeLift();
+    }
+    check(ImGui::GetIO().WantTextInput, "a tap after a coast focuses the field");
+    ImGui::ClearActiveID();
+    frames(2);
 
     // a finger resting past kLongPress belongs to the shell
     touch::down(ImVec2(200, 300), 3.0);

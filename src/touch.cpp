@@ -11,6 +11,8 @@ namespace imshell::touch {
         State gState = State::None;
         ImVec2 gStart, gLast;
         double gStartTime = 0, gLastMoveTime = 0;
+        int gDownFrame = 0;  // imgui's frame when the finger landed
+        bool gMoved = false; // past the slop, though maybe not decided yet
         ImVec2 gVelocity, gFling;
         bool gLift = false;
 
@@ -91,6 +93,8 @@ namespace imshell::touch {
             return;
         gStart = p;
         gStartTime = gLastMoveTime = now;
+        gDownFrame = ImGui::GetFrameCount();
+        gMoved = false;
         gState = State::Pending;
         hover(p);
     }
@@ -118,13 +122,21 @@ namespace imshell::touch {
     }
 
     void move(ImVec2 p, double now) {
-        if (gState == State::Pending &&
-            length(ImVec2(p.x - gStart.x, p.y - gStart.y)) > kSlop) {
-            if (scrolls()) {
+        // the cursor says what lies under the finger only once a frame has hovered there: a
+        // quick swipe passes the slop before that, and would read the last gesture's cursor
+        if (gState == State::Pending && length(ImVec2(p.x - gStart.x, p.y - gStart.y)) > kSlop)
+            gMoved = true;
+        if (gState == State::Pending && gMoved && ImGui::GetFrameCount() > gDownFrame) {
+            // a splitter or column edge drags at once. a quick swipe scrolls, over text too; a
+            // finger held still on text first selects. anything else scrolls: a rest before a
+            // swipe is common in lists, and a row would take it
+            const bool text = ImGui::GetMouseCursor() == ImGuiMouseCursor_TextInput;
+            const bool edge = !scrolls() && !text;
+            if (edge || (text && now - gStartTime >= kHold)) {
+                press(gStart, gStart);
+            } else {
                 gState = State::Scrolling;
                 gLast = gStart;
-            } else { // a splitter, column edge or text: drag it
-                press(gStart, gStart);
             }
         }
         if (gState == State::Scrolling) {
@@ -142,7 +154,7 @@ namespace imshell::touch {
 
     void up(double now, bool lift) {
         ImGuiIO& io = ImGui::GetIO();
-        if (gState == State::Pending) { // a tap
+        if (gState == State::Pending && !gMoved) { // a tap; a swipe lifted before any frame is none
             hover(gStart);
             io.AddMouseButtonEvent(0, true);
             io.AddMouseButtonEvent(0, false);
@@ -174,7 +186,7 @@ namespace imshell::touch {
     }
 
     bool longPressDue(double now) {
-        if (gState != State::Pending || now - gStartTime <= kLongPress)
+        if (gState != State::Pending || gMoved || now - gStartTime <= kLongPress)
             return false;
         gState = State::None;
         hover(gStart);

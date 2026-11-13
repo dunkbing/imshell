@@ -9,6 +9,7 @@
 | Native views | `NSView` | `UIView` | child `HWND` | `GtkWidget` (overlay) | — | — |
 | Text input | input methods inline (`NSTextInputClient` on GLFW's view), candidate window at the caret | `UITextInput` (input methods, soft keyboard) | input methods inline (`WM_IME_COMPOSITION` in the shell's window procedure), candidate window under the line | `GtkIMContext`: IBus, Fcitx, dead keys, compose sequences | an `InputConnection` through the activity (suggestions, composing, swipe typing), hardware keys | a hidden `<textarea>` at the caret: input methods, dead keys, the phone's keyboard |
 | Field kinds (`SetTextKind`) | secure input for passwords | keyboard and content type per kind | — | input purpose and hints | input type per kind | textarea attributes per kind |
+| Touch (`src/touch.cpp`) | — | tap, long press, pan that scrolls and coasts (gesture recognizers) | — | — | tap, long press, swipe that scrolls and coasts, hold-then-drag for widgets | the same as Android, from the canvas's touch events |
 | Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) | — (`PickFile` copies one in) | — |
 | File dialogs | NFD | document picker | NFD | NFD | document picker | — (the callbacks never run yet) |
 | Skips identical frames | yes | yes | no | no | no | yes |
