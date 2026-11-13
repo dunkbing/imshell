@@ -17,23 +17,23 @@
 
 namespace imshell::ui {
     namespace {
-        const Theme::Colors& colors() {
-            return Theme::Current()->colors;
+        const Theme& colors() {
+            return theme();
         }
 
         ImVec4 toneColor(Tone tone) {
             const auto& c = colors();
             switch (tone) {
             case Tone::Info:
-                return c.blue;
+                return c.primary;
             case Tone::Success:
-                return c.green;
+                return c.success;
             case Tone::Warning:
-                return c.yellow;
+                return c.warning;
             case Tone::Danger:
-                return c.red;
+                return c.destructive;
             default:
-                return c.overlay2;
+                return c.mutedForeground;
             }
         }
 
@@ -64,7 +64,7 @@ namespace imshell::ui {
             ImGui::TextUnformatted(label, ImGui::FindRenderedTextEnd(label));
         ImGui::SetNextItemWidth(o.width > 0 ? o.width : -FLT_MIN);
         if (o.error)
-            ImGui::PushStyleColor(ImGuiCol_Border, c.red);
+            ImGui::PushStyleColor(ImGuiCol_Border, c.destructive);
         ImGuiInputTextFlags flags = o.flags | ImGuiInputTextFlags_CallbackResize;
         if (o.password)
             flags |= ImGuiInputTextFlags_Password;
@@ -74,7 +74,7 @@ namespace imshell::ui {
         if (o.error)
             ImGui::PopStyleColor();
         if (o.error || o.hint) {
-            ImGui::PushStyleColor(ImGuiCol_Text, o.error ? c.red : c.subtext0);
+            ImGui::PushStyleColor(ImGuiCol_Text, o.error ? c.destructive : c.mutedForeground);
             ImGui::PushTextWrapPos(0);
             ImGui::TextUnformatted(o.error ? o.error : o.hint);
             ImGui::PopTextWrapPos();
@@ -86,9 +86,9 @@ namespace imshell::ui {
 
     void BeginCard(const char* id, const char* title) {
         const auto& c = colors();
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, c.mantle);
-        ImGui::PushStyleColor(ImGuiCol_Border, c.surface1);
-        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, Theme::CornerRadius::LARGE);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, c.card);
+        ImGui::PushStyleColor(ImGuiCol_Border, c.border);
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, Radius::Lg);
         ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,
                             ImVec2(Theme::Spacing::L, Theme::Spacing::L));
@@ -118,7 +118,7 @@ namespace imshell::ui {
         ImGui::Dummy(size);
         ImDrawList* dl = ImGui::GetWindowDrawList();
         dl->AddRectFilled(at, at + size, withAlpha(tint, 0.18f), size.y * 0.5f);
-        dl->AddText(at + pad, u32(tone == Tone::Neutral ? colors().subtext1 : tint), text);
+        dl->AddText(at + pad, u32(tone == Tone::Neutral ? colors().foreground : tint), text);
     }
 
     void Callout(const char* title, const char* body, Tone tone) {
@@ -133,7 +133,7 @@ namespace imshell::ui {
         const ImVec2 size(width, pad * 2 + titleH + bodySize.y);
         ImGui::Dummy(size);
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        const float r = Theme::CornerRadius::MEDIUM;
+        const float r = Radius::Md;
         dl->AddRectFilled(at, at + size, withAlpha(tint, 0.10f), r);
         dl->AddRectFilled(at, ImVec2(at.x + stripe, at.y + size.y), u32(tint), r,
                           ImDrawFlags_RoundCornersLeft);
@@ -142,7 +142,7 @@ namespace imshell::ui {
             dl->AddText(text, u32(tint), title);
             text.y += titleH;
         }
-        dl->AddText(nullptr, 0, text, u32(colors().text), body, nullptr, wrap);
+        dl->AddText(nullptr, 0, text, u32(colors().foreground), body, nullptr, wrap);
     }
 
     void Progress(float fraction, const char* label, float width) {
@@ -164,11 +164,11 @@ namespace imshell::ui {
         const ImVec2 at = ImGui::GetCursorScreenPos();
         ImGui::Dummy(ImVec2(w, h));
         ImDrawList* dl = ImGui::GetWindowDrawList();
-        dl->AddRectFilled(at, at + ImVec2(w, h), u32(c.surface1), h * 0.5f);
+        dl->AddRectFilled(at, at + ImVec2(w, h), u32(c.muted), h * 0.5f);
         if (fraction >= 0) {
             const float f = std::clamp(fraction, 0.0f, 1.0f);
             if (f > 0)
-                dl->AddRectFilled(at, at + ImVec2(std::max(h, w * f), h), u32(c.blue), h * 0.5f);
+                dl->AddRectFilled(at, at + ImVec2(std::max(h, w * f), h), u32(c.primary), h * 0.5f);
             return;
         }
         // indeterminate: a third of the track sweeping across
@@ -178,7 +178,7 @@ namespace imshell::ui {
         const float x0 = std::max(at.x, at.x - seg + t * (w + seg));
         const float x1 = std::min(at.x + w, at.x + t * (w + seg));
         if (x1 > x0)
-            dl->AddRectFilled(ImVec2(x0, at.y), ImVec2(x1, at.y + h), u32(c.blue), h * 0.5f);
+            dl->AddRectFilled(ImVec2(x0, at.y), ImVec2(x1, at.y + h), u32(c.primary), h * 0.5f);
     }
 
     void Skeleton(ImVec2 size) {
@@ -192,14 +192,14 @@ namespace imshell::ui {
         const float t = 0.5f + 0.5f * std::sin(static_cast<float>(ImGui::GetTime()) * 3.0f);
         ImVec4 col;
         for (int i = 0; i < 4; ++i)
-            (&col.x)[i] = (&c.surface0.x)[i] + ((&c.surface1.x)[i] - (&c.surface0.x)[i]) * t;
+            (&col.x)[i] = (&c.muted.x)[i] + ((&c.accent.x)[i] - (&c.muted.x)[i]) * t;
         ImGui::GetWindowDrawList()->AddRectFilled(at, at + size, u32(col),
-                                                  Theme::CornerRadius::SMALL);
+                                                  Radius::Md);
     }
 
     void Avatar(const char* name, float diameter) {
         const auto& c = colors();
-        const ImVec4 palette[] = {c.blue, c.green, c.peach, c.purple, c.teal, c.rose, c.yellow};
+        const auto& palette = c.chart;
         unsigned hash = 2166136261u; // fnv-1a: a name keeps its colour
         for (const char* p = name; *p; ++p)
             hash = (hash ^ static_cast<unsigned char>(*p)) * 16777619u;
@@ -225,7 +225,7 @@ namespace imshell::ui {
         const float size = diameter * 0.4f;
         ImFont* font = ImGui::GetFont();
         const ImVec2 ts = font->CalcTextSizeA(size, FLT_MAX, 0, initials);
-        dl->AddText(font, size, centre - ts * 0.5f, u32(c.crust), initials);
+        dl->AddText(font, size, centre - ts * 0.5f, u32(c.background), initials);
     }
 
     void Metric(const char* id, const char* label, const char* value, const char* delta) {
@@ -236,7 +236,7 @@ namespace imshell::ui {
         ImGui::PopFont();
         if (delta && *delta) {
             const bool down = delta[0] == '-';
-            ImGui::PushStyleColor(ImGuiCol_Text, down ? colors().red : colors().green);
+            ImGui::PushStyleColor(ImGuiCol_Text, down ? colors().destructive : colors().success);
             ImGui::TextUnformatted(delta);
             ImGui::PopStyleColor();
         }
@@ -258,7 +258,7 @@ namespace imshell::ui {
         const ImVec2 bodySize = ImGui::CalcTextSize(body, nullptr, false, wrap);
         centred(bodySize.x);
         ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap);
-        ImGui::PushStyleColor(ImGuiCol_Text, colors().subtext0);
+        ImGui::PushStyleColor(ImGuiCol_Text, colors().mutedForeground);
         ImGui::TextUnformatted(body);
         ImGui::PopStyleColor();
         ImGui::PopTextWrapPos();
@@ -288,12 +288,12 @@ namespace imshell::ui {
             }
             const bool on = selected[i];
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, ImGui::GetFrameHeight() * 0.5f);
-            ImGui::PushStyleColor(ImGuiCol_Button, on ? withAlpha(c.blue, 0.25f) : u32(c.surface0));
+            ImGui::PushStyleColor(ImGuiCol_Button, on ? withAlpha(c.primary, 0.20f) : u32(c.muted));
             ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
-                                  on ? withAlpha(c.blue, 0.35f) : u32(c.surface1));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, withAlpha(c.blue, 0.45f));
-            ImGui::PushStyleColor(ImGuiCol_Border, on ? c.blue : c.surface1);
-            ImGui::PushStyleColor(ImGuiCol_Text, on ? c.blue : c.text);
+                                  on ? withAlpha(c.primary, 0.30f) : u32(c.accent));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, withAlpha(c.primary, 0.40f));
+            ImGui::PushStyleColor(ImGuiCol_Border, on ? c.primary : c.border);
+            ImGui::PushStyleColor(ImGuiCol_Text, on ? c.primary : c.foreground);
             ImGui::PushID(static_cast<int>(i));
             if (ImGui::Button(labels[i])) {
                 selected[i] = !selected[i];
@@ -347,13 +347,13 @@ namespace imshell::ui {
                 ImGui::CalcTextSize(it->text.c_str(), nullptr, false, width - pad * 2 - 12);
             const ImVec2 size(width, ts.y + pad * 2);
             const ImVec2 at(vp->WorkPos.x + vp->WorkSize.x - margin - width, y - size.y);
-            dl->AddRectFilled(at, at + size, withAlpha(c.surface0, alpha),
-                              Theme::CornerRadius::LARGE);
-            dl->AddRect(at, at + size, withAlpha(c.surface2, alpha), Theme::CornerRadius::LARGE);
+            dl->AddRectFilled(at, at + size, withAlpha(c.popover, alpha),
+                              Radius::Lg);
+            dl->AddRect(at, at + size, withAlpha(c.border, alpha), Radius::Lg);
             dl->AddCircleFilled(
                 ImVec2(at.x + pad + 3, at.y + pad + ImGui::GetTextLineHeight() * 0.5f), 4,
                 withAlpha(toneColor(it->tone), alpha));
-            dl->AddText(nullptr, 0, ImVec2(at.x + pad + 12, at.y + pad), withAlpha(c.text, alpha),
+            dl->AddText(nullptr, 0, ImVec2(at.x + pad + 12, at.y + pad), withAlpha(c.foreground, alpha),
                         it->text.c_str(), nullptr, width - pad * 2 - 12);
             y = at.y - Theme::Spacing::S;
         }

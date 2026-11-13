@@ -362,7 +362,7 @@ namespace imshell {
 
         // prefer-dark for gtk's own widgets (dialogs, native views) from the theme
         void followTheme() {
-            const int dark = Theme::Current() && Theme::Current()->dark ? 1 : 0;
+            const int dark = theme().dark ? 1 : 0;
             if (dark == gDark)
                 return;
             gDark = dark;
@@ -439,7 +439,7 @@ namespace imshell {
             io.DeltaTime = std::max(static_cast<float>(now - last) / 1e6f, 1e-4f);
             last = now;
 
-            const ImVec4 clear = Theme::Current()->colors.base;
+            const ImVec4 clear = theme().background;
             glViewport(0, 0, w * scale, h * scale);
             glClearColor(clear.x, clear.y, clear.z, clear.w);
             glClear(GL_COLOR_BUFFER_BIT);
@@ -488,9 +488,9 @@ namespace imshell {
         }
 
         void windowButtons(const std::string& part, float x, float centreY) {
-            const auto& c = Theme::Current()->colors;
+            const Theme& c = theme();
             ImDrawList* dl = ImGui::GetWindowDrawList();
-            const ImU32 text = ImGui::GetColorU32(c.text);
+            const ImU32 text = ImGui::GetColorU32(c.foreground);
             size_t pos = 0;
             while (pos <= part.size()) {
                 const size_t comma = part.find(',', pos);
@@ -505,7 +505,7 @@ namespace imshell {
                 const ImVec2 m(x + kButtonSide / 2, centreY);
                 const bool hot = ImGui::IsItemHovered();
                 dl->AddCircleFilled(m, kButtonSide / 2,
-                                    ImGui::GetColorU32(hot ? c.surface1 : c.surface0));
+                                    ImGui::GetColorU32(hot ? c.accent : c.muted));
                 if (name == "minimize") {
                     dl->AddLine({m.x - 4, m.y + 3}, {m.x + 4, m.y + 3}, text, 1.5f);
                     if (clicked)
@@ -652,7 +652,7 @@ namespace imshell {
         pio.Platform_GetClipboardTextFn = getClipboard;
         pio.Platform_SetClipboardTextFn = setClipboard;
         ImGui::StyleColorsDark();
-        Theme::ApplyTheme(Theme::Current()->colors);
+        ApplyTheme();
         delegate.setup();
         followTheme();
         gLastInputUs = g_get_monotonic_time();

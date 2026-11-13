@@ -145,7 +145,7 @@ namespace imshell {
 
         // dark title bar, borders and snap previews when the theme is dark
         void followTheme() {
-            const int dark = Theme::Current() && Theme::Current()->dark ? 1 : 0;
+            const int dark = theme().dark ? 1 : 0;
             if (dark == gDark || !gHwnd)
                 return;
             gDark = dark;
@@ -191,12 +191,12 @@ namespace imshell {
 
         // the caption buttons, drawn like windows' own (segoe-style glyphs as lines)
         void captionButtons(const TitleBar& bar) {
-            const auto& c = Theme::Current()->colors;
+            const Theme& c = theme();
             ImDrawList* dl = ImGui::GetWindowDrawList();
-            const bool dark = Theme::Current()->dark;
+            const bool dark = theme().dark;
             const ImU32 hoverBg = dark ? IM_COL32(255, 255, 255, 26) : IM_COL32(0, 0, 0, 15);
             const ImU32 activeBg = dark ? IM_COL32(255, 255, 255, 38) : IM_COL32(0, 0, 0, 26);
-            const ImU32 text = ImGui::GetColorU32(c.text);
+            const ImU32 text = ImGui::GetColorU32(c.foreground);
             float x = bar.pos.x + bar.size.x - 3 * kCaptionW;
             const auto box = [&](float at) {
                 return ImRect(ImVec2(at, bar.pos.y), ImVec2(at + kCaptionW, bar.pos.y + bar.size.y));
@@ -308,7 +308,7 @@ namespace imshell {
         if (config.docking)
             ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         ImGui::StyleColorsDark();
-        Theme::ApplyTheme(Theme::Current()->colors);
+        ApplyTheme();
         delegate.setup();
 
         ImGui_ImplGlfw_InitForOther(d.window, true);
@@ -337,7 +337,7 @@ namespace imshell {
         detail::textInputFrame();
         ImGui::Render();
         // an unchanged frame is not drawn or presented: the window keeps showing the last one
-        const ImVec4 base = Theme::Current()->colors.base;
+        const ImVec4 base = theme().background;
         const bool mustDraw = std::exchange(d.backend->mustDraw, false);
         detail::frameSkipped() = detail::sameAsLastFrame(ImGui::GetDrawData(), base) && !mustDraw;
         if (!detail::frameSkipped()) {

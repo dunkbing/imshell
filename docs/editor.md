@@ -1,6 +1,6 @@
 # Editor
 
-`imshell/editor.hpp` is a multi-line code editor, `imshell::TextEditor`: typing, selection, undo and redo, line numbers, find and replace, a read-only mode, and a completion popup. It is optional: it lives in its own target, `imshell::editor`, and nothing in imshell's core uses it, so an app that doesn't link it pays nothing. It draws with `Theme::Current()` and uses only ImGui's input, so it runs on every shell.
+`imshell/editor.hpp` is a multi-line code editor, `imshell::TextEditor`: typing, selection, undo and redo, line numbers, find and replace, a read-only mode, and a completion popup. It is optional: it lives in its own target, `imshell::editor`, and nothing in imshell's core uses it, so an app that doesn't link it pays nothing. It draws with `theme()` and uses only ImGui's input, so it runs on every shell.
 
 ```cmake
 target_link_libraries(myapp PRIVATE imshell::imshell imshell::editor)
@@ -43,7 +43,7 @@ The editor knows nothing about a language. What depends on one is a hook:
 
 The rest: `SetText` / `GetText`, `HasSelection`, `GetSelectedText`, `GetCursorIndex` (a byte offset), `SetPlaceholder`, `SetShowLineNumbers`, `SetTabSize`, `SetReadOnly`, `SetFocus`, `IsContentDirty` / `ClearContentDirty`.
 
-Colours come from `Theme::Current()` each frame (`TextEditor::FromTheme(colors)` is that mapping). `SetPalette(palette)` replaces it, for a block on a different background for example; `TokenColor(token)` is the colour a token draws with.
+Colours come from `theme()` each frame (`TextEditor::FromTheme(theme)` is that mapping: `syntax.*` for tokens). `SetPalette(palette)` replaces it, for a block on a different background for example; `TokenColor(token)` is the colour a token draws with.
 
 ## Behaviour worth knowing
 

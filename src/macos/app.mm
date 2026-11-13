@@ -34,15 +34,15 @@ namespace imshell {
         enum class BarAction { None, Drag, DoubleClick } gBarAction = BarAction::None;
         ImGuiWindow* gFocusBeforeBar = nullptr; // a click on the bar hands focus back to it
         float gBarHeight = 28;
-        const Theme::ThemeDef* gTheme = nullptr; // the theme the window was last given
+        const Theme* gTheme = nullptr; // the theme the window was last given
 
         // the window (traffic lights, sheets, native views) follows the theme, as on windows and linux
         void followTheme() {
-            const Theme::ThemeDef* theme = Theme::Current();
-            if (theme == gTheme || !theme || !gWindow)
+            const Theme* theme = &imshell::theme();
+            if (theme == gTheme || !gWindow)
                 return;
             gTheme = theme;
-            const ImVec4 c = theme->colors.base;
+            const ImVec4 c = theme->background;
             gWindow.backgroundColor = [NSColor colorWithRed:c.x green:c.y blue:c.z alpha:c.w];
             gWindow.appearance = [NSAppearance appearanceNamed:theme->dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
         }
@@ -177,7 +177,7 @@ namespace imshell {
         if (config.docking)
             ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         ImGui::StyleColorsDark();
-        Theme::ApplyTheme(Theme::Current()->colors);
+        ApplyTheme();
         delegate.setup();
 
         ImGui_ImplGlfw_InitForOther(d.window, true);
@@ -197,13 +197,13 @@ namespace imshell {
         auto& d = *impl_;
         followTheme();
         @autoreleasepool {
-            d.backend->beginFrame(Theme::Current()->colors.base);
+            d.backend->beginFrame(theme().background);
             ImGui::NewFrame();
             d.delegate->frame();
             detail::textInputFrame();
             ImGui::Render();
             detail::frameSkipped() =
-                detail::sameAsLastFrame(ImGui::GetDrawData(), Theme::Current()->colors.base);
+                detail::sameAsLastFrame(ImGui::GetDrawData(), theme().background);
             if (detail::frameSkipped()) {
                 d.backend->dropFrame();
             } else {

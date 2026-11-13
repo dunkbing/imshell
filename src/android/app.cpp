@@ -517,7 +517,7 @@ namespace imshell {
             gEnv->DeleteLocalRef(s);
         };
         ImGui::StyleColorsDark();
-        Theme::ApplyTheme(Theme::Current()->colors);
+        ApplyTheme();
         ImGui_ImplAndroid_Init(gAndroid->window);
         io.BackendPlatformName = "imshell_android";
         delegate.setup();

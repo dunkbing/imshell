@@ -100,7 +100,7 @@ namespace {
             row.emplace_back(m.buttons[i].text, style == AlertButton::Style::Default
                                                     ? ButtonVariant::Primary
                                                 : style == AlertButton::Style::Destructive
-                                                    ? ButtonVariant::Danger
+                                                    ? ButtonVariant::Destructive
                                                     : ButtonVariant::Secondary);
         }
         int pressed = buttonRow(row);
@@ -134,7 +134,7 @@ namespace {
                                                 ImGuiInputTextFlags_EnterReturnsTrue);
         if (!p.error.empty()) {
             ImGui::PushTextWrapPos(480.0f);
-            ImGui::TextColored(Theme::Current()->colors.red, "%s",
+            ImGui::TextColored(theme().destructive, "%s",
                                p.error.c_str());
             ImGui::PopTextWrapPos();
         }

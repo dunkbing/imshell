@@ -4,10 +4,15 @@
 #include <initializer_list>
 
 namespace imshell {
+    // by meaning: primary for the one main action, destructive for deleting and other actions
+    // that lose something, secondary for the rest; ghost and outline are quieter (toolbars, a
+    // cancel next to a primary). custom draws with whatever colors the caller pushed
     enum class ButtonVariant {
         Secondary,
         Primary,
-        Danger,
+        Destructive,
+        Ghost,
+        Outline,
         Custom,
     };
 

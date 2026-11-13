@@ -20,7 +20,7 @@ ed::SetCurrentEditor(nullptr);
 
 // each frame
 ed::SetCurrentEditor(editor);
-imshell::NodeEditor::ApplyColors(); // from Theme::Current(), so a theme change shows at once
+imshell::NodeEditor::ApplyColors(); // from theme(), so a theme change shows at once
 ed::Begin("graph");
 // ed::BeginNode / EndNode, BeginPin / EndPin, Link ...
 ed::End();

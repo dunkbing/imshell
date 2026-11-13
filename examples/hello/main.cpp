@@ -208,7 +208,7 @@ struct Hello : imshell::Delegate {
 };
 
 int main() {
-    imshell::Theme::Current() = &imshell::Theme::themeById("tokyo-night");
+    imshell::SetTheme("tokyo-night");
     imshell::Config config;
     config.title = "Hello imshell";
     config.appName = "imshell hello"; // imgui.ini in DataDir("imshell hello")

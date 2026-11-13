@@ -31,6 +31,7 @@ add_library(imshell STATIC
     src/select.cpp
     src/resizable.cpp
     src/spinner.cpp
+    src/themes.cpp
     src/toggle_button.cpp
 )
 add_library(imshell::imshell ALIAS imshell)
@@ -352,11 +353,15 @@ if(IMSHELL_BUILD_TESTS)
     target_include_directories(imshell_handles_test PRIVATE src ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_handles_test PRIVATE cxx_std_20)
     add_test(NAME imshell_handles_test COMMAND imshell_handles_test)
-    add_executable(imshell_components_test tests/components_test.cpp src/components.cpp src/button.cpp ${IMSHELL_TEST_IMGUI})
+    add_executable(imshell_components_test tests/components_test.cpp src/components.cpp src/button.cpp src/themes.cpp ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_components_test PRIVATE include ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_components_test PRIVATE cxx_std_20)
     target_compile_definitions(imshell_components_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
     add_test(NAME imshell_components_test COMMAND imshell_components_test)
+    add_executable(imshell_theme_test tests/theme_test.cpp src/themes.cpp ${IMSHELL_TEST_IMGUI})
+    target_include_directories(imshell_theme_test PRIVATE include ${IMSHELL_IMGUI_DIR})
+    target_compile_features(imshell_theme_test PRIVATE cxx_std_20)
+    add_test(NAME imshell_theme_test COMMAND imshell_theme_test)
     # the emoji loader this platform builds (see above)
     get_target_property(IMSHELL_SOURCES imshell SOURCES)
     set(IMSHELL_EMOJI_SOURCES src/emoji_glyph.cpp)
@@ -381,13 +386,13 @@ if(IMSHELL_BUILD_TESTS)
     target_compile_features(imshell_resizable_test PRIVATE cxx_std_20)
     target_compile_definitions(imshell_resizable_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
     add_test(NAME imshell_resizable_test COMMAND imshell_resizable_test)
-    add_executable(imshell_editor_test tests/editor_test.cpp src/editor.cpp src/button.cpp ${IMSHELL_TEST_IMGUI})
+    add_executable(imshell_editor_test tests/editor_test.cpp src/editor.cpp src/button.cpp src/themes.cpp ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_editor_test PRIVATE include ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_editor_test PRIVATE cxx_std_20)
     target_compile_definitions(imshell_editor_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
     add_test(NAME imshell_editor_test COMMAND imshell_editor_test)
     if(TARGET imshell_node_editor)
-        add_executable(imshell_node_editor_test tests/node_editor_test.cpp src/node_editor.cpp
+        add_executable(imshell_node_editor_test tests/node_editor_test.cpp src/node_editor.cpp src/themes.cpp
             ${IMSHELL_NODE_EDITOR_DIR}/imgui_node_editor.cpp ${IMSHELL_NODE_EDITOR_DIR}/imgui_node_editor_api.cpp
             ${IMSHELL_NODE_EDITOR_DIR}/crude_json.cpp ${IMSHELL_NODE_EDITOR_DIR}/imgui_canvas.cpp ${IMSHELL_TEST_IMGUI})
         target_include_directories(imshell_node_editor_test PRIVATE include ${IMSHELL_IMGUI_DIR} ${IMSHELL_NODE_EDITOR_DIR})
@@ -396,7 +401,7 @@ if(IMSHELL_BUILD_TESTS)
     endif()
     if(TARGET imgui_rich_md)
         # fonts.cpp and the emoji loader: markdown merges emoji into its faces
-        add_executable(imshell_markdown_test tests/markdown_test.cpp src/markdown.cpp src/editor.cpp src/button.cpp
+        add_executable(imshell_markdown_test tests/markdown_test.cpp src/markdown.cpp src/editor.cpp src/button.cpp src/themes.cpp
                        src/fonts.cpp ${IMSHELL_EMOJI_SOURCES} ${IMSHELL_TEST_IMGUI})
         target_include_directories(imshell_markdown_test PRIVATE include src third_party ${IMSHELL_IMGUI_DIR})
         target_compile_features(imshell_markdown_test PRIVATE cxx_std_20)
