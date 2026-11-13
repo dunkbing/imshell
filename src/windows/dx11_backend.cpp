@@ -21,9 +21,15 @@ namespace imshell {
 
         D3D_FEATURE_LEVEL level;
         constexpr D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0};
-        const HRESULT hr = D3D11CreateDeviceAndSwapChain(
-            nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, 0, levels, 2, D3D11_SDK_VERSION, &sd,
-            &swapChain_, &device_, &level, &context_);
+        HRESULT hr = E_FAIL;
+        // no gpu (a vm, some remote sessions): warp, direct3d's software renderer
+        for (const D3D_DRIVER_TYPE type : {D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP}) {
+            hr = D3D11CreateDeviceAndSwapChain(nullptr, type, nullptr, 0, levels, 2,
+                                               D3D11_SDK_VERSION, &sd, &swapChain_, &device_,
+                                               &level, &context_);
+            if (SUCCEEDED(hr))
+                break;
+        }
         if (FAILED(hr)) {
             std::fprintf(stderr, "imshell: D3D11CreateDeviceAndSwapChain failed: 0x%lx\n",
                          static_cast<unsigned long>(hr));

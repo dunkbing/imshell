@@ -357,11 +357,15 @@ namespace imshell {
         auto& d = *impl_;
         if (!d.window)
             return;
-        detail::dropNativeViews();
-        if (d.backend)
-            d.backend->shutdown();
-        ImGui_ImplGlfw_Shutdown();
-        ImGui::DestroyContext();
+        // create() may have failed part way: tear down only what it set up
+        if (ImGui::GetCurrentContext()) {
+            detail::dropNativeViews();
+            if (d.backend && ImGui::GetIO().BackendRendererUserData)
+                d.backend->shutdown();
+            if (ImGui::GetIO().BackendPlatformUserData)
+                ImGui_ImplGlfw_Shutdown();
+            ImGui::DestroyContext();
+        }
         if (gGlfwProc)
             SetWindowLongPtrW(gHwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(gGlfwProc));
         gBackend = nullptr;
