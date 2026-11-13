@@ -29,7 +29,7 @@ States come from the role: `Hovered(c)` and `Pressed(c)` step a fill toward the 
 
 `ApplyTheme()` styles ImGui from the current theme; the shells call it, `SetTheme` too once a context exists. `Themes()` lists them for a picker, `ThemeById(id)` finds one (the old ids `light` and `dark` are One Light and One Dark). `TagColor(key, out)` resolves a colour the user picked and saved by key (`red`, `peach`, `yellow`, `green`, `blue`, `purple`) in the current theme.
 
-Sizes: `Radius::Sm` (3, tags and small controls), `Md` (6, controls and popups), `Lg` (8, cards and containers), `Full` (pills). `Spacing::XS` (2), `S` (4), `M` (8), `L` (16), `XL` (20); `Theme::Spacing` and `Theme::Radius` are the same.
+Sizes: `Radius::Sm` (4, tags and small controls), `Md` (6, controls and popups), `Lg` (8, cards and containers), `Full` (pills). `Spacing::XS` (2), `S` (4), `M` (8), `L` (16), `XL` (20); `Theme::Spacing` and `Theme::Radius` are the same.
 
 Buttons (`button.hpp`): `Primary` for the one main action, `Secondary` (the default) for the rest, `Destructive`, and the quieter `Ghost` (transparent until hovered) and `Outline` (a border); `Custom` keeps whatever colours the caller pushed.
 

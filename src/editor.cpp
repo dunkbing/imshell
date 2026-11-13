@@ -1485,11 +1485,11 @@ namespace imshell {
         ImGui::SetNextWindowSize(ImVec2(barWidth, 0));
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8, 6));
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, Radius::Md); // the popup style: a floating bar
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 4));
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 3));
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, withAlpha(palette_.currentLineBackground, 240));
-        ImGui::PushStyleColor(ImGuiCol_Border, withAlpha(palette_.lineNumber, 200));
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, theme().popover);
+        ImGui::PushStyleColor(ImGuiCol_Border, theme().border);
 
         // one bar per editor: the name carries this editor's id
         char name[40];

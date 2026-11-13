@@ -343,7 +343,7 @@ namespace imshell {
 
     void SetTheme(const Theme& t) {
         const Theme* first = table().themes;
-        // a theme from Themes() by place; another (an app's own) by id
+        // a theme from Themes() by place; a copy of one by its id
         gCurrent = &t >= first && &t < first + COUNT ? static_cast<size_t>(&t - first)
                                                      : static_cast<size_t>(&ThemeById(t.id) - first);
         if (ImGui::GetCurrentContext())
@@ -400,11 +400,10 @@ namespace imshell {
         style.ItemInnerSpacing = ImVec2(6.0f, 6.0f);
         style.TouchExtraPadding = ImVec2(0.0f, 0.0f);
         style.IndentSpacing = 20.0f;
-        style.ScrollbarSize = 12.0f;
-        style.GrabMinSize = 12.0f;
-
+        style.ScrollbarSize = 14.0f;
+        
         style.WindowBorderSize = 0.0f;
-        style.ChildBorderSize = 1.0f;
+        style.ChildBorderSize = 0.0f;
         style.PopupBorderSize = 1.0f;
         style.FrameBorderSize = 1.0f;
         style.TabBorderSize = 0.0f;
@@ -415,7 +414,7 @@ namespace imshell {
         style.ChildRounding = Radius::Lg;
         style.FrameRounding = Radius::Md;
         style.PopupRounding = Radius::Md;
-        style.ScrollbarRounding = Radius::Full;
+        style.ScrollbarRounding = 0.0f;
         style.GrabRounding = Radius::Sm;
         style.TabRounding = 0.0f;
 
@@ -441,11 +440,11 @@ namespace imshell {
         c[ImGuiCol_Border] = t.border;
         c[ImGuiCol_BorderShadow] = clear;
         c[ImGuiCol_FrameBg] = t.input;
-        c[ImGuiCol_FrameBgHovered] = Hovered(t.input);
-        c[ImGuiCol_FrameBgActive] = Pressed(t.input);
+        c[ImGuiCol_FrameBgHovered] = t.accent;
+        c[ImGuiCol_FrameBgActive] = Pressed(t.accent);
         c[ImGuiCol_TitleBg] = t.sidebar;
-        c[ImGuiCol_TitleBgActive] = t.sidebar;
-        c[ImGuiCol_TitleBgCollapsed] = t.sidebar;
+        c[ImGuiCol_TitleBgActive] = t.muted;
+        c[ImGuiCol_TitleBgCollapsed] = t.muted;
         c[ImGuiCol_MenuBarBg] = t.background;
         c[ImGuiCol_ScrollbarBg] = clear;
         c[ImGuiCol_ScrollbarGrab] = t.border;
@@ -458,10 +457,9 @@ namespace imshell {
         c[ImGuiCol_Button] = t.secondary;
         c[ImGuiCol_ButtonHovered] = Hovered(t.secondary);
         c[ImGuiCol_ButtonActive] = Pressed(t.secondary);
-        // selection is the primary at rising strength; a hovered row is the accent
-        c[ImGuiCol_Header] = WithAlpha(t.primary, 0.20f);
+        c[ImGuiCol_Header] = t.muted;
         c[ImGuiCol_HeaderHovered] = t.accent;
-        c[ImGuiCol_HeaderActive] = WithAlpha(t.primary, 0.40f);
+        c[ImGuiCol_HeaderActive] = Pressed(t.accent);
         c[ImGuiCol_Separator] = t.border;
         c[ImGuiCol_SeparatorHovered] = Hovered(t.border);
         c[ImGuiCol_SeparatorActive] = t.primary;
@@ -470,26 +468,26 @@ namespace imshell {
         c[ImGuiCol_ResizeGripActive] = t.primary;
         c[ImGuiCol_Tab] = t.sidebar;
         c[ImGuiCol_TabHovered] = t.accent;
-        c[ImGuiCol_TabSelected] = t.background;
+        c[ImGuiCol_TabSelected] = t.muted;
         c[ImGuiCol_TabSelectedOverline] = t.primary;
         c[ImGuiCol_TabDimmed] = t.sidebar;
-        c[ImGuiCol_TabDimmedSelected] = t.background;
+        c[ImGuiCol_TabDimmedSelected] = t.muted;
         c[ImGuiCol_TabDimmedSelectedOverline] = t.border;
         c[ImGuiCol_DockingPreview] = WithAlpha(t.primary, 0.3f);
         c[ImGuiCol_DockingEmptyBg] = t.background;
-        c[ImGuiCol_PlotLines] = t.chart[0];
+        c[ImGuiCol_PlotLines] = t.foreground;
         c[ImGuiCol_PlotLinesHovered] = Hovered(t.chart[0]);
         c[ImGuiCol_PlotHistogram] = t.chart[0];
         c[ImGuiCol_PlotHistogramHovered] = Hovered(t.chart[0]);
         c[ImGuiCol_TableHeaderBg] = t.muted;
-        c[ImGuiCol_TableBorderStrong] = t.border;
-        c[ImGuiCol_TableBorderLight] = WithAlpha(t.border, 0.6f);
+        c[ImGuiCol_TableBorderStrong] = Hovered(t.border);
+        c[ImGuiCol_TableBorderLight] = t.border;
         c[ImGuiCol_TableRowBg] = clear;
         c[ImGuiCol_TableRowBgAlt] = WithAlpha(t.muted, 0.5f);
         c[ImGuiCol_TreeLines] = t.border;
         c[ImGuiCol_TextSelectedBg] = WithAlpha(t.primary, 0.3f);
-        c[ImGuiCol_DragDropTarget] = WithAlpha(t.primary, 0.8f);
-        c[ImGuiCol_DragDropTargetBg] = WithAlpha(t.primary, 0.15f);
+        c[ImGuiCol_DragDropTarget] = WithAlpha(t.success, 0.8f);
+        c[ImGuiCol_DragDropTargetBg] = WithAlpha(t.success, 0.15f);
         c[ImGuiCol_UnsavedMarker] = t.warning;
         c[ImGuiCol_NavCursor] = t.ring;
         c[ImGuiCol_NavWindowingHighlight] = t.ring;

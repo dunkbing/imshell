@@ -225,7 +225,7 @@ namespace imshell {
             m = r.GetCenter();
             if (IsZoomed(gHwnd)) {
                 dl->AddRect({m.x - 2, m.y - 6}, {m.x + 6, m.y + 2}, text);
-                dl->AddRectFilled({m.x - 4, m.y - 4}, {m.x + 4, m.y + 4}, ImGui::GetColorU32(c.base));
+                dl->AddRectFilled({m.x - 4, m.y - 4}, {m.x + 4, m.y + 4}, ImGui::GetColorU32(c.background));
                 dl->AddRect({m.x - 4, m.y - 4}, {m.x + 4, m.y + 4}, text);
             } else {
                 dl->AddRect({m.x - 5, m.y - 5}, {m.x + 5, m.y + 5}, text);

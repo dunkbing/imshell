@@ -47,7 +47,7 @@ namespace imshell {
 
         // corners: controls and popups Md, containers Lg, small controls and tags Sm
         struct Radius {
-            static constexpr float Sm = 3.0f;
+            static constexpr float Sm = 4.0f;
             static constexpr float Md = 6.0f;
             static constexpr float Lg = 8.0f;
             static constexpr float Full = 9999.0f;
@@ -72,7 +72,7 @@ namespace imshell {
     const Theme& theme();
     // makes it current and styles imgui with it (once a context exists; before, Run applies it)
     void SetTheme(std::string_view id);
-    void SetTheme(const Theme& theme);
+    void SetTheme(const Theme& theme); // one of Themes(), or a copy of one
     // imgui's style from the current theme: the shells call it, an app with its own context too
     void ApplyTheme();
 
