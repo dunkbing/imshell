@@ -3,7 +3,6 @@
 #include "imgui_internal.h" // ImTextCharFromUtf8
 #include <cmath>
 
-#include "imgui_internal.h"
 #include "imshell/themes.hpp"
 
 using namespace imshell;
@@ -116,13 +115,15 @@ bool imshell::IconButton(const char* icon, ButtonVariant variant, const ImVec2& 
                                    : nullptr;
     bool clicked;
     if (glyph && glyph->Visible) {
-        ImGui::PushID(icon);
-        clicked = ImGui::Button("##icon", size);
-        ImGui::PopID();
+        // the label stays the id (lookups by label keep working), drawn clear
+        const ImU32 text = ImGui::GetColorU32(ImGuiCol_Text);
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 0, 0, 0));
+        clicked = ImGui::Button(icon, size);
+        ImGui::PopStyleColor();
         const ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
         const ImVec2 at(std::round((min.x + max.x) * 0.5f - (glyph->X0 + glyph->X1) * 0.5f),
                         std::round((min.y + max.y) * 0.5f - (glyph->Y0 + glyph->Y1) * 0.5f));
-        ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), ImGui::GetFontSize(), at, ImGui::GetColorU32(ImGuiCol_Text), icon);
+        ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), ImGui::GetFontSize(), at, text, icon);
     } else {
         clicked = buttonSize == ButtonSize::Small ? ImGui::SmallButton(icon) : ImGui::Button(icon, size);
     }
