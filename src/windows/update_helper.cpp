@@ -10,6 +10,7 @@
 #include <tlhelp32.h>
 
 #include <chrono>
+#include <cwchar>
 #include <cwctype>
 #include <filesystem>
 #include <format>
@@ -81,7 +82,8 @@ namespace {
         return found;
     }
 
-    // asks each visible top-level window of pid to close, as a user would; false when it has none
+    // asks pid's main window to close, as a user would (glfw's class, as closeMainWindow in
+    // updater.cpp finds it); false when it has none
     bool askToClose(DWORD pid) {
         struct Find {
             DWORD pid;
@@ -92,7 +94,9 @@ namespace {
                 auto* f = reinterpret_cast<Find*>(param);
                 DWORD owner = 0;
                 GetWindowThreadProcessId(hwnd, &owner);
-                if (owner == f->pid && IsWindowVisible(hwnd) && !GetWindow(hwnd, GW_OWNER)) {
+                wchar_t cls[16] = {};
+                GetClassNameW(hwnd, cls, 16);
+                if (owner == f->pid && wcscmp(cls, L"GLFW30") == 0) {
                     PostMessageW(hwnd, WM_CLOSE, 0, 0);
                     f->asked = true;
                 }
