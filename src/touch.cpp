@@ -14,6 +14,7 @@ namespace imshell::touch {
         int gDownFrame = 0;  // imgui's frame when the finger landed
         bool gMoved = false; // past the slop, though maybe not decided yet
         ImVec2 gVelocity, gFling;
+        ImVec2 gScrollRest; // the part of a scroll under a whole point, carried to the next
         bool gLift = false;
 
         // selection handles, as drawn last frame: where each end's character is (its line's
@@ -86,7 +87,7 @@ namespace imshell::touch {
     }
 
     void down(ImVec2 p, double now) {
-        gFling = gVelocity = ImVec2(0, 0);
+        gFling = gVelocity = gScrollRest = ImVec2(0, 0);
         gLift = false;
         letGo();
         if (grabHandle(p))
@@ -117,8 +118,17 @@ namespace imshell::touch {
     }
 
     void scrollBy(ImVec2 d) {
+        // imgui rounds a scroll position to whole points, so a step under half a point (a slow
+        // drag, the tail of a flick) would be lost each time: send whole points, carry the rest.
+        // its wheel steps are truncated (2 and 5 lines), so divide by the same
         const float font = std::max(ImGui::GetFontSize(), 1.0f);
-        ImGui::GetIO().AddMouseWheelEvent(d.x / (2.0f * font), d.y / (5.0f * font));
+        const float stepX = std::max(ImTrunc(2.0f * font), 1.0f), stepY = std::max(ImTrunc(5.0f * font), 1.0f);
+        gScrollRest.x += d.x;
+        gScrollRest.y += d.y;
+        const ImVec2 whole(std::trunc(gScrollRest.x), std::trunc(gScrollRest.y));
+        gScrollRest = ImVec2(gScrollRest.x - whole.x, gScrollRest.y - whole.y);
+        if (whole.x != 0 || whole.y != 0)
+            ImGui::GetIO().AddMouseWheelEvent(whole.x / stepX, whole.y / stepY);
     }
 
     void move(ImVec2 p, double now) {
