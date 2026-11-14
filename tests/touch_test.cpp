@@ -77,6 +77,13 @@ int main() {
     }
     check(!touch::animating(), "the coast stops");
 
+    // steps under a point add up instead of vanishing: ten 0.3 point drags scroll three points
+    wheel = 0;
+    for (int i = 0; i < 10; ++i)
+        touch::scrollBy(ImVec2(0, 0.3f));
+    frames(2);
+    check(wheel > 0, "sub-point steps add up to scroll");
+
     // a quick swipe over the text field scrolls the page; held still first, it selects text
     touch::down(ImVec2(60, 62), 1.9);
     frames(2);
