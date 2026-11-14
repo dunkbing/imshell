@@ -326,7 +326,22 @@ namespace imshell {
             return TRUE;
         }
 
+        // a file drag over the area: DragActive() and the pointer follow it
+        GdkDragAction onDragOver(GtkDropTarget*, double x, double y, gpointer) {
+            noteInput();
+            detail::dragOver(true, ImVec2(static_cast<float>(x), static_cast<float>(y)));
+            queueRender();
+            return GDK_ACTION_COPY;
+        }
+
+        void onDragLeave(GtkDropTarget*, gpointer) {
+            if (detail::drag().active)
+                detail::dragOver(false);
+            queueRender();
+        }
+
         gboolean onDrop(GtkDropTarget*, const GValue* value, double, double, gpointer) {
+            detail::dragDropped();
             if (!gDelegate || !G_VALUE_HOLDS(value, GDK_TYPE_FILE_LIST))
                 return FALSE;
             noteInput();
@@ -616,6 +631,9 @@ namespace imshell {
         g_signal_connect(scroll, "scroll", G_CALLBACK(onScroll), nullptr);
         gtk_widget_add_controller(gArea, scroll);
         GtkDropTarget* drop = gtk_drop_target_new(GDK_TYPE_FILE_LIST, GDK_ACTION_COPY);
+        g_signal_connect(drop, "enter", G_CALLBACK(onDragOver), nullptr);
+        g_signal_connect(drop, "motion", G_CALLBACK(onDragOver), nullptr);
+        g_signal_connect(drop, "leave", G_CALLBACK(onDragLeave), nullptr);
         g_signal_connect(drop, "drop", G_CALLBACK(onDrop), nullptr);
         gtk_widget_add_controller(gArea, GTK_EVENT_CONTROLLER(drop));
 

@@ -27,6 +27,8 @@
 | `shouldQuit()` | every loop; true closes the window |
 | `closeRequested()` | the user closes the window (close button, Cmd-Q, Alt-F4); return false to keep it open, e.g. to ask about unsaved work and quit later through `shouldQuit()` |
 
+While files are dragged over the window (macOS and Linux), `imshell::DragActive()` is true and the pointer follows the drag, so `IsWindowHovered` and `IsMouseHoveringRect` say where a drop would land; `DragPosition()` is the last position. A drag that leaves moves the pointer away; a drop leaves it where it fell. Each change requests frames.
+
 ## The loop
 
 `imshell::Run(config, delegate)` is the whole app: it creates the window, runs the loop and tears down, and returns 1 if the window could not be made. It is `App::create`, `run` and `destroy`, which a host can call itself (DearSQL does, to keep the `App` as a member). `run()` is the whole loop. It draws only when something happens: input, a resize, or a request to keep drawing. While idle it sleeps in the OS event wait, so an idle app uses no CPU.

@@ -71,7 +71,7 @@ struct Hello : imshell::Delegate {
 
         const auto bar = imshell::BeginTitleBar();
         barEnd = bar.pos.x + bar.size.x - bar.rightInset;
-        if (imshell::SmallButton("Bar button"))
+        if (imshell::Button("Bar button")) // a full-height button sits centred where the bar puts the cursor
             ++barClicks;
         barButton = ImVec2((ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) / 2,
                            (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) / 2);
@@ -88,6 +88,12 @@ struct Hello : imshell::Delegate {
         if (imshell::Button("Click me", imshell::ButtonVariant::Primary))
             ++clicks;
         ImGui::Text("Clicked %d times", clicks);
+        // drop files here: while a file drag is over the window the box follows it
+        ImGui::BeginChild("##drop", ImVec2(320, 40), ImGuiChildFlags_Borders);
+        ImGui::TextUnformatted(imshell::DragActive() ? "drop here" : "drop files here");
+        if (imshell::DragActive() && ImGui::IsWindowHovered())
+            ImGui::GetWindowDrawList()->AddRect(ImGui::GetWindowPos(), ImVec2(ImGui::GetWindowPos().x + 320, ImGui::GetWindowPos().y + 40), IM_COL32(80, 160, 255, 255), 4.0f, ImDrawFlags_None, 2.0f);
+        ImGui::EndChild();
         ImGui::SetNextItemWidth(320);
         ImGui::InputTextWithHint("##typed", "Type here, in any language", typed, sizeof typed);
         ImGui::InputTextWithHint("##prose", "Prose: spell check, autocorrect", prose, sizeof prose);
