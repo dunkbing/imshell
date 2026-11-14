@@ -9,9 +9,12 @@
 #include "imshell/title_bar.hpp"
 
 #include <cstdio>
+#include <iterator>
 #include <utility>
 #include <dwmapi.h>
 #include <windowsx.h>
+#include <ole2.h>
+#include <shellapi.h>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3.h>
@@ -44,6 +47,94 @@ namespace imshell {
         enum class BarAction { None, Drag, DoubleClick, Menu } gBarAction = BarAction::None;
         ImGuiWindow* gFocusBeforeBar = nullptr; // a click on the bar hands focus back to it
         constexpr float kCaptionW = 46;         // one caption button, as windows draws them
+
+        // files dragged over the window: ole's drop target, since the shell's WM_DROPFILES (what
+        // glfw uses) has no hover. it also takes over the drop itself, so the paths go to
+        // openFile from here
+        class FileDropTarget : public IDropTarget {
+        public:
+            HRESULT STDMETHODCALLTYPE QueryInterface(REFIID id, void** out) override {
+                if (id == __uuidof(IUnknown) || id == __uuidof(IDropTarget)) { // no uuid.lib needed
+                    *out = static_cast<IDropTarget*>(this);
+                    return S_OK;
+                }
+                *out = nullptr;
+                return E_NOINTERFACE;
+            }
+            ULONG STDMETHODCALLTYPE AddRef() override { return 1; }  // one static instance
+            ULONG STDMETHODCALLTYPE Release() override { return 1; }
+
+            HRESULT STDMETHODCALLTYPE DragEnter(IDataObject* data, DWORD, POINTL pt, DWORD* effect) override {
+                FORMATETC fmt = {CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
+                files_ = data && data->QueryGetData(&fmt) == S_OK;
+                *effect = files_ ? DROPEFFECT_COPY : DROPEFFECT_NONE;
+                if (files_)
+                    over(pt);
+                return S_OK;
+            }
+            HRESULT STDMETHODCALLTYPE DragOver(DWORD, POINTL pt, DWORD* effect) override {
+                *effect = files_ ? DROPEFFECT_COPY : DROPEFFECT_NONE;
+                if (files_)
+                    over(pt);
+                return S_OK;
+            }
+            HRESULT STDMETHODCALLTYPE DragLeave() override {
+                if (files_)
+                    detail::dragOver(false);
+                files_ = false;
+                return S_OK;
+            }
+            HRESULT STDMETHODCALLTYPE Drop(IDataObject* data, DWORD, POINTL, DWORD* effect) override {
+                *effect = DROPEFFECT_NONE;
+                detail::dragDropped();
+                files_ = false;
+                FORMATETC fmt = {CF_HDROP, nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
+                STGMEDIUM medium = {};
+                if (!data || FAILED(data->GetData(&fmt, &medium)))
+                    return S_OK;
+                if (HDROP drop = static_cast<HDROP>(GlobalLock(medium.hGlobal))) {
+                    const UINT count = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
+                    for (UINT i = 0; i < count; ++i) {
+                        wchar_t wide[MAX_PATH * 4];
+                        if (!DragQueryFileW(drop, i, wide, static_cast<UINT>(std::size(wide))))
+                            continue;
+                        char utf8[MAX_PATH * 8];
+                        if (WideCharToMultiByte(CP_UTF8, 0, wide, -1, utf8, static_cast<int>(sizeof utf8),
+                                                nullptr, nullptr) > 0 &&
+                            gDelegate)
+                            gDelegate->openFile(utf8);
+                    }
+                    GlobalUnlock(medium.hGlobal);
+                    *effect = DROPEFFECT_COPY;
+                }
+                ReleaseStgMedium(&medium);
+                SetForegroundWindow(gHwnd);
+                return S_OK;
+            }
+
+        private:
+            bool files_ = false;
+            static void over(POINTL pt) {
+                POINT p = {pt.x, pt.y};
+                ScreenToClient(gHwnd, &p);
+                detail::dragOver(true, ImVec2(static_cast<float>(p.x), static_cast<float>(p.y)));
+            }
+        };
+        FileDropTarget gDropTarget;
+        bool gOleStarted = false, gDropRegistered = false;
+
+        // an apartment that was started another way (RPC_E_CHANGED_MODE) just means no hover
+        void registerDrop() {
+            gOleStarted = SUCCEEDED(OleInitialize(nullptr));
+            gDropRegistered = gOleStarted && SUCCEEDED(RegisterDragDrop(gHwnd, &gDropTarget));
+        }
+        void revokeDrop() {
+            if (gDropRegistered)
+                RevokeDragDrop(gHwnd);
+            if (gOleStarted)
+                OleUninitialize();
+            gDropRegistered = gOleStarted = false;
+        }
 
         int resizeBorder() {
             return GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
@@ -295,6 +386,7 @@ namespace imshell {
                          SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
         }
 
+        registerDrop(); // before glfw's drop callback below, which then only serves a failed one
         glfwSetDropCallback(d.window, [](GLFWwindow* w, const int count, const char** paths) {
             for (int i = 0; i < count; i++)
                 if (gDelegate)
@@ -366,6 +458,7 @@ namespace imshell {
                 ImGui_ImplGlfw_Shutdown();
             ImGui::DestroyContext();
         }
+        revokeDrop();
         if (gGlfwProc)
             SetWindowLongPtrW(gHwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(gGlfwProc));
         gBackend = nullptr;

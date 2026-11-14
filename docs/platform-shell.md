@@ -27,7 +27,7 @@
 | `shouldQuit()` | every loop; true closes the window |
 | `closeRequested()` | the user closes the window (close button, Cmd-Q, Alt-F4); return false to keep it open, e.g. to ask about unsaved work and quit later through `shouldQuit()` |
 
-While files are dragged over the window (macOS and Linux), `imshell::DragActive()` is true and the pointer follows the drag, so `IsWindowHovered` and `IsMouseHoveringRect` say where a drop would land; `DragPosition()` is the last position. A drag that leaves moves the pointer away; a drop leaves it where it fell. Each change requests frames.
+While files are dragged over the window (macOS, Windows and Linux), `imshell::DragActive()` is true and the pointer follows the drag, so `IsWindowHovered` and `IsMouseHoveringRect` say where a drop would land; `DragPosition()` is the last position. A drag that leaves moves the pointer away; a drop leaves it where it fell. Each change requests frames.
 
 ## The loop
 

@@ -129,7 +129,7 @@ namespace imshell {
         }
     } // namespace detail
     // true while files are dragged over the window, from entering until they leave or drop
-    // (macos and linux; always false on windows, whose glfw drop has no hover). the pointer
+    // (macos, windows and linux). the pointer
     // follows the drag, so IsWindowHovered and IsMouseHoveringRect tell where a drop would land
     inline bool DragActive() {
         return detail::drag().active;

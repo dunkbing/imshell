@@ -11,7 +11,7 @@
 | Field kinds (`SetTextKind`) | secure input for passwords | keyboard and content type per kind | — | input purpose and hints | input type per kind | textarea attributes per kind |
 | Touch (`src/touch.cpp`) | — | tap, long press, pan that scrolls and coasts (gesture recognizers) | — | — | tap, long press, swipe that scrolls and coasts, hold-then-drag for widgets | the same as Android, from the canvas's touch events |
 | Opened and dropped files | `openFile` | — | `openFile` (dropped) | `openFile` (dropped) | — (`PickFile` copies one in) | — |
-| Drag over (`DragActive()`, `DragPosition()`) | yes | — | — (the drop has no hover) | yes | — | — |
+| Drag over (`DragActive()`, `DragPosition()`) | yes | — | yes (an OLE drop target) | yes | — | — |
 | File dialogs | NFD | document picker | NFD | NFD | document picker | — (the callbacks never run yet) |
 | Skips identical frames | yes | yes | no | no | no | yes |
 | Colour emoji (`AddFont`, `MergeEmoji`) | CoreText | CoreText | DirectWrite + Direct2D, Segoe UI Emoji | FreeType + Noto Color Emoji (FreeType from the system) | FreeType + Noto Color Emoji, when the build has FreeType (the NDK has none) | — |
