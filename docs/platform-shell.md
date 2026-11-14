@@ -14,6 +14,7 @@
 | `maxFps` | 120 | frame cap with vsync off; 0 = no cap |
 | `titleBar` | false | the app draws its own title bar ([Title bar](title-bar.md)) |
 | `titleBarHeight` | 0 | that bar's height, in points; 0 = the platform's own (28 macOS, 32 Windows, 36 Linux, 44 Android) |
+| `icon` | none | the window icon as `{png bytes, size}`: macOS sets the Dock icon (also from a build folder), Windows the window and taskbar icon; Linux (GTK) takes it from the `.desktop` file, other shells ignore it |
 
 ## Delegate
 
@@ -133,3 +134,7 @@ Touch works as on iOS, through the same touch engine (`src/touch.cpp`): iOS feed
 `imshell_android_apk(lib PACKAGE id LABEL name ...)` (`cmake/ImShellAndroid.cmake`) adds `<lib>_apk`, which packs the library into a signed APK next to it without Gradle: `javac` and `d8` for the activity, `aapt2` for the manifest, then `zipalign` and `apksigner` with the SDK's debug key. The SDK is found from the NDK's location (`<sdk>/ndk/<version>`), and a JDK must be on `PATH`. Debug builds are debuggable, so `adb shell run-as <package>` reaches the app's files. Optional arguments: `ACTIVITY` (a subclass), `JAVA` (more sources), `ASSETS`, `PERMISSIONS`, `VERSION`, `VERSION_CODE`.
 
 Configure with the NDK toolchain, `-DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28` (the minimum).
+
+## App icon
+
+`imshell_app(<target> ... ICON <file.icns>)` copies the icon into the macOS bundle (`Contents/Resources/<NAME>.icns`, before signing) and names it in `Info.plist` as `CFBundleIconFile`. `ICON_ICO <file.ico>` (or `ICON` with a `.ico`) gives the Windows exe its icon through a generated `.rc` (lowest id, so Explorer shows it; neutral language). Without them nothing changes. `Config::icon` sets the icon of a running window for runs outside a bundle and for Windows.

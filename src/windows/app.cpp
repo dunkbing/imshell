@@ -5,11 +5,13 @@
 #include "dx11_backend.hpp"
 #include "imgui_impl_glfw.h"
 #include "imgui_internal.h"
+#include "imshell/image.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
 
 #include <cstdio>
 #include <utility>
+#include <vector>
 #include <dwmapi.h>
 #include <windowsx.h>
 
@@ -277,6 +279,19 @@ namespace imshell {
             return false;
         }
         gHwnd = glfwGetWin32Window(d.window);
+        if (config.icon.png) { // glfw copies the pixels; the window and taskbar icon
+            GLFWimage image = {};
+            std::vector<unsigned char> rgba;
+            LoadTexture(config.icon.png, config.icon.size, [&](const uint8_t* p, int w, int h) {
+                rgba.assign(p, p + static_cast<size_t>(w) * h * 4);
+                image.width = w;
+                image.height = h;
+                return ImTextureID{};
+            });
+            image.pixels = rgba.data();
+            if (image.width > 0)
+                glfwSetWindowIcon(d.window, 1, &image);
+        }
         gTitleBar = config.titleBar;
         gBarHeight = config.titleBarHeight > 0 ? config.titleBarHeight : 32;
 

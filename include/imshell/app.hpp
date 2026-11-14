@@ -27,6 +27,13 @@ namespace imshell {
         // points (dp on android, pixels on windows); 0 = the platform's own: 28 on macos, 32 on
         // windows, 36 on linux, 44 on android. taller re-centres the macos traffic lights
         float titleBarHeight = 0;
+        // the window and Dock icon as png bytes (a square, 256 px or more is plenty): macos sets
+        // the Dock icon (also from a build folder, where no bundle gives one), windows the window
+        // and taskbar icon. linux (gtk) takes it from the .desktop file; none elsewhere
+        struct Icon {
+            const unsigned char* png = nullptr;
+            size_t size = 0;
+        } icon;
     };
 
     class Delegate {
