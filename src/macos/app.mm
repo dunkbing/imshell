@@ -36,6 +36,67 @@ namespace imshell {
         float gBarHeight = 28;
         const Theme* gTheme = nullptr; // the theme the window was last given
 
+        // a key-up the window never got (cmd swallows them, screenshots and overlays eat them)
+        // leaves imgui holding the key, and glfw too: its next press arrives as a repeat, which
+        // imgui's backend drops. so each frame what imgui holds is checked against the os, and
+        // the next press of a released key is passed on as a press
+        GLFWkeyfun gImGuiKeyCallback = nullptr;
+        bool gForced[GLFW_KEY_LAST + 1] = {};
+
+        void keyCallback(GLFWwindow* w, int key, int scancode, int action, int mods) {
+            if (key >= 0 && key <= GLFW_KEY_LAST) {
+                if (action == GLFW_REPEAT && gForced[key])
+                    action = GLFW_PRESS;
+                if (action != GLFW_REPEAT)
+                    gForced[key] = false;
+            }
+            gImGuiKeyCallback(w, key, scancode, action, mods);
+        }
+
+        void releaseStuckKeys() {
+            if (!gWindow.isKeyWindow)
+                return; // glfw clears everything on focus loss
+            ImGuiIO& io = ImGui::GetIO();
+            const NSEventModifierFlags flags = NSEvent.modifierFlags;
+            const struct {
+                ImGuiKey key;
+                NSEventModifierFlags flag;
+                const char* name;
+            } mods[] = {{ImGuiMod_Shift, NSEventModifierFlagShift, "shift"},
+                        {ImGuiMod_Ctrl, NSEventModifierFlagControl, "ctrl"},
+                        {ImGuiMod_Alt, NSEventModifierFlagOption, "alt"},
+                        {ImGuiMod_Super, NSEventModifierFlagCommand, "cmd"}};
+            for (const auto& m : mods) {
+                if (ImGui::IsKeyDown(m.key) && !(flags & m.flag)) {
+                    io.AddKeyEvent(m.key, false);
+                    std::fprintf(stderr, "imshell: released stuck %s\n", m.name);
+                }
+            }
+            static const struct {
+                int glfw;
+                ImGuiKey key;
+            } named[] = {{GLFW_KEY_ENTER, ImGuiKey_Enter},     {GLFW_KEY_KP_ENTER, ImGuiKey_KeypadEnter},
+                         {GLFW_KEY_ESCAPE, ImGuiKey_Escape},   {GLFW_KEY_TAB, ImGuiKey_Tab},
+                         {GLFW_KEY_BACKSPACE, ImGuiKey_Backspace}, {GLFW_KEY_DELETE, ImGuiKey_Delete},
+                         {GLFW_KEY_SPACE, ImGuiKey_Space},     {GLFW_KEY_LEFT, ImGuiKey_LeftArrow},
+                         {GLFW_KEY_RIGHT, ImGuiKey_RightArrow}, {GLFW_KEY_UP, ImGuiKey_UpArrow},
+                         {GLFW_KEY_DOWN, ImGuiKey_DownArrow}};
+            auto check = [&](int glfwKey, ImGuiKey key) {
+                if (!ImGui::IsKeyDown(key))
+                    return;
+                const int code = glfwGetKeyScancode(glfwKey); // the mac virtual key code
+                if (code < 0 || CGEventSourceKeyState(kCGEventSourceStateCombinedSessionState, (CGKeyCode)code))
+                    return;
+                io.AddKeyEvent(key, false);
+                gForced[glfwKey] = true;
+                std::fprintf(stderr, "imshell: released stuck key %d\n", glfwKey);
+            };
+            for (const auto& n : named)
+                check(n.glfw, n.key);
+            for (int i = 0; i < 26; ++i)
+                check(GLFW_KEY_A + i, (ImGuiKey)(ImGuiKey_A + i));
+        }
+
         // the window (traffic lights, sheets, native views) follows the theme, as on windows and linux
         void followTheme() {
             const Theme* theme = &imshell::CurrentTheme();
@@ -225,6 +286,7 @@ namespace imshell {
         delegate.setup();
 
         ImGui_ImplGlfw_InitForOther(d.window, true);
+        gImGuiKeyCallback = glfwSetKeyCallback(d.window, keyCallback);
         if (!d.backend->initializeImGui()) {
             std::fprintf(stderr, "imshell: the imgui metal backend failed\n");
             return false;
@@ -242,6 +304,7 @@ namespace imshell {
         followTheme();
         @autoreleasepool {
             d.backend->beginFrame(CurrentTheme().background);
+            releaseStuckKeys();
             ImGui::NewFrame();
             d.delegate->frame();
             detail::textInputFrame();
