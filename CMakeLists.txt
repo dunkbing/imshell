@@ -433,14 +433,33 @@ if(IMSHELL_BUILD_TESTS)
     endif()
 endif()
 
-# an app as people get it: imshell_app(<target> [NAME <name>] [ID <bundle id>] [VERSION <v>]
+# an app as people get it: imshell_app(<target> [NAME <name>] [ID <bundle id>] [VERSION <v>] [ICON <.icns>]
+# [ICON_ICO <.ico>]
 # [APPCAST <url>] [PUBLIC_KEY <ed25519 key>]). windows, with the updater: WinSparkle.dll next to
-# the exe. macos: a <target>-app target that makes <NAME>.app and <target>-macos-<arch>.zip in the
+# the exe, and the .ico (ICON_ICO, or ICON when it ends in .ico) as its icon. macos: a <target>-app
+# target that makes <NAME>.app (ICON: the .icns in Resources, named in Info.plist) and <target>-macos-<arch>.zip in the
 # build folder (cmake/macos-app.cmake: bundle, sparkle, signature, notarizing)
 function(imshell_app target)
-    cmake_parse_arguments(A "" "NAME;ID;VERSION;APPCAST;PUBLIC_KEY" "" ${ARGN})
+    cmake_parse_arguments(A "" "NAME;ID;VERSION;APPCAST;PUBLIC_KEY;ICON;ICON_ICO" "" ${ARGN})
+    if(A_ICON)
+        get_filename_component(A_ICON "${A_ICON}" ABSOLUTE)
+        if(A_ICON MATCHES "\\.ico$" AND NOT A_ICON_ICO)
+            set(A_ICON_ICO "${A_ICON}")
+        endif()
+    endif()
+    if(A_ICON_ICO)
+        get_filename_component(A_ICON_ICO "${A_ICON_ICO}" ABSOLUTE)
+    endif()
     if(IOS OR ANDROID OR EMSCRIPTEN)
         return()
+    endif()
+    if(WIN32 AND A_ICON_ICO)
+        # the exe's icon (explorer takes the lowest id): a generated .rc, neutral language
+        enable_language(RC)
+        set(rc "${CMAKE_CURRENT_BINARY_DIR}/${target}_icon.rc")
+        file(WRITE "${rc}" "LANGUAGE 0, 0\n1 ICON \"${A_ICON_ICO}\"\n")
+        target_sources(${target} PRIVATE "${rc}")
+        set_source_files_properties("${rc}" PROPERTIES OBJECT_DEPENDS "${A_ICON_ICO}")
     endif()
     if(WIN32 AND IMSHELL_UPDATER)
         add_custom_command(TARGET ${target} POST_BUILD
@@ -462,12 +481,16 @@ function(imshell_app target)
         if(NOT A_VERSION)
             set(A_VERSION "${PROJECT_VERSION}")
         endif()
+        set(mac_icon "")
+        if(A_ICON AND NOT A_ICON MATCHES "\\.ico$")
+            set(mac_icon "${A_ICON}")
+        endif()
         add_custom_target(${target}-app
             COMMAND ${CMAKE_COMMAND} "-DEXE=$<TARGET_FILE:${target}>" "-DNAME=${A_NAME}" "-DID=${A_ID}"
                     "-DVERSION=${A_VERSION}" "-DMIN_OS=${CMAKE_OSX_DEPLOYMENT_TARGET}" "-DAPPCAST=${A_APPCAST}"
-                    "-DPUBLIC_KEY=${A_PUBLIC_KEY}" "-DSPARKLE=${sparkle}" "-DOUT=${CMAKE_BINARY_DIR}"
+                    "-DPUBLIC_KEY=${A_PUBLIC_KEY}" "-DSPARKLE=${sparkle}" "-DICON=${mac_icon}" "-DOUT=${CMAKE_BINARY_DIR}"
                     "-DZIP=${CMAKE_BINARY_DIR}/${target}-macos-${arch}.zip"
                     -P "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/cmake/macos-app.cmake"
-            DEPENDS ${target} VERBATIM USES_TERMINAL)
+            DEPENDS ${target} ${mac_icon} VERBATIM USES_TERMINAL)
     endif()
 endfunction()

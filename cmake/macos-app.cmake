@@ -34,6 +34,12 @@ if(SPARKLE AND APPCAST AND PUBLIC_KEY)
     <key>SUPublicEDKey</key><string>${PUBLIC_KEY}</string>
     <key>SUEnableAutomaticChecks</key><true/>")
 endif()
+set(icon "")
+if(ICON)
+    file(MAKE_DIRECTORY "${app}/Contents/Resources")
+    file(COPY_FILE "${ICON}" "${app}/Contents/Resources/${NAME}.icns")
+    set(icon "\n    <key>CFBundleIconFile</key><string>${NAME}</string>")
+endif()
 set(minOs "")
 if(MIN_OS)
     set(minOs "\n    <key>LSMinimumSystemVersion</key><string>${MIN_OS}</string>")
@@ -48,7 +54,7 @@ file(WRITE "${app}/Contents/Info.plist" "<?xml version=\"1.0\" encoding=\"UTF-8\
     <key>CFBundleExecutable</key><string>${exeName}</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-    <key>CFBundleVersion</key><string>${VERSION}</string>${minOs}
+    <key>CFBundleVersion</key><string>${VERSION}</string>${icon}${minOs}
     <key>NSHighResolutionCapable</key><true/>${updates}
 </dict>
 </plist>

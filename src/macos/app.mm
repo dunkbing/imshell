@@ -127,6 +127,11 @@ namespace imshell {
 
         gWindow = glfwGetCocoaWindow(d.window);
         detail::installTextInput(glfwGetCocoaView(d.window));
+        if (config.icon.png) {
+            NSData* bytes = [NSData dataWithBytes:config.icon.png length:config.icon.size];
+            if (NSImage* image = [[NSImage alloc] initWithData:bytes])
+                NSApp.applicationIconImage = image;
+        }
         gTitleBar = config.titleBar;
         gBarHeight = config.titleBarHeight > 0 ? config.titleBarHeight : 28;
         if (config.titleBar) {
