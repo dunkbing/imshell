@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "imshell/frames.hpp"
 #include <algorithm>
+#include <cfloat>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -106,7 +107,44 @@ namespace imshell {
             static ImVec4 insets;
             return insets;
         }
+        struct DragState {
+            bool active = false;
+            ImVec2 pos;
+        };
+        inline DragState& drag() {
+            static DragState s;
+            return s;
+        }
+        // a file drag entered, moved over (p, imgui units) or left (over = false: the pointer
+        // goes away) the window; a drop ends it with end(true), the pointer stays where it fell
+        inline void dragOver(bool over, ImVec2 p = ImVec2(0, 0)) {
+            DragState& d = drag();
+            const bool changed = d.active != over;
+            d.active = over;
+            if (over) {
+                d.pos = p;
+                ImGui::GetIO().AddMousePosEvent(p.x, p.y);
+            } else {
+                ImGui::GetIO().AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+            }
+            if (changed || over)
+                requestFrames();
+        }
+        inline void dragDropped() {
+            drag().active = false;
+            requestFrames();
+        }
     } // namespace detail
+    // true while files are dragged over the window, from entering until they leave or drop
+    // (macos, windows and linux). the pointer
+    // follows the drag, so IsWindowHovered and IsMouseHoveringRect tell where a drop would land
+    inline bool DragActive() {
+        return detail::drag().active;
+    }
+    // the last drag position in imgui units (window points, top left origin)
+    inline ImVec2 DragPosition() {
+        return detail::drag().pos;
+    }
     // the edges system ui covers (status and navigation bars, a notch, a camera cutout) in
     // imgui units: x left, y top, z right, w bottom; zero on desktops. imgui gets the same, so
     // the main viewport's WorkPos/WorkSize leave it out (from the next frame on)

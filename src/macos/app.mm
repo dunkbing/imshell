@@ -160,6 +160,45 @@ namespace imshell {
                     gDelegate->openFile(paths[i]);
             glfwFocusWindow(w);
         });
+        // a file drag over the window: glfw's content view has draggingEntered: and the drop
+        // only, so wrap those and add the moves and the exit for DragActive()
+        {
+            NSView* view = glfwGetCocoaView(d.window);
+            Class c = object_getClass(view);
+            auto point = [view](id<NSDraggingInfo> info) {
+                const NSPoint p = [view convertPoint:info.draggingLocation fromView:nil];
+                return ImVec2(static_cast<float>(p.x), static_cast<float>(view.bounds.size.height - p.y));
+            };
+            using Enter = NSDragOperation (*)(id, SEL, id<NSDraggingInfo>);
+            static Enter wasEntered = reinterpret_cast<Enter>(
+                method_getImplementation(class_getInstanceMethod(c, @selector(draggingEntered:))));
+            class_replaceMethod(c, @selector(draggingEntered:),
+                                imp_implementationWithBlock(^NSDragOperation(id self, id<NSDraggingInfo> info) {
+                                  detail::dragOver(true, point(info));
+                                  return wasEntered(self, @selector(draggingEntered:), info);
+                                }),
+                                "Q@:@");
+            class_replaceMethod(c, @selector(draggingUpdated:),
+                                imp_implementationWithBlock(^NSDragOperation(id, id<NSDraggingInfo> info) {
+                                  detail::dragOver(true, point(info));
+                                  return NSDragOperationGeneric;
+                                }),
+                                "Q@:@");
+            class_replaceMethod(c, @selector(draggingExited:),
+                                imp_implementationWithBlock(^(id, id<NSDraggingInfo>) {
+                                  detail::dragOver(false);
+                                }),
+                                "v@:@");
+            using Perform = BOOL (*)(id, SEL, id<NSDraggingInfo>);
+            static Perform wasPerformed = reinterpret_cast<Perform>(
+                method_getImplementation(class_getInstanceMethod(c, @selector(performDragOperation:))));
+            class_replaceMethod(c, @selector(performDragOperation:),
+                                imp_implementationWithBlock(^BOOL(id self, id<NSDraggingInfo> info) {
+                                  detail::dragDropped();
+                                  return wasPerformed(self, @selector(performDragOperation:), info);
+                                }),
+                                "c@:@");
+        }
         // "open with" and double-click in finder: glfw's app delegate has no
         // application:openFile:, so add one
         Class delegateClass = [NSApp.delegate class];

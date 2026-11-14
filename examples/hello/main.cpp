@@ -31,6 +31,7 @@ struct Hello : imshell::Delegate {
     char typed[256] = ""; // an imgui field: the platform's input methods and keyboard type into it
     char prose[256] = "", code[16] = "", password[64] = ""; // the other kinds of field
     std::string notified; // what the notifications did
+    std::string dropped; // the last file dropped on the window
     // smoke tests: IMSHELL_HELLO_QUIT=<seconds> closes by itself (0: right after the first frame,
     // which site/bench.sh times), IMSHELL_HELLO_PROBE=1 drives the window (title bar zoom, a bar
     // button, native views, the close veto)
@@ -49,6 +50,11 @@ struct Hello : imshell::Delegate {
     // japanese and korean font (AddFont merges it), so typed text shows as typed; imgui's own
     // font has latin-1 only
     std::string fontData; // the atlas reads it in place
+    void openFile(const std::string& path) override {
+        dropped = path;
+        imshell::requestFrames();
+    }
+
     void setup() override {
         for (const char* path : {"/System/Library/Fonts/Supplemental/Arial.ttf", "C:\\Windows\\Fonts\\arial.ttf",
                                  "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"})
@@ -71,7 +77,7 @@ struct Hello : imshell::Delegate {
 
         const auto bar = imshell::BeginTitleBar();
         barEnd = bar.pos.x + bar.size.x - bar.rightInset;
-        if (imshell::SmallButton("Bar button"))
+        if (imshell::Button("Bar button")) // a full-height button sits centred where the bar puts the cursor
             ++barClicks;
         barButton = ImVec2((ImGui::GetItemRectMin().x + ImGui::GetItemRectMax().x) / 2,
                            (ImGui::GetItemRectMin().y + ImGui::GetItemRectMax().y) / 2);
@@ -88,6 +94,14 @@ struct Hello : imshell::Delegate {
         if (imshell::Button("Click me", imshell::ButtonVariant::Primary))
             ++clicks;
         ImGui::Text("Clicked %d times", clicks);
+        // drop files here: while a file drag is over the window the box follows it
+        ImGui::BeginChild("##drop", ImVec2(320, 40), ImGuiChildFlags_Borders);
+        ImGui::TextUnformatted(imshell::DragActive() ? "drop here" : "drop files here");
+        if (imshell::DragActive() && ImGui::IsWindowHovered())
+            ImGui::GetWindowDrawList()->AddRect(ImGui::GetWindowPos(), ImVec2(ImGui::GetWindowPos().x + 320, ImGui::GetWindowPos().y + 40), IM_COL32(80, 160, 255, 255), 4.0f, ImDrawFlags_None, 2.0f);
+        ImGui::EndChild();
+        if (!dropped.empty())
+            ImGui::TextWrapped("Dropped: %s", dropped.c_str());
         ImGui::SetNextItemWidth(320);
         ImGui::InputTextWithHint("##typed", "Type here, in any language", typed, sizeof typed);
         ImGui::InputTextWithHint("##prose", "Prose: spell check, autocorrect", prose, sizeof prose);
