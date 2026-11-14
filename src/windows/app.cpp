@@ -92,7 +92,7 @@ namespace imshell {
                 STGMEDIUM medium = {};
                 if (!data || FAILED(data->GetData(&fmt, &medium)))
                     return S_OK;
-                if (HDROP drop = static_cast<HDROP>(GlobalLock(medium.hGlobal))) {
+                if (HDROP drop = static_cast<HDROP>(medium.hGlobal)) { // the handle itself, not a locked pointer
                     const UINT count = DragQueryFileW(drop, 0xFFFFFFFF, nullptr, 0);
                     for (UINT i = 0; i < count; ++i) {
                         wchar_t wide[MAX_PATH * 4];
@@ -104,7 +104,6 @@ namespace imshell {
                             gDelegate)
                             gDelegate->openFile(utf8);
                     }
-                    GlobalUnlock(medium.hGlobal);
                     *effect = DROPEFFECT_COPY;
                 }
                 ReleaseStgMedium(&medium);
