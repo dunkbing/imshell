@@ -56,6 +56,17 @@ struct Hello : imshell::Delegate {
     }
 
     void setup() override {
+        if (std::getenv("IMSHELL_HELLO_TRAY")) { // a menu bar / tray icon; closing hides the window
+            tray = true;
+            imshell::tray::Options options;
+            options.tooltip = "Hello imshell";
+            options.items = {{"Show", [] { imshell::ShowWindow(); }},
+                             {"Hide", [] { imshell::HideWindow(); }},
+                             {"", nullptr, true},
+                             {"Quit", [] { imshell::Quit(); }}};
+            options.onActivate = [] { imshell::WindowVisible() ? imshell::HideWindow() : imshell::ShowWindow(); };
+            imshell::tray::Set(options);
+        }
         for (const char* path : {"/System/Library/Fonts/Supplemental/Arial.ttf", "C:\\Windows\\Fonts\\arial.ttf",
                                  "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"})
             if (std::FILE* f = std::fopen(path, "rb")) {
@@ -205,8 +216,13 @@ struct Hello : imshell::Delegate {
             failed += std::string(" ") + what + ";";
     }
 
+    bool tray = false;
     int closeAsks = 0;
     bool closeRequested() override {
+        if (tray && !imshell::QuitRequested()) {
+            imshell::HideWindow();
+            return false;
+        }
         ++closeAsks;
         std::printf("probe: close asked (%d)\n", closeAsks);
         return !probe || closeAsks > 1;
@@ -218,6 +234,10 @@ struct Hello : imshell::Delegate {
                               std::chrono::seconds(std::atoi(quitAfter));
         if (quit)
             std::printf("hello: %d frames\n", ImGui::GetFrameCount());
+        if (quit && tray) { // the tray's quit path, with the window hidden
+            imshell::Quit();
+            return false;
+        }
         return quit;
     }
 };

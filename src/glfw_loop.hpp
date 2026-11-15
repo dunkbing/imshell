@@ -63,7 +63,7 @@ namespace imshell::detail {
         bool wasFocused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
         int trailing = 0; // frames still to draw after input, so what the input changed is shown
         while (!glfwWindowShouldClose(window)) {
-            if (delegate.shouldQuit())
+            if (delegate.shouldQuit() || quit().requested)
                 glfwSetWindowShouldClose(window, GLFW_TRUE);
             const double start = glfwGetTime();
             const double sinceInput = start - lastInput;

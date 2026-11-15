@@ -713,7 +713,7 @@ namespace imshell {
             },
             nullptr);
         while (!gShouldClose) {
-            if (gDelegate->shouldQuit())
+            if (gDelegate->shouldQuit() || imshell::detail::quit().requested)
                 gShouldClose = true;
             else
                 g_main_context_iteration(nullptr, TRUE);
@@ -881,4 +881,30 @@ namespace imshell {
                 gtk_overlay_remove_overlay(GTK_OVERLAY(gOverlay), static_cast<GtkWidget*>(clip));
         }
     } // namespace detail
+} // namespace imshell
+
+namespace imshell {
+    void HideWindow() {
+        if (gWindow)
+            gtk_widget_set_visible(gWindow, FALSE); // the app keeps running
+        requestFrames();
+    }
+
+    void ShowWindow() {
+        if (!gWindow)
+            return;
+        gtk_widget_set_visible(gWindow, TRUE);
+        gtk_window_unminimize(GTK_WINDOW(gWindow));
+        gtk_window_present(GTK_WINDOW(gWindow));
+        requestFrames();
+    }
+
+    bool WindowVisible() {
+        return gWindow && gtk_widget_get_visible(gWindow);
+    }
+
+    namespace tray { // no status notifier yet: GNOME shows none without an extension
+        void Set(const Options&) {}
+        void Remove() {}
+    } // namespace tray
 } // namespace imshell
