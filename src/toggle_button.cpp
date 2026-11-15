@@ -16,18 +16,13 @@ void imshell::ToggleButton(const char* str_id, bool* v) {
     if (ImGui::IsItemClicked())
         *v = !*v;
 
-    ImGuiContext& gg = *GImGui;
-    if (gg.LastActiveId == gg.CurrentWindow->GetID(str_id)) {
-        if (ImGui::IsItemHovered()) {
-            draw_list->AddRectFilled(p, ImVec2(p.x + width, p.y + height),
-                                     ImGui::GetColorU32(*v ? Hovered(t.primary) : Hovered(t.border)),
-                                     height * 0.5f);
-        } else {
-            draw_list->AddRectFilled(p, ImVec2(p.x + width, p.y + height),
-                                     ImGui::GetColorU32(*v ? t.primary : t.border),
-                                     height * 0.50f);
-        }
-    }
+    // always drawn: a toggle that starts on needs its track before the first click. a finger's hover
+    // is not a hover (it would stay lit after a tap)
+    const bool hovered =
+        ImGui::IsItemHovered() && ImGui::GetIO().MouseSource != ImGuiMouseSource_TouchScreen;
+    const ImVec4 track = *v ? t.primary : t.border;
+    draw_list->AddRectFilled(p, ImVec2(p.x + width, p.y + height),
+                             ImGui::GetColorU32(hovered ? Hovered(track) : track), height * 0.5f);
 
     draw_list->AddCircleFilled(
         ImVec2(p.x + radius + (*v ? 1.0f : 0.0f) * (width - radius * 2.0f), p.y + radius),
