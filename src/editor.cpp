@@ -159,6 +159,7 @@ namespace imshell {
         contentWidthDirty_ = true;
         contentDirty_ = true;
         highlightDirty_ = true;
+        rowsDirty_ = true;
     }
 
     int TextEditor::getLineFromPos(int pos) const {
@@ -182,6 +183,59 @@ namespace imshell {
         if (line + 1 < static_cast<int>(lineStarts_.size()))
             return lineStarts_[line + 1] - 1; // before the \n
         return static_cast<int>(content_.size());
+    }
+
+    int TextEditor::rowFromPos(int pos) const {
+        const auto& r = rows();
+        return static_cast<int>(std::upper_bound(r.begin(), r.end(), pos) - r.begin()) - 1;
+    }
+
+    int TextEditor::rowEnd(int row) const {
+        const auto& r = rows();
+        if (row + 1 >= static_cast<int>(r.size()))
+            return static_cast<int>(content_.size());
+        const int next = r[row + 1];
+        return next > r[row] && content_[next - 1] == '\n' ? next - 1 : next;
+    }
+
+    // breaks each line into rows no wider than width: after the last space that fits, else
+    // where the width runs out. spaces never start a break, they hang past the edge. tabs and
+    // widths are measured from the row's start, as xAt does when drawing
+    void TextEditor::buildRows(float width) {
+        const float spaceWidth = ImGui::CalcTextSize(" ").x;
+        rows_.clear();
+        for (int line = 0; line < static_cast<int>(lineStarts_.size()); ++line) {
+            const int end = getLineEnd(line);
+            int start = lineStarts_[line], breakAt = -1;
+            float x = 0.0f;
+            rows_.push_back(start);
+            for (int i = start; i < end;) {
+                int e = i + 1;
+                while (e < end && isContinuation(content_[e]))
+                    ++e;
+                const bool blank = content_[i] == ' ' || content_[i] == '\t';
+                float next;
+                if (content_[i] == '\t') {
+                    const int col = static_cast<int>(x / spaceWidth);
+                    next = ((col / tabSize_) + 1) * tabSize_ * spaceWidth;
+                } else {
+                    next = x + ImGui::CalcTextSize(&content_[i], content_.data() + e).x;
+                }
+                if (!blank && next > width && i > start) {
+                    const int at = breakAt > start ? breakAt : i;
+                    rows_.push_back(at);
+                    start = at;
+                    breakAt = -1;
+                    x = 0.0f;
+                    i = at; // measure from the new row's start
+                    continue;
+                }
+                if (blank)
+                    breakAt = e;
+                x = next;
+                i = e;
+            }
+        }
     }
 
     // --- drawing ---
@@ -263,7 +317,7 @@ namespace imshell {
         const float spaceWidth = ImGui::CalcTextSize(" ").x;
 
         // the widest line, only when the content changed
-        if (contentWidthDirty_) {
+        if (contentWidthDirty_ && !wrap_) {
             float maxW = 0.0f;
             for (size_t i = 0; i < lineStarts_.size(); ++i) {
                 float w = 0;
@@ -276,14 +330,25 @@ namespace imshell {
             cachedContentWidth_ = maxW + spaceWidth * 10;
             contentWidthDirty_ = false;
         }
+        // soft wrap: rows by the width the text has (less the scrollbar and the margin)
+        if (wrap_) {
+            const float width = std::max(textAreaWidth - ImGui::GetStyle().ScrollbarSize - 4.0f, spaceWidth);
+            const float font = ImGui::GetFontSize();
+            if (rowsDirty_ || width != rowsWidth_ || font != rowsFont_) {
+                buildRows(width);
+                rowsDirty_ = false;
+                rowsWidth_ = width;
+                rowsFont_ = font;
+            }
+        }
         // read-only: no spare line to type into
         const float contentHeight =
-            lineStarts_.size() * lineHeight_ + (readOnly_ ? 4.0f : lineHeight_);
+            rows().size() * lineHeight_ + (readOnly_ ? 4.0f : lineHeight_);
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-        ImGui::SetNextWindowContentSize(ImVec2(cachedContentWidth_, contentHeight));
+        ImGui::SetNextWindowContentSize(ImVec2(wrap_ ? 0.0f : cachedContentWidth_, contentHeight));
         ImGui::BeginChild("##text_area", ImVec2(textAreaWidth, -1), 0,
-                          ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoMove);
+                          (wrap_ ? 0 : ImGuiWindowFlags_HorizontalScrollbar) | ImGuiWindowFlags_NoMove);
 
         scrollX_ = ImGui::GetScrollX();
         scrollY_ = ImGui::GetScrollY();
@@ -296,7 +361,7 @@ namespace imshell {
 
         const int startLine = std::max(0, static_cast<int>(scrollY_ / lineHeight_) - 2);
         const int endLine =
-            std::min(static_cast<int>(lineStarts_.size()) - 1,
+            std::min(static_cast<int>(rows().size()) - 1,
                      static_cast<int>((scrollY_ + ImGui::GetWindowHeight()) / lineHeight_) + 2);
 
         ImDrawList* drawList = ImGui::GetWindowDrawList();
@@ -309,9 +374,9 @@ namespace imshell {
         // this child), on top of the current-line highlight
         if (hoveredRun_ >= 0 && hoveredRun_ < static_cast<int>(runRanges_.size())) {
             const auto [begin, end] = runRanges_[hoveredRun_];
-            const float top = textOrigin_.y + getLineFromPos(static_cast<int>(begin)) * lineHeight_;
+            const float top = textOrigin_.y + rowFromPos(static_cast<int>(begin)) * lineHeight_;
             const float bottom =
-                textOrigin_.y + (getLineFromPos(static_cast<int>(end)) + 1) * lineHeight_;
+                textOrigin_.y + (rowFromPos(static_cast<int>(end)) + 1) * lineHeight_;
             drawList->AddRect(ImVec2(textAreaMin_.x + 1.0f, top),
                               ImVec2(textAreaMax_.x - 1.0f, bottom), palette_.run, 3.0f, 0, 1.5f);
         }
@@ -338,7 +403,7 @@ namespace imshell {
             ime.WantVisible = true;
             ime.WantTextInput = true;
             ime.InputPos = ImVec2(getScreenX(cursorIndex_),
-                                  textOrigin_.y + getLineFromPos(cursorIndex_) * lineHeight_);
+                                  textOrigin_.y + rowFromPos(cursorIndex_) * lineHeight_);
             ime.InputLineHeight = lineHeight_;
             ime.ViewportId = ImGui::GetWindowViewport()->ID;
         }
@@ -367,11 +432,14 @@ namespace imshell {
         char buf[16];
         const int currentLine = getLineFromPos(cursorIndex_);
         for (int i = startLine; i <= endLine; ++i) {
+            const int line = getLineFromPos(rows()[i]);
+            if (rows()[i] != lineStarts_[line])
+                continue; // a wrapped row: the number is on its line's first
             // textOrigin_ was captured inside the scrolled text area: no scroll to subtract
-            snprintf(buf, sizeof(buf), "%d", i + 1);
+            snprintf(buf, sizeof(buf), "%d", line + 1);
             const float x = textOrigin_.x - 10.0f - ImGui::CalcTextSize(buf).x;
-            const ImU32 color =
-                (i == currentLine && !readOnly_) ? palette_.currentLineNumber : palette_.lineNumber;
+            const ImU32 color = (line == currentLine && !readOnly_) ? palette_.currentLineNumber
+                                                                    : palette_.lineNumber;
             drawList->AddText(ImVec2(x, textOrigin_.y + i * lineHeight_), color, buf);
         }
     }
@@ -400,7 +468,7 @@ namespace imshell {
         }
         const float x0 = getScreenX(b);
         const float x1 = std::max(getScreenX(e), x0 + 6.0f);
-        const float top = textOrigin_.y + getLineFromPos(b) * lineHeight_;
+        const float top = textOrigin_.y + rowFromPos(b) * lineHeight_;
         const float y = top + lineHeight_; // just under the glyphs
         constexpr float step = 2.5f;
         ImVec2 points[256];
@@ -426,10 +494,10 @@ namespace imshell {
         const ImVec2 cursor = window->DC.CursorPos;
         for (size_t r = 0; r < runRanges_.size(); ++r) {
             const auto [begin, end] = runRanges_[r];
-            const int line = getLineFromPos(static_cast<int>(begin));
-            if (line < startLine || line > endLine)
+            const int row = rowFromPos(static_cast<int>(begin));
+            if (row < startLine || row > endLine)
                 continue;
-            const float y = textOrigin_.y + line * lineHeight_;
+            const float y = textOrigin_.y + row * lineHeight_;
             // a real item, so tests can click it by id (##run_<n>)
             char id[24];
             snprintf(id, sizeof(id), "##run_%zu", r);
@@ -462,7 +530,7 @@ namespace imshell {
         for (int lineNum = startLine; lineNum <= endLine; ++lineNum) {
             float xPos = textOrigin_.x;
             const float yPos = textOrigin_.y + lineNum * lineHeight_;
-            for (int i = lineStarts_[lineNum], lineEnd = getLineEnd(lineNum); i < lineEnd; ++i) {
+            for (int i = rows()[lineNum], lineEnd = rowEnd(lineNum); i < lineEnd; ++i) {
                 if (content_[i] == '\t') {
                     const int col = static_cast<int>((xPos - textOrigin_.x) / spaceWidth);
                     xPos = textOrigin_.x + ((col / tabSize_) + 1) * tabSize_ * spaceWidth;
@@ -487,8 +555,8 @@ namespace imshell {
         if (blinkAlpha < 0.3f)
             return;
         const float x = getScreenX(cursorIndex_);
-        const float y = textOrigin_.y + getLineFromPos(cursorIndex_) * lineHeight_;
-        const int a = static_cast<int>(((palette_.cursor >> 24) & 0xFF) * blinkAlpha);
+        const float y = textOrigin_.y + rowFromPos(cursorIndex_) * lineHeight_;
+        const int a =static_cast<int>(((palette_.cursor >> 24) & 0xFF) * blinkAlpha);
         drawList->AddLine(ImVec2(x, y), ImVec2(x, y + lineHeight_ - 1),
                           withAlpha(palette_.cursor, a), 2.0f);
     }
@@ -500,9 +568,9 @@ namespace imshell {
         const int selEnd = selectionEnd();
         const float spaceWidth = ImGui::CalcTextSize(" ").x;
         for (int lineNum = startLine; lineNum <= endLine; ++lineNum) {
-            const int lineStart = lineStarts_[lineNum];
-            const int lineEnd = (lineNum + 1 < static_cast<int>(lineStarts_.size()))
-                                    ? lineStarts_[lineNum + 1]
+            const int lineStart = rows()[lineNum];
+            const int lineEnd = (lineNum + 1 < static_cast<int>(rows().size()))
+                                    ? rows()[lineNum + 1]
                                     : static_cast<int>(content_.size());
             const int rangeStart = std::max(selStart, lineStart);
             const int rangeEnd = std::min(selEnd, lineEnd);
@@ -521,10 +589,14 @@ namespace imshell {
         // not under a selection that spans lines
         if (HasSelection() && getLineFromPos(selectionStart()) != getLineFromPos(selectionEnd()))
             return;
-        const float y = textOrigin_.y + getLineFromPos(cursorIndex_) * lineHeight_;
+        // every row of the cursor's line
+        const int line = getLineFromPos(cursorIndex_);
+        const int first = rowFromPos(lineStarts_[line]), last = rowFromPos(getLineEnd(line));
+        const float y = textOrigin_.y + first * lineHeight_;
         const ImVec2 winPos = ImGui::GetWindowPos();
         drawList->AddRectFilled(ImVec2(winPos.x, y),
-                                ImVec2(winPos.x + ImGui::GetWindowWidth(), y + lineHeight_),
+                                ImVec2(winPos.x + ImGui::GetWindowWidth(),
+                                       textOrigin_.y + (last + 1) * lineHeight_),
                                 palette_.currentLineBackground);
     }
 
@@ -550,12 +622,12 @@ namespace imshell {
     }
 
     float TextEditor::getScreenX(int pos) const {
-        return xAt(lineStarts_[getLineFromPos(pos)], pos);
+        return xAt(rows()[rowFromPos(pos)], pos);
     }
 
     void TextEditor::ensureCursorVisible() {
         if (ensureCursorVisibleV_) {
-            const float cursorY = getLineFromPos(cursorIndex_) * lineHeight_;
+            const float cursorY = rowFromPos(cursorIndex_) * lineHeight_;
             const float windowHeight = ImGui::GetWindowHeight();
             if (cursorY < scrollY_)
                 ImGui::SetScrollY(cursorY);
@@ -563,7 +635,7 @@ namespace imshell {
                 ImGui::SetScrollY(cursorY + lineHeight_ - windowHeight);
             ensureCursorVisibleV_ = false;
         }
-        if (ensureCursorVisibleH_) {
+        if (ensureCursorVisibleH_ && !wrap_) {
             const float cursorX = getScreenX(cursorIndex_) - textOrigin_.x;
             const float windowWidth = ImGui::GetWindowWidth();
             if (cursorX < scrollX_)
@@ -1246,10 +1318,10 @@ namespace imshell {
 
     int TextEditor::getCharIndexFromScreenPos(ImVec2 screenPos) const {
         // textOrigin_ was captured inside the scrolled text area: plain screen coordinates
-        const int line = std::clamp(static_cast<int>((screenPos.y - textOrigin_.y) / lineHeight_),
-                                    0, static_cast<int>(lineStarts_.size()) - 1);
-        const int lineStart = lineStarts_[line];
-        const int lineEnd = getLineEnd(line);
+        const int row = std::clamp(static_cast<int>((screenPos.y - textOrigin_.y) / lineHeight_), 0,
+                                   static_cast<int>(rows().size()) - 1);
+        const int lineStart = rows()[row];
+        const int lineEnd = rowEnd(row);
         const float spaceWidth = ImGui::CalcTextSize(" ").x;
         float x = textOrigin_.x;
         for (int i = lineStart; i < lineEnd;) {
@@ -1311,7 +1383,7 @@ namespace imshell {
 
     void TextEditor::renderAutoComplete() {
         const float cursorX = getScreenX(cursorIndex_);
-        const float cursorY = textOrigin_.y + (getLineFromPos(cursorIndex_) + 1) * lineHeight_;
+        const float cursorY = textOrigin_.y + (rowFromPos(cursorIndex_) + 1) * lineHeight_;
 
         const ImGuiViewport* viewport = ImGui::GetWindowViewport();
         // a phone is narrower than the popup
@@ -1592,19 +1664,22 @@ namespace imshell {
         const int len = static_cast<int>(strlen(findBuf_));
         if (!findVisible_ || findMatches_.empty() || len == 0 || startLine > endLine)
             return;
-        const int startPos = lineStarts_[startLine];
-        const int endPos = getLineEnd(endLine);
+        const int startPos = rows()[startLine];
+        const int endPos = rowEnd(endLine);
         for (size_t mi = 0; mi < findMatches_.size(); ++mi) {
             const int at = findMatches_[mi];
             if (at + len < startPos || at > endPos)
                 continue;
-            const int line = getLineFromPos(at);
-            const float y = textOrigin_.y + line * lineHeight_;
-            // tinted from the type colour; the current match stronger
-            drawList->AddRectFilled(
-                ImVec2(xAt(lineStarts_[line], at), y),
-                ImVec2(xAt(lineStarts_[line], at + len), y + lineHeight_),
-                withAlpha(palette_.type, static_cast<int>(mi) == findCurrentMatch_ ? 120 : 60));
+            // a wrapped match is one box per row it crosses. tinted from the type colour; the
+            // current match stronger
+            const ImU32 tint =
+                withAlpha(palette_.type, static_cast<int>(mi) == findCurrentMatch_ ? 120 : 60);
+            for (int row = rowFromPos(at); row <= rowFromPos(at + len - 1); ++row) {
+                const int from = std::max(at, rows()[row]), to = std::min(at + len, rowEnd(row));
+                const float y = textOrigin_.y + row * lineHeight_;
+                drawList->AddRectFilled(ImVec2(xAt(rows()[row], from), y),
+                                        ImVec2(xAt(rows()[row], to), y + lineHeight_), tint);
+            }
         }
     }
 } // namespace imshell

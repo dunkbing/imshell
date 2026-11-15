@@ -57,6 +57,21 @@ namespace imshell {
         void SetReadOnly(bool readOnly) {
             readOnly_ = readOnly;
         }
+        // soft wrap, off by default: a long line breaks into rows at the text width (after a space,
+        // else at the width) and there is no horizontal scroll. line numbers show on a line's first
+        // row. up and down still move by line
+        void SetWordWrap(bool wrap) {
+            wrap_ = wrap;
+            rowsDirty_ = true;
+            contentWidthDirty_ = true;
+        }
+        [[nodiscard]] bool WordWrap() const {
+            return wrap_;
+        }
+        // the rows the text is drawn in: the lines, or with wrap what they break into (tests)
+        [[nodiscard]] int RowCount() const {
+            return static_cast<int>(rows().size());
+        }
         // ctrl+enter (cmd on macos)
         void SetSubmitCallback(std::function<void()> cb) {
             submitCallback_ = std::move(cb);
@@ -176,6 +191,15 @@ namespace imshell {
         std::string content_;
         std::vector<Token> tokens_;
         std::vector<int> lineStarts_{0};
+        // with wrap: where each row starts (every line start is one), rebuilt when the text, the
+        // width or the font changes
+        bool wrap_ = false;
+        std::vector<int> rows_{0};
+        bool rowsDirty_ = true;
+        float rowsWidth_ = 0.0f, rowsFont_ = 0.0f;
+        const std::vector<int>& rows() const {
+            return wrap_ ? rows_ : lineStarts_;
+        }
 
         int cursorIndex_ = 0;
         int preferredColumn_ = 0;
@@ -255,6 +279,9 @@ namespace imshell {
         int getColumnFromPos(int pos) const;
         int getPosFromLineColumn(int line, int column) const;
         int getLineEnd(int line) const;
+        int rowFromPos(int pos) const; // a wrap boundary belongs to the row it starts
+        int rowEnd(int row) const;     // before the newline, if the row ends with one
+        void buildRows(float width);
         void rehighlight();
 
         // input
@@ -294,8 +321,8 @@ namespace imshell {
         void renderCursor(ImDrawList* drawList);
         void renderSelection(ImDrawList* drawList, int startLine, int endLine);
         void renderCurrentLineHighlight(ImDrawList* drawList);
-        float xAt(int lineStart, int pos) const; // screen x of pos on the line starting there
-        float getScreenX(int pos) const;         // on pos's own line
+        float xAt(int rowStart, int pos) const; // screen x of pos on the row starting there
+        float getScreenX(int pos) const;        // on pos's own row
 
         void updateAutoComplete(bool forced = false);
         void renderAutoComplete();

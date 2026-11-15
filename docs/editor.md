@@ -41,7 +41,7 @@ The editor knows nothing about a language. What depends on one is a hook:
 | Runnable ranges | `SetRunnableRanges(ranges, onRun)` | `ranges(content)` returns byte ranges; each gets a play icon in the gutter, and a click calls `onRun(begin, end)` |
 | Error marker | `SetErrorMarker(offset, message)` | a wavy underline under the token at a byte offset, the message on hover; `ClearErrorMarker()` |
 
-The rest: `SetText` / `GetText`, `HasSelection`, `GetSelectedText`, `GetCursorIndex` (a byte offset), `SetPlaceholder`, `SetShowLineNumbers`, `SetTabSize`, `SetReadOnly`, `SetFocus`, `IsContentDirty` / `ClearContentDirty`.
+The rest: `SetText` / `GetText`, `HasSelection`, `GetSelectedText`, `GetCursorIndex` (a byte offset), `SetPlaceholder`, `SetShowLineNumbers`, `SetTabSize`, `SetReadOnly`, `SetWordWrap`, `SetFocus`, `IsContentDirty` / `ClearContentDirty`.
 
 Colours come from `CurrentTheme()` each frame (`TextEditor::FromTheme(theme)` is that mapping: `syntax.*` for tokens). `SetPalette(palette)` replaces it, for a block on a different background for example; `TokenColor(token)` is the colour a token draws with.
 
@@ -51,7 +51,7 @@ Colours come from `CurrentTheme()` each frame (`TextEditor::FromTheme(theme)` is
 - Brackets and quotes close themselves, typing the closing one steps over it, and Backspace between an empty pair removes both. Ctrl+Backspace (Opt on macOS) deletes a word, Ctrl+Shift+Backspace (Cmd) to the line start.
 - Ctrl+F or Ctrl+H opens the find bar, starting from the selection; F3 and Shift+F3 step through the matches, Escape closes it.
 - Undo keeps the last 100 steps as whole copies of the text. `SetText` clears them and the dirty flag.
-- Offsets are bytes of UTF-8. Lines do not wrap; the text scrolls sideways. A tab is drawn `SetTabSize` spaces wide.
+- Offsets are bytes of UTF-8. Lines do not wrap unless `SetWordWrap(true)` (rows break after a space, else at the width, with no sideways scroll, and up and down still move by line); otherwise the text scrolls sideways. A tab is drawn `SetTabSize` spaces wide.
 - The highlighter gets the whole text on every edit. For a large text and a slow parser, parse incrementally inside the hook (keep the last text and tree in its closure). There is no tree-sitter adapter in imshell yet.
 - While it is focused and editable the editor is a text field to the platform, as ImGui's own fields are: it sets `PlatformImeData.WantVisible` and `WantTextInput` with the caret's position, so iOS and Android show the soft keyboard and underline a composition at the caret, Windows places the IME window there, macOS, Linux and the web compose inline at the caret (see [Text input](platform-shell.md#text-input)), and `io.WantTextInput` tells the host's global shortcuts that someone is typing. Touch reaches it as the mouse input the shells' touch layer produces; the selection handles are for ImGui's own text fields.
 - `tests/editor_test.cpp` drives an editor on a bare ImGui context with ImGui's input events: editing, selection, undo, a fake highlighter and a fake completion provider (`ctest`).
