@@ -551,7 +551,9 @@ static imshell::TextKind gKind = imshell::TextKind::Code;
 - (void)pan:(UIPanGestureRecognizer*)g {
     const CGPoint d = [g translationInView:gView];
     [g setTranslation:CGPointZero inView:gView];
-    if (g.numberOfTouches > 0)
+    // once, where the drag starts: a new mouse position with every step would hold each step's wheel
+    // event back a frame (imgui trickles its input queue), and the scroll would stutter
+    if (g.state == UIGestureRecognizerStateBegan && g.numberOfTouches > 0)
         touch::hover(vec([g locationInView:gView])); // scroll the window under the finger
     touch::scrollBy(vec(d));
     static bool finger = false; // wheels and trackpads have no touches: no coasting
