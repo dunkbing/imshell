@@ -100,6 +100,8 @@ int main(int argc, char* argv[]) {
 
 `MyViewController` is `ImShellViewController` (`imshell/ios.h`) or a subclass that adds native chrome such as navigation items or key commands. It owns the Metal view and draws at the display refresh while something happens; after 2 s without input, `requestFrames()` or a busy frame it pauses the view, which then draws only on input, a `requestFrames()` call or a 1 s heartbeat, as the desktop loops do. Create the `imshell::App` in its `loadView`, after calling `[super loadView]`. The controller sits in a `UINavigationController` whose bar stays hidden unless your subclass shows it.
 
+`imshell::ios::SetTabBar(items, selected, onSelect)` (`imshell/tab_bar.hpp`) shows a native tab bar along the bottom: Liquid Glass on iOS 26 and later (`UIGlassEffect`), a system blur below (built with an older SDK, always the blur). An item is a label and an SF Symbol name. The bar is a UIKit view above the ImGui view, so its touches never reach ImGui, and `SafeArea().w` is its height while it shows (49 points; the bar also covers the home indicator, which the display already stops above). It hides while the soft keyboard is up, and with `SetTabBarVisible(false)`. Calling `SetTabBar` every frame with the same items is cheap. On the other platforms it does nothing.
+
 Touch maps to ImGui like this:
 - a tap clicks;
 - a long press shows the edit menu over text, and right-clicks elsewhere;

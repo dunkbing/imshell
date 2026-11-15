@@ -5,6 +5,7 @@
 #include "imshell/app.hpp"
 #include "imshell/haptics.hpp"
 #include "imshell/ios.h"
+#include "imshell/tab_bar.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/text_input.hpp"
 #include "../native_view.hpp"
@@ -18,7 +19,9 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdio>
+#include <functional>
 #include <string>
+#include <vector>
 
 namespace {
     MTKView* gView = nil;
@@ -632,6 +635,138 @@ static imshell::TextKind gKind = imshell::TextKind::Code;
 }
 @end
 
+// ---- the tab bar: a native glass bar (a blur below ios 26) over the imgui view ----
+
+namespace {
+    constexpr CGFloat kTabBarHeight = 49; // above the home indicator, which the bar also covers
+
+    struct TabBar {
+        std::vector<imshell::ios::TabBarItem> items;
+        int selected = 0;
+        std::function<void(int)> onSelect;
+        bool visible = true, rebuild = false, restyle = false;
+        UIVisualEffectView* view = nil;
+        UIStackView* stack = nil;
+    } gTabBar;
+
+    bool tabBarShown() { // hidden while the keyboard covers it
+        return gTabBar.visible && !gTabBar.items.empty() && gKeyboardInset == 0;
+    }
+
+    void styleTabBar() {
+        for (NSUInteger i = 0; i < gTabBar.stack.arrangedSubviews.count; ++i) {
+            UIButton* b = (UIButton*)gTabBar.stack.arrangedSubviews[i];
+            UIButtonConfiguration* c = b.configuration;
+            c.baseForegroundColor =
+                static_cast<int>(i) == gTabBar.selected ? gView.tintColor : UIColor.secondaryLabelColor;
+            b.configuration = c;
+        }
+    }
+
+    void buildTabBar() {
+        UIView* container = gView.superview;
+        if (!gTabBar.view) {
+            UIVisualEffect* effect = nil;
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000
+            if (@available(iOS 26.0, *))
+                effect = [UIGlassEffect effectWithStyle:UIGlassEffectStyleRegular];
+#endif
+            if (!effect)
+                effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemChromeMaterial];
+            UIVisualEffectView* view = [[UIVisualEffectView alloc] initWithEffect:effect];
+            view.translatesAutoresizingMaskIntoConstraints = NO;
+            UIStackView* stack = [[UIStackView alloc] init];
+            stack.distribution = UIStackViewDistributionFillEqually;
+            stack.translatesAutoresizingMaskIntoConstraints = NO;
+            [view.contentView addSubview:stack];
+            [container addSubview:view];
+            [NSLayoutConstraint activateConstraints:@[
+                [view.leadingAnchor constraintEqualToAnchor:container.leadingAnchor],
+                [view.trailingAnchor constraintEqualToAnchor:container.trailingAnchor],
+                [view.bottomAnchor constraintEqualToAnchor:container.bottomAnchor],
+                [view.topAnchor constraintEqualToAnchor:container.safeAreaLayoutGuide.bottomAnchor
+                                               constant:-kTabBarHeight],
+                [stack.topAnchor constraintEqualToAnchor:view.contentView.topAnchor],
+                [stack.leadingAnchor constraintEqualToAnchor:view.contentView.leadingAnchor],
+                [stack.trailingAnchor constraintEqualToAnchor:view.contentView.trailingAnchor],
+                [stack.heightAnchor constraintEqualToConstant:kTabBarHeight],
+            ]];
+            gTabBar.view = view;
+            gTabBar.stack = stack;
+        }
+        for (UIView* old in [gTabBar.stack.arrangedSubviews copy]) {
+            [gTabBar.stack removeArrangedSubview:old];
+            [old removeFromSuperview];
+        }
+        for (size_t i = 0; i < gTabBar.items.size(); ++i) {
+            UIButtonConfiguration* c = [UIButtonConfiguration plainButtonConfiguration];
+            c.image = [UIImage systemImageNamed:@(gTabBar.items[i].symbol.c_str())];
+            c.title = @(gTabBar.items[i].label.c_str());
+            c.imagePlacement = NSDirectionalRectEdgeTop;
+            c.imagePadding = 2;
+            c.titleTextAttributesTransformer = ^NSDictionary*(NSDictionary* in) {
+              NSMutableDictionary* out = [in mutableCopy];
+              out[NSFontAttributeName] = [UIFont systemFontOfSize:10 weight:UIFontWeightMedium];
+              return out;
+            };
+            UIButton* button = [UIButton buttonWithConfiguration:c primaryAction:nil];
+            const int index = static_cast<int>(i);
+            [button addAction:[UIAction actionWithHandler:^(UIAction*) {
+                      gTabBar.selected = index;
+                      styleTabBar();
+                      wake();
+                      // a copy: the callback may call SetTabBar and replace itself
+                      if (auto select = gTabBar.onSelect)
+                          select(index);
+                    }]
+                forControlEvents:UIControlEventTouchUpInside];
+            [gTabBar.stack addArrangedSubview:button];
+        }
+        gTabBar.restyle = true;
+    }
+
+    // before each frame, on the main thread
+    void syncTabBar() {
+        if (!gView.superview || gTabBar.items.empty()) {
+            gTabBar.view.hidden = YES;
+            return;
+        }
+        if (gTabBar.rebuild || !gTabBar.view) {
+            buildTabBar();
+            gTabBar.rebuild = false;
+        }
+        if (gTabBar.restyle) {
+            styleTabBar();
+            gTabBar.restyle = false;
+        }
+        gTabBar.view.hidden = !tabBarShown();
+    }
+} // namespace
+
+namespace imshell::ios {
+    void SetTabBar(std::vector<TabBarItem> items, int selected, std::function<void(int)> onSelect) {
+        selected = items.empty() ? 0 : std::clamp(selected, 0, static_cast<int>(items.size()) - 1);
+        gTabBar.onSelect = std::move(onSelect);
+        if (items != gTabBar.items) {
+            gTabBar.items = std::move(items);
+            gTabBar.rebuild = true;
+        } else if (selected == gTabBar.selected) {
+            return;
+        } else {
+            gTabBar.restyle = true;
+        }
+        gTabBar.selected = selected;
+        requestFrames();
+    }
+
+    void SetTabBarVisible(bool visible) {
+        if (visible != gTabBar.visible) {
+            gTabBar.visible = visible;
+            requestFrames();
+        }
+    }
+} // namespace imshell::ios
+
 // ---- scene and app delegates ----
 
 namespace {
@@ -742,9 +877,12 @@ namespace imshell {
                                                                              gView.safeAreaInsets.bottom),
                                                      1));
             io.DisplayFramebufferScale = ImVec2(scale, scale);
-            // shortcut: top only (status and navigation bar); the display already stops above
-            // the home indicator and keyboard. add the sides when landscape iphones need them
-            detail::safeArea() = ImVec4(0, static_cast<float>(gView.safeAreaInsets.top), 0, 0);
+            syncTabBar();
+            // shortcut: top (status and navigation bar) and the tab bar; the display already
+            // stops above the home indicator and keyboard. add the sides when landscape iphones
+            // need them
+            detail::safeArea() = ImVec4(0, static_cast<float>(gView.safeAreaInsets.top), 0,
+                                        tabBarShown() ? kTabBarHeight : 0.0f);
             const CFTimeInterval now = CACurrentMediaTime();
             io.DeltaTime = gLastTime > 0 ? static_cast<float>(now - gLastTime) : 1.0f / 60.0f;
             gLastTime = now;
