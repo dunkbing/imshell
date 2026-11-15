@@ -713,8 +713,9 @@ namespace {
                       gTabBar.selected = index;
                       styleTabBar();
                       wake();
-                      if (gTabBar.onSelect)
-                          gTabBar.onSelect(index);
+                      // a copy: the callback may call SetTabBar and replace itself
+                      if (auto select = gTabBar.onSelect)
+                          select(index);
                     }]
                 forControlEvents:UIControlEventTouchUpInside];
             [gTabBar.stack addArrangedSubview:button];
