@@ -9,7 +9,9 @@
 
 #include <GLFW/glfw3.h>
 #include <algorithm>
+#include <atomic>
 #include <chrono>
+#include <functional>
 #include <thread>
 
 namespace imshell::detail {
@@ -19,6 +21,23 @@ namespace imshell::detail {
     // shortcut: a heartbeat for work on other threads that never asks for frames; drop it
     // once hosts always call requestFrames() when they hand the ui something
     constexpr double kMaxWaitSeconds = 1.0;
+
+    // a resize or an expose. appkit's live resize runs its own event loop, so polling does not return
+    // while the edge is dragged: on macos the window callbacks draw then, or the content stays at the
+    // old size until the drag ends. either way the loop is told, to draw a few frames after (an
+    // idle loop would show the old size for up to a second)
+    inline std::atomic<bool> gWindowChanged{false};
+    inline std::function<void()> gLiveDraw;
+    inline bool gInLiveDraw = false;
+    inline void onWindowChanged(GLFWwindow* window) {
+        gWindowChanged = true;
+        if (!gLiveDraw || gInLiveDraw || !glfwGetWindowAttrib(window, GLFW_FOCUSED) ||
+            glfwGetWindowAttrib(window, GLFW_ICONIFIED))
+            return;
+        gInLiveDraw = true; // drawing can resize the window again
+        gLiveDraw();
+        gInLiveDraw = false;
+    }
 
     // full speed while the user works or something animates; after kIdleAfterSeconds without
     // either, the wait between frames grows to kMaxWaitSeconds. vsync and maxFps are read
@@ -34,6 +53,12 @@ namespace imshell::detail {
             if (!closing->closeRequested())
                 glfwSetWindowShouldClose(w, GLFW_FALSE);
         });
+        glfwSetWindowSizeCallback(window, [](GLFWwindow* w, int, int) { onWindowChanged(w); });
+        glfwSetFramebufferSizeCallback(window, [](GLFWwindow* w, int, int) { onWindowChanged(w); });
+        glfwSetWindowRefreshCallback(window, [](GLFWwindow* w) { onWindowChanged(w); });
+#ifdef __APPLE__
+        gLiveDraw = [&render] { render(); }; // windows resizes its swap chain in WM_SIZE: not yet
+#endif
         double lastInput = glfwGetTime();
         bool wasFocused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != 0;
         int trailing = 0; // frames still to draw after input, so what the input changed is shown
@@ -55,6 +80,10 @@ namespace imshell::detail {
                 glfwWaitEventsTimeout(wait);
             else
                 glfwPollEvents();
+            if (gWindowChanged.exchange(false)) {
+                lastInput = glfwGetTime();
+                trailing = 3;
+            }
 
             // input that is waiting for its frame: draw that one and a few more at full speed, since
             // what the input changed can show only a frame later (a widget drawn before the code that
@@ -94,6 +123,7 @@ namespace imshell::detail {
             if (isImGuiUserActive() || delegate.wantsFrames())
                 lastInput = glfwGetTime();
         }
+        gLiveDraw = nullptr;
         wakeLoopHook().store(nullptr);
     }
 } // namespace imshell::detail
