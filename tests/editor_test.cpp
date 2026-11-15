@@ -358,6 +358,35 @@ namespace {
         CHECK(!GImGui->PlatformImeData.WantTextInput);
     }
 
+    void wrapping() {
+        TextEditor e;
+        e.SetReadOnly(true);
+        CHECK(!e.WordWrap());
+        // 200 words of 4 chars: far wider than the 800 px window
+        std::string line;
+        for (int i = 0; i < 200; ++i)
+            line += "word ";
+        start(e, line + "\nshort");
+        CHECK(e.RowCount() == 2);
+        e.SetWordWrap(true);
+        frames();
+        CHECK(e.RowCount() > 3);
+        const int rows = e.RowCount();
+        // a click on a lower row of the first line lands past its start, still on that line
+        click(ImVec2(300, 2 + 2.5f * ImGui::GetTextLineHeightWithSpacing()));
+        CHECK(e.GetCursorIndex() > 0 && e.GetCursorIndex() < static_cast<int>(line.size()));
+        // the text changes: the rows follow
+        e.SetText("short");
+        frames();
+        CHECK(e.RowCount() == 1);
+        e.SetText(line);
+        frames();
+        CHECK(e.RowCount() == rows - 1);
+        e.SetWordWrap(false);
+        frames();
+        CHECK(e.RowCount() == 1);
+    }
+
     void everything() {
         TextEditor e, other;
         e.SetPlaceholder("type here");
@@ -407,6 +436,7 @@ int main() {
     highlighting();
     completion();
     ime();
+    wrapping();
     everything();
     ImGui::DestroyContext();
     if (failures) {
