@@ -23,6 +23,8 @@
 #include <string>
 #include <vector>
 
+#import <objc/message.h>
+
 namespace {
     MTKView* gView = nil;
     id<MTLCommandQueue> gQueue = nil;
@@ -667,10 +669,14 @@ namespace {
         UIView* container = gView.superview;
         if (!gTabBar.view) {
             UIVisualEffect* effect = nil;
-#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000
-            if (@available(iOS 26.0, *))
-                effect = [UIGlassEffect effectWithStyle:UIGlassEffectStyleRegular];
-#endif
+            // by name, not [UIGlassEffect ...]: a direct reference is a linker symbol that an app
+            // cannot even launch without on ios 18 and older, whatever @available says. style 0 is
+            // Regular
+            if (@available(iOS 26.0, *)) {
+                if (Class glass = NSClassFromString(@"UIGlassEffect"))
+                    effect = ((UIVisualEffect * (*)(Class, SEL, NSInteger)) objc_msgSend)(
+                        glass, @selector(effectWithStyle:), 0);
+            }
             if (!effect)
                 effect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemChromeMaterial];
             UIVisualEffectView* view = [[UIVisualEffectView alloc] initWithEffect:effect];
