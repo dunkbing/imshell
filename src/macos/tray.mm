@@ -88,6 +88,10 @@ namespace imshell::tray {
         gActivate = options.onActivate;
     }
 
+    bool Available() {
+        return gTray != nil;
+    }
+
     void Remove() {
         if (!gTray)
             return;

@@ -903,8 +903,4 @@ namespace imshell {
         return gWindow && gtk_widget_get_visible(gWindow);
     }
 
-    namespace tray { // no status notifier yet: GNOME shows none without an extension
-        void Set(const Options&) {}
-        void Remove() {}
-    } // namespace tray
 } // namespace imshell
