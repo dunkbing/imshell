@@ -182,7 +182,7 @@ Per platform:
 
 ## Images (`imshell/image.hpp`)
 
-`LoadTexture(bytes, size, create)` decodes a PNG with stb_image and hands the pixels to `create`, normally the app's `createTexture`. An app started with `Run()` has no `App` to ask: `LoadTexture(bytes, size)` uploads through the running one (not on iOS).
+`LoadTexture(bytes, size, create)` decodes a PNG, JPEG, GIF (first frame), BMP or TGA with stb_image (ImTextureID{} past 16384 a side or 64 million pixels) and hands the pixels to `create`, normally the app's `createTexture`. An app started with `Run()` has no `App` to ask: `LoadTexture(bytes, size)` uploads through the running one (not on iOS).
 
 ## Embedded files (`cmake/ImShellEmbed.cmake`, `imshell/embedded.hpp`)
 
