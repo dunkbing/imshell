@@ -13,11 +13,10 @@
 #define IMSHELL_DESKTOP_SHELL 1
 #endif
 
-// a tray (macos menu bar, windows notification area) icon with a menu, hiding and showing the main
+// a tray (macos menu bar, windows notification area, linux StatusNotifierItem) icon with a menu, hiding and showing the main
 // window, and quitting, so an app can keep running with its window closed. the icon calls need a
 // running App; click callbacks run on the main thread. everything is a no-op on ios, android and
-// the web, so shared code needs no #if. linux: no tray icon yet (Set does nothing); hide and show
-// work
+// the web, so shared code needs no #if
 namespace imshell {
     namespace tray {
         struct Item {
@@ -42,9 +41,16 @@ namespace imshell {
 #ifdef IMSHELL_DESKTOP_SHELL
         void Set(const Options& options);
         void Remove();
+        // true when an icon is really shown: false before Set, when Shell_NotifyIcon failed, or on linux
+        // with no StatusNotifierWatcher (stock GNOME). then an app that hides on close would be
+        // unreachable: quit instead
+        bool Available();
 #else
         inline void Set(const Options&) {}
         inline void Remove() {}
+        inline bool Available() {
+            return false;
+        }
 #endif
     } // namespace tray
 

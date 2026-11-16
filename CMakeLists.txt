@@ -198,6 +198,7 @@ elseif(UNIX)
         src/linux/app.cpp
         src/linux/clipboard.cpp
         src/linux/notifications.cpp
+        src/linux/tray.cpp
         src/haptics_none.cpp
         src/native_view.cpp
         ${IMSHELL_IMGUI_DIR}/backends/imgui_impl_opengl3.cpp

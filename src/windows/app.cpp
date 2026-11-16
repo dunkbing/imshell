@@ -177,6 +177,16 @@ namespace imshell {
             if (LRESULT result = 0; detail::imeMessage(hwnd, msg, wParam, lParam, result))
                 return result;
             switch (msg) {
+            // logoff or shutdown: a closeRequested() that hides the window must let it end
+            case WM_QUERYENDSESSION:
+                detail::quit().terminating = true;
+                break;
+            case WM_ENDSESSION:
+                if (wParam) // going down: the delegate gets its close request to save what it keeps
+                    SendMessageW(hwnd, WM_CLOSE, 0, 0);
+                else
+                    detail::quit().terminating = false; // another app vetoed it
+                break;
             case WM_SIZE:
                 if (wParam != SIZE_MINIMIZED && gBackend)
                     gBackend->resize();
