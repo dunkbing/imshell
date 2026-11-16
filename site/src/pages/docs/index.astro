@@ -1,6 +1,7 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import { docPages } from "./_docs";
+import DocSearch from "../../components/DocSearch.astro";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 ---
@@ -9,6 +10,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   <main class="max-w-2xl mx-auto px-4 py-6 text-sm">
     <h1 class="text-xl font-bold mb-1">## Docs</h1>
     <p class="text-subtext0 text-xs mb-6">The same pages as the repository's <code>docs/</code> folder.</p>
+    <div class="mb-6"><DocSearch /></div>
     <ul class="space-y-3">
       {
         docPages.map((page) => (

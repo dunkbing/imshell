@@ -1,6 +1,7 @@
 ---
 import Layout from "./Layout.astro";
 import { docPages } from "../pages/docs/_docs";
+import DocSearch from "../components/DocSearch.astro";
 
 interface Props {
   title: string;
@@ -17,6 +18,7 @@ const path = Astro.url.pathname.replace(/\/$/, "");
     <a href={`${base}/docs`} class="text-subtext0 text-xs">&lt;- back to docs</a>
     <div class="mt-4 flex flex-col md:flex-row md:gap-8">
       <nav class="md:w-48 shrink-0 mb-6 md:mb-0 text-xs">
+        <div class="mb-3"><DocSearch /></div>
         <p class="text-text font-bold mb-1">Docs</p>
         <ul class="space-y-1">
           {

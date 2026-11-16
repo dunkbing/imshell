@@ -6,6 +6,7 @@
 - [Native views](native-views.md): put a real `NSView`, `UIView`, `HWND` or `GtkWidget` into the ImGui layout.
 - [Auto-update](auto-update.md): Sparkle, WinSparkle or an AppImage swap, behind one call.
 - [Notifications](notifications.md): system notifications, their clicks and the badge on the app's icon.
+- [Tray icon](tray.md): a tray or menu bar icon with a menu, hiding and showing the window, and quitting (`imshell::tray`, `HideWindow`, `Quit`).
 - [UI toolkit](ui.md): themes, widgets, menus, images and embedded files.
 - [Components](components.md): optional ready-made pieces (`imshell::components`): text fields, cards, badges, callouts, progress, avatars, metrics, chips, toasts.
 - [Editor](editor.md): an optional code editor (`imshell::editor`) with hooks for highlighting and completion.
