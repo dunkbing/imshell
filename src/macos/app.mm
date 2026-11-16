@@ -275,6 +275,34 @@ namespace imshell {
             });
             class_addMethod(delegateClass, openFile, imp, "c@:@@");
         }
+        // a click on the Dock icon: with no window showing, the delegate gets to bring it back.
+        // glfw has no handler of its own; returning NO keeps appkit from opening a window
+        SEL reopen = @selector(applicationShouldHandleReopen:hasVisibleWindows:);
+        if (![delegateClass instancesRespondToSelector:reopen]) {
+            IMP imp = imp_implementationWithBlock(^BOOL(id, NSApplication*, BOOL visible) {
+              if (!visible && gDelegate)
+                  gDelegate->reopenRequested();
+              return NO;
+            });
+            NSString* types = [NSString stringWithFormat:@"%s@:@%s", @encode(BOOL), @encode(BOOL)];
+            class_addMethod(delegateClass, reopen, imp, types.UTF8String);
+        }
+        // cmd-q and the Dock's Quit end up in glfw's handler, which asks each window to close:
+        // note that this is a quit, so a closeRequested() that hides can tell
+        {
+            Method m = class_getInstanceMethod(delegateClass, @selector(applicationShouldTerminate:));
+            using Terminate = NSApplicationTerminateReply (*)(id, SEL, NSApplication*);
+            static Terminate wasTerminate = m ? reinterpret_cast<Terminate>(method_getImplementation(m)) : nullptr;
+            if (m)
+                method_setImplementation(
+                    m, imp_implementationWithBlock(^NSApplicationTerminateReply(id self, NSApplication* app) {
+                      detail::quit().terminating = true;
+                      const NSApplicationTerminateReply reply =
+                          wasTerminate(self, @selector(applicationShouldTerminate:), app);
+                      detail::quit().terminating = false;
+                      return reply;
+                    }));
+        }
 
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
@@ -432,5 +460,33 @@ namespace imshell {
 namespace imshell {
     bool ShortcutKeyDown() {
         return (NSEvent.modifierFlags & NSEventModifierFlagCommand) != 0 || ImGui::GetIO().KeyCtrl;
+    }
+} // namespace imshell
+
+namespace imshell {
+    void HideWindow() {
+        [gWindow orderOut:nil]; // off screen, the app keeps running
+        requestFrames();
+    }
+
+    void ShowWindow() {
+        if (!gWindow)
+            return;
+        if (gWindow.isMiniaturized)
+            [gWindow deminiaturize:nil];
+        if (@available(macOS 14.0, *)) {
+            [NSApp activate];
+        } else {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+            [NSApp activateIgnoringOtherApps:YES];
+#pragma clang diagnostic pop
+        }
+        [gWindow makeKeyAndOrderFront:nil];
+        requestFrames();
+    }
+
+    bool WindowVisible() {
+        return gWindow && gWindow.isVisible && !gWindow.isMiniaturized;
     }
 } // namespace imshell

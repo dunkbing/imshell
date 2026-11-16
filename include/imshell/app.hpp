@@ -2,6 +2,7 @@
 
 #include "imgui.h"
 #include "imshell/frames.hpp"
+#include "imshell/tray.hpp"
 #include <algorithm>
 #include <cfloat>
 #include <cstdint>
@@ -57,12 +58,18 @@ namespace imshell {
         virtual bool wantsFrames() {
             return framesRequested();
         }
+        // the app is opened again while its window is hidden (macos: a click on the Dock icon):
+        // shows it
+        virtual void reopenRequested() {
+            ShowWindow();
+        }
         // checked every loop: true closes the window
         virtual bool shouldQuit() {
             return false;
         }
         // the user closes the window (close button, cmd-q, alt-f4): false keeps it open, e.g. to
         // ask about unsaved work first and quit later through shouldQuit()
+        // (or to hide it, see imshell/tray.hpp: QuitRequested() tells a real quit from a close)
         virtual bool closeRequested() {
             return true;
         }

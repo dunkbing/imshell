@@ -40,6 +40,7 @@ namespace imshell {
     namespace {
         Delegate* gDelegate = nullptr; // glfw and window procedure callbacks have no user pointer
         HWND gHwnd = nullptr;
+        GLFWwindow* gGlfw = nullptr;
         WNDPROC gGlfwProc = nullptr;
         DX11Backend* gBackend = nullptr; // the swap chain follows WM_SIZE
         bool gTitleBar = false;
@@ -264,7 +265,7 @@ namespace imshell {
                 SendMessageW(gHwnd, WM_NCLBUTTONDOWN, HTCAPTION, MAKELPARAM(pt.x, pt.y));
                 ImGui::GetIO().AddMouseButtonEvent(0, false); // the loop ate the mouse up
             } else if (action == BarAction::DoubleClick) {
-                ShowWindow(gHwnd, IsZoomed(gHwnd) ? SW_RESTORE : SW_MAXIMIZE);
+                ::ShowWindow(gHwnd, IsZoomed(gHwnd) ? SW_RESTORE : SW_MAXIMIZE);
             } else if (action == BarAction::Menu) {
                 POINT pt;
                 GetCursorPos(&pt);
@@ -305,7 +306,7 @@ namespace imshell {
 
             ImRect r = box(x);
             if (button("##imshell_minimize", r, hoverBg, activeBg))
-                ShowWindow(gHwnd, SW_MINIMIZE);
+                ::ShowWindow(gHwnd, SW_MINIMIZE);
             ImVec2 m = r.GetCenter();
             dl->AddLine({m.x - 5, m.y}, {m.x + 5, m.y}, text);
 
@@ -368,6 +369,7 @@ namespace imshell {
             glfwTerminate();
             return false;
         }
+        gGlfw = d.window;
         gHwnd = glfwGetWin32Window(d.window);
         if (config.icon.png) { // glfw copies the pixels; the window and taskbar icon
             GLFWimage image = {};
@@ -563,5 +565,28 @@ namespace imshell {
 
     void* detail::nativeHost() {
         return gHwnd;
+    }
+} // namespace imshell
+
+namespace imshell {
+    void HideWindow() {
+        if (gGlfw)
+            glfwHideWindow(gGlfw); // off the screen and the taskbar; the app keeps running
+        requestFrames();
+    }
+
+    void ShowWindow() {
+        if (!gGlfw)
+            return;
+        glfwShowWindow(gGlfw);
+        if (glfwGetWindowAttrib(gGlfw, GLFW_ICONIFIED))
+            glfwRestoreWindow(gGlfw);
+        SetForegroundWindow(gHwnd); // glfwFocusWindow alone only flashes the taskbar button
+        glfwFocusWindow(gGlfw);
+        requestFrames();
+    }
+
+    bool WindowVisible() {
+        return gGlfw && glfwGetWindowAttrib(gGlfw, GLFW_VISIBLE) && !glfwGetWindowAttrib(gGlfw, GLFW_ICONIFIED);
     }
 } // namespace imshell

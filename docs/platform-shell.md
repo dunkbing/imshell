@@ -142,3 +142,20 @@ Configure with the NDK toolchain, `-DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=an
 ## App icon
 
 `imshell_app(<target> ... ICON <file.icns>)` copies the icon into the macOS bundle (`Contents/Resources/<NAME>.icns`, before signing) and names it in `Info.plist` as `CFBundleIconFile`. `ICON_ICO <file.ico>` (or `ICON` with a `.ico`) gives the Windows exe its icon through a generated `.rc` (lowest id, so Explorer shows it; neutral language). Without them nothing changes. `Config::icon` sets the icon of a running window for runs outside a bundle and for Windows.
+
+## Tray icon, hiding the window, quitting
+
+`imshell/tray.hpp` lets an app keep running with its window closed.
+`imshell::tray::Set(options)` shows an icon with a menu (items with a label and `onClick`, separators, enabled state), a tooltip, a PNG icon and `onActivate` for a left click (none: the click opens the menu; a right click always does); calling it again updates the icon and the menu, `Remove()` takes it away.
+On macOS it is an `NSStatusItem` in the menu bar, with the PNG as a template image (drawn in the bar's colour from its alpha) and the first letter of the tooltip when there is no icon.
+On Windows it is a notification area icon (`Shell_NotifyIcon`) with a popup menu.
+Linux has no tray icon yet (`Set` does nothing, since GNOME shows one only with an extension); the window calls below work.
+Callbacks run on the main thread.
+
+`HideWindow()` takes the main window off the screen (and the taskbar) while the app and its frame loop keep running, idling like a background window; `ShowWindow()` brings it back, restoring a minimised window and activating the app; `WindowVisible()` says whether it is shown and not minimised.
+A click on the Dock icon while no window shows calls `Delegate::reopenRequested()` on macOS, which shows the window by default.
+
+A delegate whose `closeRequested()` hides the window and returns false keeps the app alive; `imshell::Quit()` ends the run loop whatever `closeRequested()` says, for a tray menu's quit item.
+`QuitRequested()` is true while the app is quitting for real, `Quit()` or on macOS cmd-q and the Dock's Quit: `closeRequested()` should return true then.
+Alt-F4 on Windows and the close button are ordinary close requests.
+All of it does nothing on iOS, Android and the web, so shared code needs no `#if`.

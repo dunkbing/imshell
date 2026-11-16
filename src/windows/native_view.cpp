@@ -56,7 +56,7 @@ namespace imshell::detail {
         style = (style & ~WS_POPUP) | WS_CHILD;
         SetWindowLongPtrW(view, GWL_STYLE, style);
         SetParent(view, clip);
-        ShowWindow(view, SW_SHOW);
+        ::ShowWindow(view, SW_SHOW);
         // above the swap chain's window content; the main window clips its children out
         SetWindowPos(clip, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         return clip;
@@ -73,7 +73,7 @@ namespace imshell::detail {
     }
 
     void nativeSetHidden(void* clip, const bool hidden) {
-        ShowWindow(static_cast<HWND>(clip), hidden ? SW_HIDE : SW_SHOWNA);
+        ::ShowWindow(static_cast<HWND>(clip), hidden ? SW_HIDE : SW_SHOWNA);
     }
 
     void nativeRemove(void* clip) {
