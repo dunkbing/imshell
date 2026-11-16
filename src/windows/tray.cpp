@@ -199,7 +199,7 @@ namespace imshell::tray {
         gData.uVersion = version;
         gData.uFlags = NIF_MESSAGE | NIF_TIP | NIF_ICON | NIF_SHOWTIP; // version 4 hides the tip without it
         gData.uCallbackMessage = kCallback;
-        gData.hIcon = icon ? icon : LoadIconW(nullptr, IDI_APPLICATION);
+        gData.hIcon = icon ? icon : LoadIconW(nullptr, MAKEINTRESOURCEW(32512)); // IDI_APPLICATION, wide even without UNICODE
         const std::wstring tip = wide(options.tooltip);
         wcsncpy_s(gData.szTip, tip.c_str(), _TRUNCATE);
         if (!gAdded || !Shell_NotifyIconW(NIM_MODIFY, &gData))
