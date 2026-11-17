@@ -188,6 +188,11 @@ namespace imshell::Markdown {
             }
             RichMd::MarkdownOptions options;
             options.hardSoftBreaks = gOptions.hardBreaks;
+            if (gOptions.openLink)
+                options.callbacks.OnOpenLink = [](const std::string& url) {
+                    if (!gOptions.openLink(url))
+                        RichMd::OnOpenLink_Default(url);
+                };
             RichMd::CreateContext(options);
         }
     } // namespace

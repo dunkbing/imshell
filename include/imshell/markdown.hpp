@@ -37,6 +37,10 @@ namespace imshell::Markdown {
         // the copy button's labels; code blocks draw with the caller's font, icons included
         std::string copyIcon = "Copy";
         std::string copiedIcon = "Copied";
+        // a clicked link, before anything opens: return true when the host handled it. unset or false:
+        // the default, which opens it (and on a touch screen lets a tap open sites). read when the
+        // renderer starts, like the fonts. an unresolved #anchor arrives here too
+        std::function<bool(const std::string& url)> openLink;
     };
     // before the first Render. the fonts and hardBreaks are read when the renderer starts (the
     // first Render, or the first after Shutdown); the rest applies from the next Render
