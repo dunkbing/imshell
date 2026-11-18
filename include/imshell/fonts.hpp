@@ -37,6 +37,15 @@ namespace imshell {
     // markdown renderer's. AddFont does it for its own
     void MergeEmoji(ImFont* font);
 
+    // the system's thai font merged into `font` (once; AddFont does it for its own, like the emoji): for fonts made
+    // elsewhere. nothing happens when no thai font is installed. the font must place its marks by their own
+    // bearings: imgui does not shape. IMSHELL_THAI_FONT names another file
+    void MergeThai(ImFont* font);
+    // the font MergeThai falls back to when the system has none (call before the first AddFont); the data must outlive the atlas
+    void SetEmbeddedThaiFont(const void* data, size_t size);
+    // an installed font with thai glyphs (the one MergeThai merges), or empty
+    std::string SystemThaiFontPath();
+
     // an installed font with chinese and japanese glyphs (korean too on linux and android), or empty
     std::string SystemCjkFontPath();
 } // namespace imshell
