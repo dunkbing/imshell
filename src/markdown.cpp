@@ -219,9 +219,12 @@ namespace imshell::Markdown {
         if (!gEmojiMerged) {
             gEmojiMerged = true;
             MergeEmoji(RichMd::GetCodeFont().font);
+            MergeThai(RichMd::GetCodeFont().font);
             for (const bool bold : {false, true})
-                for (const bool italic : {false, true})
+                for (const bool italic : {false, true}) {
                     MergeEmoji(RichMd::GetFont(RichMd::MarkdownFontSpec(italic, bold)).font);
+                    MergeThai(RichMd::GetFont(RichMd::MarkdownFontSpec(italic, bold)).font);
+                }
         }
     }
 

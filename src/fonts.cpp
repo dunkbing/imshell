@@ -4,6 +4,7 @@
 #include "imgui_internal.h"
 
 #include <cstdint>
+#include <cstdlib>
 #include <map>
 #include <vector>
 #include <cstring>
@@ -175,6 +176,76 @@ namespace imshell {
         ImGui::GetIO().Fonts->AddFont(&config);
     }
 
+
+    // thai: the base fonts have none, and a missing glyph is drawn as U+FFFD. imgui does not shape, so the
+    // font must place its vowel and tone marks by their own bearings (zero advance, negative left bearing),
+    // as the system's thai ui fonts do. IMSHELL_THAI_FONT names another file
+    std::string SystemThaiFontPath() {
+        if (const char* chosen = std::getenv("IMSHELL_THAI_FONT"); chosen && std::strcmp(chosen, "none") == 0)
+            return {}; // test the embedded one
+        if (const char* chosen = std::getenv("IMSHELL_THAI_FONT"); chosen && *chosen && stbCanRead(chosen))
+            return chosen;
+        static const char* candidates[] = {
+#if defined(__ANDROID__)
+            "/system/fonts/NotoSansThai-Regular.ttf",
+            "/system/fonts/NotoSansThaiUI-Regular.ttf",
+#elif defined(__APPLE__)
+            // unshaped, these place their marks by their own bearings; thonburi ui draws them with dotted circles
+            "/System/Library/Fonts/Supplemental/Ayuthaya.ttf",
+            "/System/Library/Fonts/Supplemental/SukhumvitSet.ttc",
+            "/System/Library/Fonts/SukhumvitSet.ttc",
+            "/System/Library/Fonts/ThonburiUI.ttc",
+            "/System/Library/Fonts/Thonburi.ttc",
+#elif defined(_WIN32)
+            "C:\\Windows\\Fonts\\LeelawUI.ttf", // leelawadee ui
+            "C:\\Windows\\Fonts\\tahoma.ttf",
+#else
+            "/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf",
+            "/usr/share/fonts/noto/NotoSansThai-Regular.ttf",
+            "/usr/share/fonts/google-noto/NotoSansThai-Regular.ttf",
+            "/usr/share/fonts/truetype/tlwg/Loma.ttf",
+#endif
+        };
+        for (const char* path : candidates)
+            if (stbCanRead(path))
+                return path;
+        return {};
+    }
+
+    namespace {
+        std::span<const char> gEmbeddedThai; // the host's last resort, see SetEmbeddedThaiFont
+
+        std::span<const char> thaiData() {
+            static const std::span<const char> data = [] {
+                const std::string path = SystemThaiFontPath();
+                const std::span<char> mapped = path.empty() ? std::span<char>{} : mapFile(path);
+                return mapped.empty() ? gEmbeddedThai : std::span<const char>(mapped);
+            }();
+            return data;
+        }
+        // the thai block, a zero width space and the no-break space
+        constexpr ImWchar kThaiRanges[] = {0x00A0, 0x00A0, 0x0E01, 0x0E5B, 0x200B, 0x200B, 0};
+    } // namespace
+
+    void SetEmbeddedThaiFont(const void* data, size_t size) {
+        gEmbeddedThai = {static_cast<const char*>(data), size};
+    }
+
+    void MergeThai(ImFont* font) {
+        if (!font || thaiData().empty())
+            return;
+        // once per font, asked of the font itself (a font made again at the same address gets them again)
+        for (const ImFontConfig* source : font->Sources)
+            if (std::strcmp(source->Name, "thai") == 0)
+                return;
+        ImFontConfig config;
+        config.FontDataOwnedByAtlas = false;
+        config.MergeMode = true;
+        config.DstFont = font;
+        ImFormatString(config.Name, IM_ARRAYSIZE(config.Name), "%s", "thai");
+        ImGui::GetIO().Fonts->AddFontFromMemoryTTF(const_cast<char*>(thaiData().data()), static_cast<int>(thaiData().size()), font->Sources[0]->SizePixels, &config, kThaiRanges);
+    }
+
     namespace {
         // hangul: the chinese and japanese fonts above have none. linux and android's cjk
         // collections (noto, wenquanyi) do, so they are merged again for it
@@ -237,6 +308,7 @@ namespace imshell {
         // the system's colour emoji, before the cjk font so its pictures win over plain symbols
         if (emoji)
             MergeEmoji(font);
+        MergeThai(font);
         if (font && systemCjk && !cjkData().empty()) {
             ImFontConfig config;
             config.FontDataOwnedByAtlas = false;
