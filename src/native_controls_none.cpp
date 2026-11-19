@@ -13,4 +13,8 @@ namespace imshell::detail {
     bool nativeSegmented(const char*, std::span<const char* const>, int*) {
         return false;
     }
+
+    bool nativePopUp(const char*, std::span<const char* const>, int*) {
+        return false;
+    }
 } // namespace imshell::detail

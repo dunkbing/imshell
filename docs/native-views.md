@@ -35,9 +35,9 @@ It returns true on a real click (the `NSButton`'s action, which also wakes an id
 
 ## Native controls (`imshell/native_controls.hpp`)
 
-`NativeSwitch(id, &on)` and `NativeSegmented(id, {"List", "Grid"}, &current)` are the platform's own controls in the layout: an `NSSwitch` and an `NSSegmentedControl` on macOS, a `UISwitch` and a `UISegmentedControl` on iOS.
+`NativeSwitch(id, &on)`, `NativeSegmented(id, {"List", "Grid"}, &current)` and `NativePopUp(id, {"Small", "Large"}, &current)` are the platform's own controls in the layout: an `NSSwitch`, an `NSSegmentedControl` and an `NSPopUpButton` on macOS, a `UISwitch`, a `UISegmentedControl` and a button that opens a `UIMenu` on iOS.
 Each returns true in the frame its value changed, and writes the new value, so an app uses them like imshell's `ToggleButton` and `SegmentedTabs`.
-Where a platform has no backend yet (Windows, Linux, Android) they are those two widgets, so a caller writes one line and needs no `#ifdef`; `NativeControlsAvailable()` says which you get.
+Where a platform has no backend yet (Windows, Linux, Android) they are imshell's `ToggleButton`, `SegmentedTabs` and `Select`, so a caller writes one line and needs no `#ifdef`; `NativeControlsAvailable()` says which you get.
 
 ```cpp
 if (imshell::NativeSwitch("##notify", &notify))
@@ -48,7 +48,7 @@ Each is a `NativeView`, so the view rules above apply: it hides while an ImGui p
 It draws with the system accent and the window's light or dark, not the theme's colours, so it looks right with `SystemTheme()` and out of step with a preset such as Tokyo Night; use the imshell widgets where either matters.
 The control keeps its own size and sits in the middle of the ImGui frame, so it lines up with `GetFrameHeight()`.
 A value you change from the app shows in the control on the next frame, and the ImGui item under the view still answers the test engine.
-A segmented control reads its labels once per id.
+A segmented control and a pop-up read their labels once per id.
 
 ## Windows
 

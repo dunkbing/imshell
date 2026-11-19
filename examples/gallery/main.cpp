@@ -119,19 +119,25 @@ struct Gallery : imshell::Delegate {
     // the os's own switch and segmented control beside imshell's, to compare
     void nativeControls() {
         static bool nativeOn = true, ownOn = true;
-        static int nativeView = 0, ownView = 0;
+        static int nativeView = 0, ownView = 0, nativeSize = 1, ownSize = 1;
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(imshell::NativeControlsAvailable() ? "Native" : "Fallback");
         ImGui::SameLine();
         imshell::NativeSwitch("##nativeSwitch", &nativeOn);
         ImGui::SameLine();
         imshell::NativeSegmented("##nativeSegments", {"List", "Grid", "Cards"}, &nativeView);
+        ImGui::SameLine();
+        imshell::NativePopUp("##nativePopUp", {"Small", "Medium", "Large"}, &nativeSize);
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted("imshell ");
         ImGui::SameLine();
         imshell::ToggleButton("##ownSwitch", &ownOn);
         ImGui::SameLine();
         imshell::SegmentedTabs("##ownSegments", {"List", "Grid", "Cards"}, &ownView);
+        ImGui::SameLine();
+        static const char* const sizes[] = {"Small", "Medium", "Large"};
+        ImGui::SetNextItemWidth(110);
+        imshell::Select("##ownPopUp", &ownSize, sizes, 3);
     }
 
     void frame() override {

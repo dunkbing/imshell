@@ -37,11 +37,14 @@ int main() {
         ImGui::Begin("w");
         notified = imshell::NativeSwitch("##s", &on);
         const bool segmented = imshell::NativeSegmented("##g", {"List", "Grid", "Cards"}, &view);
+        const char* const sizes[] = {"Small", "Medium", "Large"};
+        int size = 1;
+        const bool popped = imshell::NativePopUp("##p", sizes, 3, &size);
         bool button = false;
 #if !defined(__APPLE__) // macos has the NSButton instead, which needs a window
         button = imshell::NativeButton("##b", "gearshape", "Settings", "Settings");
 #endif
-        check(!notified && !segmented && !button, "nothing changes without a click");
+        check(!notified && !segmented && !button && !popped, "nothing changes without a click");
         ImGui::End();
         ImGui::Render();
     }
