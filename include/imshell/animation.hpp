@@ -39,7 +39,7 @@ namespace imshell {
 
     // the system's reduce motion setting (apple; false elsewhere until a loader exists)
     bool ReduceMotion();
-    // forces it on or off for the process, above the system and the environment (a video render turns it on so
+    // forces it on or off for the whole process (every thread), above the system and the environment (a video render turns it on so
     // values do not depend on the frames before); nullopt hands it back
     void SetReduceMotion(std::optional<bool> forced);
 } // namespace imshell
