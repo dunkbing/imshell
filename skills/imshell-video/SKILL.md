@@ -54,6 +54,10 @@ program for everything (the examples use the `imshell_video_demo` name):
 | `strip [RANGE \| TIMES] -n 12 --columns 4 --width 480 -o strip.png` | a contact sheet, each cell labelled with its frame number: judge layout and rhythm |
 | `frame TIMES -o dir [--crop x,y,w,h] [--zoom N]` | full-size PNGs; a crop is shown zoomed (about 960 px wide) for small details |
 | `verify [RANGE]` | frames drawn in order must equal frames jumped to (exit 2 if not) |
+| `inspect [RANGE] [--no-pops] [--fail-on warning]` | windows cut off by the canvas (a warning at a scene's start or end, an error in the middle), blank frames, pops between frames; each finding says which command shows it (exit 2 on errors) |
+| `audio analyze [RANGE]` | loudness (LUFS), true peak, clipping, silence of the mix (exit 2 on clipping) |
+| `audio at TIMES` | which sounds play at a moment, from where in the file, how loud |
+| `audio render [RANGE] -o a.wav` | the mix as a wav, to listen to without rendering the video |
 | `render [RANGE] -o out.mp4 [--draft] [--scale F] [--ffmpeg]` | encode; `--draft` is half size and quick |
 | `preview [TIME] [--paused]` | the real-time window, for the user to watch (no sound); it blocks until closed |
 
@@ -62,7 +66,7 @@ Times: `120` (a frame), `3.2s`, `500ms`, `1:05.5`, `50%`, `start`, `end`; ranges
 stdout; progress goes to stderr.
 
 Working order: `timeline` (does the structure and pacing add up?), `strip all -n 12` (does it
-read?), `frame` on the moments that matter, fix, `verify`, a `--draft` render to check the encode,
+read?), `frame` on the moments that matter, fix, `inspect` and `verify`, `audio analyze`, a `--draft` render to check the encode,
 then the full `render`. When the user wants to watch, show the exact command
 (`./build/my_video preview 8.5s`) with a start time just before the changed section, and offer to
 run it. Do not render the whole video after every edit.
@@ -117,23 +121,23 @@ comp.audio = {{.path = "music.mp3", .volume = 0.6f, .fadeIn = 1.0, .fadeOut = 2.
 
 `Composition::audio` is a list of `AudioClip` (path, `start` seconds on the video's timeline,
 `offset` into the file, `duration`, `volume`, `fadeIn`, `fadeOut`); the mixer sums them to
-48 kHz stereo and clamps. Check `timeline` for the placement, then listen in a real player: the
-tool has no loudness or silence analysis yet, so look at levels with
-`ffmpeg -i out.mp4 -af volumedetect -f null -` (aim for a mean around -16 to -14 dB and a max
-below -1 dB). Windows and Apple encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg`
-on `PATH`.
+48 kHz stereo and clamps. Time effects from the constants that drive the motion. Check the placement
+with `timeline` and `audio at 3.1s`, the levels with `audio analyze` (aim for about -14 LUFS
+integrated for web video, true peak below -1 dBTP, no clipping, no silence you did not plan), and
+listen to the mix without rendering the video with `audio render -o mix.wav`. Windows and Apple
+encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
 ## Finish
 
 1. `timeline` matches the plan; `strip all` reads; key frames were checked at full size.
-2. `verify` passes.
-3. Nothing from the "No slop" list is left in any strip.
+2. `inspect` has no unexplained errors (entrance and exit warnings are understood), `verify` passes.
+3. `audio analyze` shows sensible levels. Nothing from the "No slop" list is left in any strip.
 4. A `render` finished; confirm with
    `ffprobe -v error -show_entries stream=codec_type,width,height,nb_frames,duration out.mp4`.
 5. Give the user the output path and the duration.
 
 ## Not available yet
 
-Video footage as a layer, captions, audio visualizers, shaders, loudness analysis, text-clipping and pop detection.
+Video footage as a layer, captions, audio visualizers and shaders.
 If a request needs one of these, say so and give the closest result that works instead of
 reaching for another tool.

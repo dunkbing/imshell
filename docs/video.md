@@ -134,6 +134,12 @@ A video's `main` can be one line, `return imshell::video::Cli(comp, argc, argv, 
 Times are a frame (`120`), `3.2s`, `500ms`, `1:05.5`, `50%`, `start` or `end`; ranges are `a..b` (b excluded), `a..`, `..b` or `all`.
 `--json` prints one JSON object on stdout, progress goes to stderr.
 A draft or a scale changes `Composition::width/height`, so a draw function has to lay out from `Frame::width/height`.
+`inspect [RANGE]` (`video_check.hpp`, `check.cpp`) plays the frames in order and reports what a viewer would notice: a window whose vertices leave the canvas (a warning at the first or last frames of its scene, where it is probably an entrance or an exit, an error anywhere else, with the overhang in pixels and the command to look at it), frames with nothing drawn (a note), and pops, a part of the picture that changes in one frame between frames that hardly move, with its region (a hard cut at a scene boundary is not one).
+It reads two things: the draw data after imgui laid the frame out, through `drawProbe()` (a process-wide callback each renderer calls once per frame), and the pixels, in 4x4 cells.
+The window checks skip the background and foreground draw lists, which are meant to be bigger than the canvas; windows are checked by name, so two windows with one name are one.
+`--fail-on warning` makes warnings fail too; the exit code is 2 on a failure.
+`audio analyze [RANGE]` mixes the sound as a render would (`RenderAudio`) and prints the integrated loudness (ITU-R BS.1770: K-weighting, 400 ms blocks every 100 ms, the -70 LUFS gate and the -10 LU relative gate), the true peak (4x oversampled), sample peak, rms, clipped samples (exit 2) and silences of 0.3 s or more under -60 dBFS; `audio at TIMES` says what plays at a moment, from where in its file and how loud; `audio render` writes the mix as a 32 bit float wav.
+`Frames(comp, options, fn)` plays a range in order and hands each frame to `fn`: the building block of the checks, and of anything that wants the pixels (image sequences, thumbnails).
 The contact sheet labels are digits only (a 3x5 bitmap font): the frame number is the only text it needs.
 `skills/imshell-video/SKILL.md` is the working method for an agent (plan first, no template leftovers, the loop above, motion and sound rules).
 

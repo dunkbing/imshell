@@ -111,6 +111,9 @@ namespace {
                     ImGui::EndFrame();
                 } else {
                     ImGui::Render();
+                    if (drawProbe()) {
+                        drawProbe()(index, ImGui::GetDrawData());
+                    }
                 }
             }
 
@@ -630,6 +633,47 @@ bool Verify(const Composition& comp, std::span<const int> frames, std::string* r
             *report = text;
         }
         return same;
+    }
+}
+
+bool Frames(const Composition& comp, const Options& options, const std::function<bool(int, const Image&)>& fn, std::string* error) {
+    @autoreleasepool {
+        if (!validSize(comp, error)) {
+            return false;
+        }
+        int from = 0, to = 0;
+        frameRange(comp, options, from, to);
+        Renderer renderer(comp);
+        Exposure exposure(comp, options.blur);
+        CVPixelBufferRef buffer = makeBuffer(comp);
+        if (!renderer.ok() || !exposure.ok() || !buffer) {
+            if (buffer) {
+                CVPixelBufferRelease(buffer);
+            }
+            return fail(error, "no metal device");
+        }
+        bool ok = true;
+        for (int n = from; ok && n < to; ++n) {
+            if (!exposure.draw(renderer, n, true, buffer)) {
+                ok = fail(error, ("drawing frame " + std::to_string(n) + " failed").c_str());
+            } else if (!fn(n, readImage(buffer, comp.width, comp.height)) || (options.progress && !options.progress(n - from + 1, to - from))) {
+                break;
+            }
+        }
+        CVPixelBufferRelease(buffer);
+        return ok;
+    }
+}
+
+bool RenderAudio(const Composition& comp, std::vector<float>& pcm, const Options& options, std::string* error) {
+    @autoreleasepool {
+        if (!validSize(comp, error)) {
+            return false;
+        }
+        int from = 0, to = 0;
+        frameRange(comp, options, from, to);
+        pcm.clear();
+        return mixAudio(comp, from, to, pcm, error);
     }
 }
 

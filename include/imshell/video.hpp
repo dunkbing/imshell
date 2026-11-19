@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+struct ImDrawData;
+
 namespace imshell::video {
     // what a composition's draw function gets
     struct Frame {
@@ -98,6 +100,21 @@ namespace imshell::video {
     // and compares the pixels. false when any differ, `report` names them: the composition keeps
     // state between frames, which a scrubber or a range render would show as a different picture
     bool Verify(const Composition& comp, std::span<const int> frames, std::string* report = nullptr);
+
+    // plays frames [options.from, options.to) in order, as a render does (with options.blur), and
+    // hands each as rgba; fn returns false to stop. the building block for checks and image sequences
+    bool Frames(const Composition& comp, const Options& options, const std::function<bool(int index, const Image&)>& fn, std::string* error = nullptr);
+    // the sound as a render mixes it for [options.from, options.to): interleaved 48 kHz stereo float,
+    // empty when the composition has no sound
+    bool RenderAudio(const Composition& comp, std::vector<float>& pcm, const Options& options = {}, std::string* error = nullptr);
+
+    // called with every frame's draw data once imgui has laid it out and before it is drawn: what a
+    // check looks at (where each window ended up). process wide, set around a Frames call; null = none
+    using DrawProbe = std::function<void(int frame, const ImDrawData*)>;
+    inline DrawProbe& drawProbe() {
+        static DrawProbe probe;
+        return probe;
+    }
 
     struct PreviewOptions {
         bool play = true;       // start playing

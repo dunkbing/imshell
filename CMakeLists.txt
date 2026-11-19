@@ -164,7 +164,7 @@ elseif(WIN32) # direct3d 11 offscreen (warp with no gpu), ffmpeg encodes
     target_link_libraries(imshell_video PUBLIC imshell d3d11 dxgi mfplat mfreadwrite mfuuid ole32)
 endif()
 if(TARGET imshell_video)
-    target_sources(imshell_video PRIVATE src/video/cli.cpp) # the command line, over the public api only
+    target_sources(imshell_video PRIVATE src/video/cli.cpp src/video/check.cpp) # the command line and the checks, over the public api only
 endif()
 
 # optional node editor (imshell/node_editor.hpp): imgui-node-editor, themed
@@ -401,7 +401,7 @@ if(IMSHELL_BUILD_TESTS)
     add_test(NAME imshell_video_test COMMAND imshell_video_test)
     # the portable layer over a fake rasterizer: runs on any machine with no gpu
     add_executable(imshell_video_generic_test tests/video_generic_test.cpp src/video/generic.cpp src/video/png.cpp
-                   src/video/ffmpeg.cpp src/video/audio.cpp src/video/cli.cpp ${IMSHELL_TEST_IMGUI})
+                   src/video/ffmpeg.cpp src/video/audio.cpp src/video/cli.cpp src/video/check.cpp ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_video_generic_test PRIVATE include src/video ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_video_generic_test PRIVATE cxx_std_20)
     if(WIN32)

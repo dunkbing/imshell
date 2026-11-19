@@ -17,8 +17,8 @@ namespace imshell::video {
     struct Scene {
         std::string name;
         int frames = 60; // its share of the timeline; the overlap is not added to the total
-        // frames over which it fades in on top of the end of the previous scene, which stays fully
-        // visible underneath so the picture never dips. the scene starts drawing at the first of
+        // frames over which it fades in while the previous scene fades out (a dissolve; content that has
+        // no opaque background of its own does not pop). the scene starts drawing at the first of
         // these frames: its entrance animation begins with the fade. 0 = a cut; the first scene has none
         int overlap = 0;
         std::function<void(const Frame&)> draw; // Frame::index counts from the scene's own first frame
@@ -64,6 +64,9 @@ namespace imshell::video {
                 layer.local = std::clamp(static_cast<int>(std::floor(local)), 0, layer.length - 1);
                 layer.offset = local - layer.local;
                 layer.alpha = overlap > 0 ? static_cast<float>(std::clamp(local / overlap, 0.0, 1.0)) : 1.f;
+                if (layer.alpha < 1.f && !layers.empty() && layers.back().scene == layer.scene - 1) {
+                    layers.back().alpha = 1.f - layer.alpha; // a dissolve: the one leaving fades as this one comes
+                }
                 layers.push_back(layer);
             }
             start = end;
