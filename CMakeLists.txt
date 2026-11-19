@@ -83,17 +83,20 @@ else()
     set(IMSHELL_MOTION_SOURCES src/animation.cpp src/motion_none.cpp)
 endif()
 
-# native controls (imshell/native_controls.hpp): the os's switch and segmented control through
-# NativeView on apple; imshell's own widgets elsewhere until a platform has a backend
+# native controls (imshell/native_controls.hpp): the os's switch, segmented control and pop-up through
+# NativeView on apple and linux (gtk); imshell's own widgets elsewhere until a platform has a backend
 target_sources(imshell PRIVATE src/native_controls.cpp)
 if(APPLE)
     target_sources(imshell PRIVATE src/apple/native_controls.mm)
     set_source_files_properties(src/apple/native_controls.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN)
+    target_sources(imshell PRIVATE src/linux/native_controls.cpp)
 else()
     target_sources(imshell PRIVATE src/native_controls_none.cpp)
 endif()
 
-# native context menus (imshell/native_menu.hpp): an NSMenu on macos; elsewhere imshell's own menu
+# native context menus (imshell/native_menu.hpp): an NSMenu on macos, a UIMenu on ios, TrackPopupMenu on
+# windows, a GtkPopoverMenu on linux; elsewhere imshell's own menu
 target_sources(imshell PRIVATE src/native_menu.cpp)
 if(APPLE AND NOT IOS)
     target_sources(imshell PRIVATE src/macos/native_menu.mm)
@@ -103,6 +106,8 @@ elseif(IOS)
     set_source_files_properties(src/ios/native_menu.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
 elseif(WIN32)
     target_sources(imshell PRIVATE src/windows/native_menu.cpp)
+elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN)
+    target_sources(imshell PRIVATE src/linux/native_menu.cpp)
 else()
     target_sources(imshell PRIVATE src/native_menu_none.cpp)
 endif()
@@ -528,6 +533,9 @@ if(IMSHELL_BUILD_TESTS)
     elseif(WIN32)
         target_sources(imshell_native_menu_test PRIVATE src/windows/native_menu.cpp)
         target_link_libraries(imshell_native_menu_test PRIVATE user32)
+    elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN)
+        target_sources(imshell_native_menu_test PRIVATE src/linux/native_menu.cpp)
+        target_link_libraries(imshell_native_menu_test PRIVATE PkgConfig::IMSHELL_GTK4)
     else()
         target_sources(imshell_native_menu_test PRIVATE src/native_menu_none.cpp)
     endif()

@@ -6,6 +6,7 @@
 #include "imshell/app.hpp"
 #include "../activity.hpp"
 #include "../ime.hpp"
+#include "../native_menu.hpp"
 #include "../native_view.hpp"
 #include "imgui_impl_opengl3.h"
 #include "imgui_internal.h"
@@ -433,6 +434,7 @@ namespace imshell {
                                  if (!std::exchange(gAfterFrame, false))
                                      return;
                                  detail::placeNativeViews();
+                                 detail::runNativeMenus(); // after the paint: the popover opens at the pointer
                                  if (gBarAction != BarAction::None)
                                      runBarAction(nullptr);
                              }),
