@@ -134,6 +134,11 @@ A video's `main` can be one line, `return imshell::video::Cli(comp, argc, argv, 
 Times are a frame (`120`), `3.2s`, `500ms`, `1:05.5`, `50%`, `start` or `end`; ranges are `a..b` (b excluded), `a..`, `..b` or `all`.
 `--json` prints one JSON object on stdout, progress goes to stderr.
 A draft or a scale changes `Composition::width/height`, so a draw function has to lay out from `Frame::width/height`.
+`Options::codec` (`h264`, `hevc`, `vp9`, `prores`), `bitrate` (kbit/s) and `crf` (constant quality) choose how `RenderVideo` encodes; any of them, or `Encoder::Ffmpeg`, goes through the ffmpeg binary (`NeedsFfmpeg`), since the platform encoders only do h.264 at their own bitrate.
+The file's extension picks the container (`.mp4`, `.webm`, `.mov`); vp9 gets opus sound and the others aac, and prores is 10 bit 4:2:2 with no bitrate or crf.
+The command line has `--codec`, `--bitrate`, `--crf`, and `render --images -o dir` writes `frame_000000.png` and so on through `Frames`.
+Not yet: an alpha channel (the renderers clear to opaque black).
+
 `inspect [RANGE]` (`video_check.hpp`, `check.cpp`) plays the frames in order and reports what a viewer would notice: a window whose vertices leave the canvas (a warning at the first or last frames of its scene, where it is probably an entrance or an exit, an error anywhere else, with the overhang in pixels and the command to look at it), frames with nothing drawn (a note), and pops, a part of the picture that changes in one frame between frames that hardly move, with its region (a hard cut at a scene boundary is not one).
 It reads two things: the draw data after imgui laid the frame out, through `drawProbe()` (a process-wide callback each renderer calls once per frame), and the pixels, in 4x4 cells.
 The window checks skip the background and foreground draw lists, which are meant to be bigger than the canvas; windows are checked by name, so two windows with one name are one.

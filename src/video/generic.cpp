@@ -163,7 +163,7 @@ namespace imshell::video {
             return false;
         }
 #ifdef _WIN32
-        if (options.encoder != Encoder::Ffmpeg) {
+        if (!NeedsFfmpeg(options)) {
             return renderWithMf(comp, path, options, from, to, *rasterizer, mix, error);
         }
 #endif
@@ -181,7 +181,7 @@ namespace imshell::video {
         }
 
         FfmpegPipe pipe;
-        bool ok = pipe.open(options.ffmpeg, comp.width, comp.height, comp.fps, path, audioFile, error);
+        bool ok = pipe.open(options, comp.width, comp.height, comp.fps, path, audioFile, error);
         bool cancelled = false;
         std::vector<unsigned char> rgba;
         for (int n = from; ok && n < to; ++n) {

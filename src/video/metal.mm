@@ -386,7 +386,7 @@ namespace {
             }
         }
         FfmpegPipe pipe;
-        bool ok = pipe.open(options.ffmpeg, comp.width, comp.height, comp.fps, path, audioFile, error);
+        bool ok = pipe.open(options, comp.width, comp.height, comp.fps, path, audioFile, error);
         bool cancelled = false;
         for (int n = from; ok && n < to; ++n) {
             const Image image = exposure.draw(renderer, n, true, buffer) ? readImage(buffer, comp.width, comp.height) : Image{};
@@ -422,7 +422,7 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
         if (comp.width % 2 || comp.height % 2) {
             return fail(error, "h.264 needs an even width and height");
         }
-        if (options.encoder == Encoder::Ffmpeg) {
+        if (NeedsFfmpeg(options)) {
             return renderWithFfmpeg(comp, path, options, error);
         }
         int from = 0, to = 0;

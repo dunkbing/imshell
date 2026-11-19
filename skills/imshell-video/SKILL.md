@@ -58,7 +58,7 @@ program for everything (the examples use the `imshell_video_demo` name):
 | `audio analyze [RANGE]` | loudness (LUFS), true peak, clipping, silence of the mix (exit 2 on clipping) |
 | `audio at TIMES` | which sounds play at a moment, from where in the file, how loud |
 | `audio render [RANGE] -o a.wav` | the mix as a wav, to listen to without rendering the video |
-| `render [RANGE] -o out.mp4 [--draft] [--scale F] [--ffmpeg]` | encode; `--draft` is half size and quick |
+| `render [RANGE] -o out.mp4 [--draft] [--scale F] [--ffmpeg] [--codec h264\|hevc\|vp9\|prores] [--bitrate KBPS] [--crf N] [--images]` | encode; `--draft` is half size and quick; a codec, bitrate or crf needs ffmpeg and the extension picks the container (`.webm` for vp9, `.mov` for prores); `--images -o dir` writes a png per frame |
 | `preview [TIME] [--paused]` | the real-time window, for the user to watch (no sound); it blocks until closed |
 
 Times: `120` (a frame), `3.2s`, `500ms`, `1:05.5`, `50%`, `start`, `end`; ranges `a..b` (b excluded),
@@ -138,6 +138,6 @@ encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
 ## Not available yet
 
-Video footage as a layer, captions, audio visualizers and shaders.
+Video footage as a layer, captions, audio visualizers, shaders and transparent output (alpha).
 If a request needs one of these, say so and give the closest result that works instead of
 reaching for another tool.
