@@ -10,6 +10,7 @@
 #include "imshell/video.hpp"
 #include "imgui.h"
 #include "imgui_impl_metal.h"
+#include "audio.hpp"
 #include "ffmpeg.hpp"
 #include <cstdio>
 #include <cstring>
@@ -179,6 +180,108 @@ namespace {
         to = options.to < 0 ? comp.frames : std::clamp(options.to, from + 1, comp.frames);
     }
 
+    // a file decoded to 48 kHz stereo float by AVAssetReader (it converts rate, channels and codec)
+    bool decodeClip(const std::string& path, Pcm& pcm, std::string* error) {
+        NSURL* url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path.c_str()]];
+        AVURLAsset* asset = [AVURLAsset URLAssetWithURL:url options:nil];
+        __block NSArray<AVAssetTrack*>* tracks = nil;
+        dispatch_semaphore_t loaded = dispatch_semaphore_create(0);
+        [asset loadTracksWithMediaType:AVMediaTypeAudio
+                     completionHandler:^(NSArray<AVAssetTrack*>* result, NSError*) {
+                         tracks = result;
+                         dispatch_semaphore_signal(loaded);
+                     }];
+        dispatch_semaphore_wait(loaded, DISPATCH_TIME_FOREVER);
+        if (tracks.count == 0) {
+            return fail(error, ("no audio in " + path).c_str());
+        }
+        NSError* nsError = nil;
+        AVAssetReader* reader = [AVAssetReader assetReaderWithAsset:asset error:&nsError];
+        NSDictionary* settings = @{
+            AVFormatIDKey : @(kAudioFormatLinearPCM),
+            AVLinearPCMBitDepthKey : @32,
+            AVLinearPCMIsFloatKey : @YES,
+            AVLinearPCMIsBigEndianKey : @NO,
+            AVLinearPCMIsNonInterleaved : @NO,
+            AVSampleRateKey : @(kAudioRate),
+            AVNumberOfChannelsKey : @2,
+        };
+        AVAssetReaderTrackOutput* output = [AVAssetReaderTrackOutput assetReaderTrackOutputWithTrack:tracks[0] outputSettings:settings];
+        if (!reader || ![reader canAddOutput:output]) {
+            return fail(error, ("cannot read " + path).c_str());
+        }
+        [reader addOutput:output];
+        [reader startReading];
+        pcm.clear();
+        while (CMSampleBufferRef sample = [output copyNextSampleBuffer]) {
+            CMBlockBufferRef block = CMSampleBufferGetDataBuffer(sample);
+            const size_t bytes = CMBlockBufferGetDataLength(block);
+            const size_t old = pcm.size();
+            pcm.resize(old + bytes / sizeof(float));
+            CMBlockBufferCopyDataBytes(block, 0, bytes, pcm.data() + old);
+            CFRelease(sample);
+        }
+        if (reader.status == AVAssetReaderStatusFailed) {
+            return fail(error, ("cannot decode " + path).c_str());
+        }
+        return true;
+    }
+
+    // every clip mixed for frames [from, to); empty when the composition has no sound
+    bool mixAudio(const Composition& comp, int from, int to, Pcm& mix, std::string* error) {
+        mix.clear();
+        if (comp.audio.empty()) {
+            return true;
+        }
+        const double windowStart = static_cast<double>(from) / comp.fps;
+        mix.assign(WindowFrames(static_cast<double>(to - from) / comp.fps) * 2, 0.f);
+        for (const AudioClip& clip : comp.audio) {
+            Pcm pcm;
+            if (!decodeClip(clip.path, pcm, error)) {
+                return false;
+            }
+            MixClip(mix, windowStart, pcm, clip);
+        }
+        Limit(mix);
+        return true;
+    }
+
+    // frames [first, last) of the mix to the writer's audio input as one sample buffer
+    bool appendAudio(AVAssetWriterInput* input, const Pcm& mix, size_t first, size_t last) {
+        const size_t frames = last - first;
+        const size_t bytes = frames * 2 * sizeof(float);
+        AudioStreamBasicDescription format = {};
+        format.mSampleRate = kAudioRate;
+        format.mFormatID = kAudioFormatLinearPCM;
+        format.mFormatFlags = kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked;
+        format.mChannelsPerFrame = 2;
+        format.mBitsPerChannel = 32;
+        format.mBytesPerFrame = 2 * sizeof(float);
+        format.mFramesPerPacket = 1;
+        format.mBytesPerPacket = format.mBytesPerFrame;
+        CMAudioFormatDescriptionRef description = nullptr;
+        CMBlockBufferRef block = nullptr;
+        CMSampleBufferRef sample = nullptr;
+        bool ok = CMAudioFormatDescriptionCreate(nullptr, &format, 0, nullptr, 0, nullptr, nullptr, &description) == noErr &&
+                  CMBlockBufferCreateWithMemoryBlock(nullptr, nullptr, bytes, nullptr, nullptr, 0, bytes, kCMBlockBufferAssureMemoryNowFlag,
+                                                     &block) == noErr &&
+                  CMBlockBufferReplaceDataBytes(mix.data() + first * 2, block, 0, bytes) == noErr &&
+                  CMAudioSampleBufferCreateReadyWithPacketDescriptions(nullptr, block, description, frames,
+                                                                       CMTimeMake(static_cast<int64_t>(first), kAudioRate), nullptr,
+                                                                       &sample) == noErr &&
+                  [input appendSampleBuffer:sample];
+        if (sample) {
+            CFRelease(sample);
+        }
+        if (block) {
+            CFRelease(block);
+        }
+        if (description) {
+            CFRelease(description);
+        }
+        return ok;
+    }
+
     // frames through ffmpeg: read back as rgba and piped
     bool renderWithFfmpeg(const Composition& comp, const std::string& path, const Options& options, std::string* error) {
         int from = 0, to = 0;
@@ -191,8 +294,27 @@ namespace {
         if (!buffer) {
             return fail(error, "no pixel buffer");
         }
+        // the mix goes to a raw file ffmpeg reads as a second input
+        Pcm mix;
+        std::string audioFile;
+        if (!mixAudio(comp, from, to, mix, error)) {
+            CVPixelBufferRelease(buffer);
+            return false;
+        }
+        if (!mix.empty()) {
+            audioFile = path + ".audio.f32";
+            FILE* f = std::fopen(audioFile.c_str(), "wb");
+            const bool wrote = f && std::fwrite(mix.data(), sizeof(float), mix.size(), f) == mix.size();
+            if (f) {
+                std::fclose(f);
+            }
+            if (!wrote) {
+                CVPixelBufferRelease(buffer);
+                return fail(error, "could not write the audio file next to the output");
+            }
+        }
         FfmpegPipe pipe;
-        bool ok = pipe.open(options.ffmpeg, comp.width, comp.height, comp.fps, path, error);
+        bool ok = pipe.open(options.ffmpeg, comp.width, comp.height, comp.fps, path, audioFile, error);
         bool cancelled = false;
         for (int n = from; ok && n < to; ++n) {
             const Image image = renderer.draw(n, true, buffer) ? readImage(buffer, comp.width, comp.height) : Image{};
@@ -206,6 +328,9 @@ namespace {
         }
         CVPixelBufferRelease(buffer);
         const bool finished = pipe.close();
+        if (!audioFile.empty()) {
+            std::remove(audioFile.c_str());
+        }
         if (ok && !cancelled && !finished) {
             ok = fail(error, "ffmpeg failed");
         }
@@ -258,6 +383,24 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
             assetWriterInputPixelBufferAdaptorWithAssetWriterInput:input
                                        sourcePixelBufferAttributes:bufferAttributes(comp.width, comp.height)];
         [writer addInput:input];
+        Pcm mix;
+        if (!mixAudio(comp, from, to, mix, error)) {
+            return false;
+        }
+        AVAssetWriterInput* audioInput = nil;
+        if (!mix.empty()) {
+            NSDictionary* audioSettings = @{
+                AVFormatIDKey : @(kAudioFormatMPEG4AAC),
+                AVSampleRateKey : @(kAudioRate),
+                AVNumberOfChannelsKey : @2,
+                AVEncoderBitRateKey : @160000,
+            };
+            audioInput = [AVAssetWriterInput assetWriterInputWithMediaType:AVMediaTypeAudio outputSettings:audioSettings];
+            audioInput.expectsMediaDataInRealTime = NO;
+            [writer addInput:audioInput];
+        }
+        const size_t mixFrames = mix.size() / 2;
+        size_t audioDone = 0;
         if (![writer startWriting]) {
             return fail(error, writer.error.localizedDescription.UTF8String);
         }
@@ -265,9 +408,23 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
 
         bool ok = true;
         bool cancelled = false;
+        // sound up to `upTo` frames when the input will take it; the writer holds the pictures back until the sound catches up, so it is also fed while waiting
+        auto feedAudio = [&](size_t upTo) {
+            upTo = std::min(upTo, mixFrames);
+            if (ok && audioInput && audioInput.readyForMoreMediaData && upTo > audioDone) {
+                ok = appendAudio(audioInput, mix, audioDone, upTo);
+                audioDone = upTo;
+            }
+        };
         for (int n = from; n < to && ok; ++n) {
-            while (!input.readyForMoreMediaData) {
+            const size_t frameEnd = static_cast<size_t>(n - from + 1) * kAudioRate / comp.fps;
+            while (ok && !input.readyForMoreMediaData) {
+                feedAudio(frameEnd);
                 usleep(1000);
+            }
+            if (!ok) {
+                fail(error, "the audio did not encode");
+                break;
             }
             CVPixelBufferRef buffer = nullptr;
             if (CVPixelBufferPoolCreatePixelBuffer(nullptr, adaptor.pixelBufferPool, &buffer) != kCVReturnSuccess) {
@@ -276,6 +433,7 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
             }
             ok = renderer.draw(n, true, buffer) && [adaptor appendPixelBuffer:buffer withPresentationTime:CMTimeMake(n - from, comp.fps)];
             CVPixelBufferRelease(buffer);
+            feedAudio(frameEnd);
             if (!ok) {
                 fail(error, writer.error ? writer.error.localizedDescription.UTF8String : "drawing the frame failed");
             } else if (options.progress && !options.progress(n - from + 1, to - from)) {
@@ -289,6 +447,20 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
             [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
             return cancelled ? fail(error, "cancelled") : false;
         }
+        while (audioInput && audioDone < mixFrames) { // the rest of the sound, in chunks of a second
+            if (!audioInput.readyForMoreMediaData) {
+                usleep(1000);
+                continue;
+            }
+            const size_t upTo = std::min(mixFrames, audioDone + kAudioRate);
+            if (!appendAudio(audioInput, mix, audioDone, upTo)) {
+                [writer cancelWriting];
+                [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
+                return fail(error, writer.error ? writer.error.localizedDescription.UTF8String : "the audio did not encode");
+            }
+            audioDone = upTo;
+        }
+        [audioInput markAsFinished];
         [input markAsFinished];
         dispatch_semaphore_t finished = dispatch_semaphore_create(0);
         [writer finishWritingWithCompletionHandler:^{

@@ -5,6 +5,7 @@
 #include "imshell/video.hpp"
 
 #include <array>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -36,6 +37,39 @@ namespace {
             ImGui::End();
         };
         return comp;
+    }
+
+    // a 16 bit mono wav, a second of a tone: enough for the decoder to resample and widen
+    void writeWav(const std::string& path) {
+        const int rate = 44100, samples = rate;
+        std::vector<short> pcm(samples);
+        for (int i = 0; i < samples; ++i) {
+            pcm[i] = static_cast<short>(12000 * std::sin(6.2831853 * 440.0 * i / rate));
+        }
+        const unsigned dataBytes = samples * 2, riff = 36 + dataBytes, fmtSize = 16, byteRate = rate * 2, sampleRate = rate;
+        const unsigned short pcmFormat = 1, channels = 1, blockAlign = 2, bits = 16;
+        FILE* f = std::fopen(path.c_str(), "wb");
+        std::fwrite("RIFF", 1, 4, f); std::fwrite(&riff, 4, 1, f); std::fwrite("WAVEfmt ", 1, 8, f);
+        std::fwrite(&fmtSize, 4, 1, f); std::fwrite(&pcmFormat, 2, 1, f); std::fwrite(&channels, 2, 1, f);
+        std::fwrite(&sampleRate, 4, 1, f); std::fwrite(&byteRate, 4, 1, f); std::fwrite(&blockAlign, 2, 1, f);
+        std::fwrite(&bits, 2, 1, f); std::fwrite("data", 1, 4, f); std::fwrite(&dataBytes, 4, 1, f);
+        std::fwrite(pcm.data(), 2, pcm.size(), f);
+        std::fclose(f);
+    }
+
+    // ffprobe's answer for a stream of the file ("" without ffprobe)
+    std::string ffprobe(const std::string& file, const char* stream, const char* entries) {
+        const std::string cmd = std::string("ffprobe -v error -select_streams ") + stream + " -show_entries stream=" + entries +
+                                " -of csv=p=0 '" + file + "' 2>/dev/null";
+        std::string out;
+        if (FILE* p = popen(cmd.c_str(), "r")) {
+            char line[256];
+            while (std::fgets(line, sizeof line, p)) {
+                out += line;
+            }
+            pclose(p);
+        }
+        return out;
     }
 
     size_t nonBlack(const imshell::video::Image& image) {
@@ -124,6 +158,31 @@ int main() {
     check(exact, "Animate sits on its target during a render");
     check(!imshell::ReduceMotion(), "reduce motion is handed back");
     check(imshell::video::Verify(easing, probe, &report), ("an eased composition verifies: " + report).c_str());
+
+    // sound: a clip placed on the timeline ends up as an aac track, through either encoder
+    writeWav(base + ".wav");
+    auto sound = comp;
+    sound.audio.push_back({.path = base + ".wav", .start = 0.25, .volume = 0.8f, .fadeOut = 0.2});
+    options = {};
+    check(imshell::video::RenderVideo(sound, base + "_sound.mp4", options, &error), ("renders with sound: " + error).c_str());
+    check(stat((base + "_sound.mp4").c_str(), &st) == 0 && st.st_size > 1000, "the file with sound is there");
+    const bool haveProbe = std::system("command -v ffprobe >/dev/null 2>&1") == 0;
+    if (haveProbe) {
+        check(ffprobe(base + "_sound.mp4", "a:0", "codec_name,channels,sample_rate").find("aac,48000,2") == 0, "the track is 48 kHz stereo aac");
+        check(ffprobe(base + "_sound.mp4", "v:0", "nb_frames").find("30") == 0, "the picture keeps its frames");
+    }
+    auto missing = comp;
+    missing.audio.push_back({.path = base + "_nothing.wav"});
+    check(!imshell::video::RenderVideo(missing, base + "_missing.mp4", options, &error) && !error.empty(), "a missing sound file fails the render");
+    check(stat((base + "_missing.mp4").c_str(), &st) != 0, "and leaves no file");
+    if (std::system("command -v ffmpeg >/dev/null 2>&1") == 0) {
+        options.encoder = imshell::video::Encoder::Ffmpeg;
+        check(imshell::video::RenderVideo(sound, base + "_sound_ff.mp4", options, &error), ("renders with sound through ffmpeg: " + error).c_str());
+        check(stat((base + "_sound_ff.mp4.audio.f32").c_str(), &st) != 0, "the temporary audio file is removed");
+        if (haveProbe) {
+            check(ffprobe(base + "_sound_ff.mp4", "a:0", "codec_name,channels,sample_rate").find("aac,48000,2") == 0, "ffmpeg's track is 48 kHz stereo aac");
+        }
+    }
 
     if (failures == 0) {
         std::puts("video render tests passed");
