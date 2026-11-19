@@ -210,7 +210,9 @@ ImGui::Text("%s Settings", imshell::Icon("gearshape"));
 
 Names are SF Symbol names, the one vocabulary every platform maps from.
 On macOS and iOS the glyph is the SF Symbol, drawn by the system at the font's size and weight, so it scales with the font, sits on the text's baseline and is tinted by the text colour.
-Where the platform has no loader yet (Windows, Linux, Android, the web) `Icon` returns `fallback`, the host's own icon font glyph, or null; an unknown name does the same.
+On Linux the glyph is the icon theme's symbolic icon (Adwaita and most themes), drawn by GTK.
+The system has no icon font on Android, so imshell compiles in a cut-down Material Symbols Outlined (Apache-2.0, about 9 KB, the icons of `src/android/icons.cpp`) and draws it through FreeType; like the emoji, this needs FreeType in the build (vcpkg `freetype`), and without it there are no icons.
+Where the platform has no loader yet (Windows, the web) `Icon` returns `fallback`, the host's own icon font glyph, or null; an unknown name does the same.
 So an app passes its icon font glyph as the fallback and gets the native icon where there is one.
 `AddFont` merges the source into its font; a font made another way calls `MergeIcons`.
 The glyphs live in the supplementary private use area (U+F0000 and up), which cannot collide with an icon font in the ordinary one; it needs `IMGUI_USE_WCHAR32`, which imshell's build sets.

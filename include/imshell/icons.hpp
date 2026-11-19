@@ -8,7 +8,8 @@
 //   imshell::IconButton(imshell::Icon("trash", kFaTrash), imshell::ButtonVariant::Destructive);
 //   ImGui::Text("%s Settings", imshell::Icon("gearshape"));
 //
-// apple draws the SF Symbol of that name. elsewhere the platform has no loader yet, so Icon
+// apple draws the SF Symbol of that name, linux the icon theme's symbolic icon, android a bundled
+// Material Symbols font. elsewhere the platform has no loader yet, so Icon
 // returns `fallback`, the host's own icon font glyph (or null). AddFont merges the source into
 // its font; a font made some other way calls MergeIcons. needs IMGUI_USE_WCHAR32 (imshell's
 // build sets it): the glyphs live in the supplementary private use area, U+F0000 and up, where
