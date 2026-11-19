@@ -33,7 +33,13 @@ namespace imshell::video {
                       std::vector<unsigned char>& rgba) {
             const int samples = std::max(blur.samples, 1);
             if (samples == 1) {
-                return rasterizer.render(index, sequential, 0.f, rgba);
+                if (!rasterizer.render(index, sequential, 0.f, rgba)) {
+                    return false;
+                }
+                if (comp.transparent) {
+                    Unpremultiply(rgba);
+                }
+                return true;
             }
             std::vector<float> sum(static_cast<size_t>(comp.width) * comp.height * 4, 0.f);
             std::vector<unsigned char> sample;
@@ -49,6 +55,9 @@ namespace imshell::video {
             rgba.resize(sum.size());
             for (size_t i = 0; i < sum.size(); ++i) {
                 rgba[i] = static_cast<unsigned char>(sum[i] / static_cast<float>(samples) + 0.5f);
+            }
+            if (comp.transparent) {
+                Unpremultiply(rgba);
             }
             return true;
         }
@@ -163,7 +172,7 @@ namespace imshell::video {
             return false;
         }
 #ifdef _WIN32
-        if (!NeedsFfmpeg(options)) {
+        if (!NeedsFfmpeg(comp, options)) {
             return renderWithMf(comp, path, options, from, to, *rasterizer, mix, error);
         }
 #endif
@@ -181,7 +190,7 @@ namespace imshell::video {
         }
 
         FfmpegPipe pipe;
-        bool ok = pipe.open(options, comp.width, comp.height, comp.fps, path, audioFile, error);
+        bool ok = pipe.open(options, comp.width, comp.height, comp.fps, path, audioFile, comp.transparent, error);
         bool cancelled = false;
         std::vector<unsigned char> rgba;
         for (int n = from; ok && n < to; ++n) {

@@ -79,7 +79,7 @@ namespace imshell::video {
 
             bool render(int index, bool sequential, float offset, std::vector<unsigned char>& rgba) override {
                 ImGui::SetCurrentContext(imguiContext_);
-                const FLOAT black[4] = {0.f, 0.f, 0.f, 1.f};
+                const FLOAT black[4] = {0.f, 0.f, 0.f, comp_.transparent ? 0.f : 1.f};
                 ID3D11RenderTargetView* view = view_.Get();
                 context_->OMSetRenderTargets(1, &view, nullptr);
                 context_->ClearRenderTargetView(view, black);
