@@ -60,6 +60,10 @@ Two things still make a frame depend on the ones before it: ImGui's own state an
 - `video::Verify(comp, {frames...})` draws each listed frame sequentially and by seeking and compares the pixels, which is the test for this rule.
   The preview seeks through the same pure path, so what the scrubber shows is what the file will contain.
 
+Some imshell state is per process, not per ImGui context: the current theme, the `Animate` state map, the icon registry, native views and the wake flags of `frames.hpp`.
+A render therefore calls `ApplyTheme()` inside its own context after creating it, never creates a native view or calls `requestFrames`, and runs with `Animate` jumping to its target (the reduce-motion switch, once it is in) so widgets such as `imshell::Button`, which ease their fill, draw the same in any frame order.
+Until that switch is available, a composition that draws such widgets is only exact when played in order.
+
 Text is the other source of drift: fonts rasterise through the same atlas for every frame, and the renderer builds it once before frame 0, so glyph positions do not change mid-render.
 
 ## Encoders
