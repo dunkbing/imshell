@@ -20,6 +20,7 @@ namespace imshell::video {
         int height = 0;
         bool sequential = false; // frames are drawn in order (a render), not jumped to
         float offset = 0.f;      // motion blur: this draw is a sample that far (in frames) from `index`
+        int scene = 0;           // inside a scene (video_scenes.hpp): its number, for window names that must differ between scenes
 
         // seconds, with the blur offset; pass position() to the helpers so a blurred frame moves
         double time() const { return (static_cast<double>(index) + offset) / fps; }
@@ -39,6 +40,13 @@ namespace imshell::video {
         double fadeOut = 0.0;
     };
 
+    // a named stretch of the timeline, shown by `timeline` and addressed as `Name`, `Name@1.2s` or `Name@end`
+    struct Mark {
+        std::string name;
+        int start = 0;
+        int frames = 0;
+    };
+
     struct Composition {
         int width = 1920;
         int height = 1080;
@@ -47,6 +55,7 @@ namespace imshell::video {
         std::function<void()> setup;           // once, on the video's own ImGui context: fonts, theme
         std::function<void(const Frame&)> draw;
         std::vector<AudioClip> audio;          // no clips, no audio track
+        std::vector<Mark> marks;               // optional: the scenes, for the command line
     };
 
     // one frame as 8 bit rgba, rows top to bottom
@@ -158,6 +167,22 @@ namespace imshell::video {
             y = 1.0 - std::exp(-z * w0 * t) * (std::cosh(s * t) + z * w0 / s * std::sinh(s * t));
         }
         return from + (to - from) * static_cast<float>(y);
+    }
+
+    // a spring that comes to rest in `frames` frames from `start` (within 0.1% of `to`): the unit
+    // spring's settle time stretches to that length, so the feel (bounce, overshoot) stays and the
+    // timing is the one the plan asks for
+    inline float SpringIn(double frame, int fps, float from, float to, int start, int frames, SpringConfig c = {}) {
+        constexpr double step = 1.0 / 240.0;
+        double settle = step; // the last moment the unit spring is more than 0.1% off its target
+        for (double t = step; t < 10.0; t += step) {
+            const float y = Spring(t * fps, fps, 0.f, 1.f, 0, c);
+            if (std::fabs(y - 1.f) > 0.001f) {
+                settle = t;
+            }
+        }
+        const double scale = settle * fps / std::max(frames, 1); // unit-spring frames per frame of ours
+        return Spring(start + (frame - start) * scale, fps, from, to, start, c);
     }
 
     // which scene a frame falls in, and the frame within it; past the end it stays on the last

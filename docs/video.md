@@ -120,6 +120,14 @@ It plays no sound yet, and the reduce-motion override a render sets stays on whi
 `PreviewOptions::closeAfter` closes the window by itself, for a smoke test; `examples/video` previews or renders a small composition.
 The preview target links `imshell::imshell`; `RenderVideo` alone does not need a window system.
 
+## Scenes
+`imshell/video_scenes.hpp`: a composition of ideas that follow each other.
+A `Scene` has a name, its `frames` (its share of the timeline), an `overlap` and a draw function whose `Frame::index` counts from the scene's own first frame (`Frame::scene` is its number, for window names that must differ between scenes: `ImGui::Begin("card##a")` and `"card##b"`, since two windows with one name are one window).
+An overlap fades the scene in over the end of the previous one, which stays fully visible underneath so the picture never dips; the scene starts drawing, and its entrance animation starts, at the first overlap frame, and the overlap is not added to the total length.
+`SceneLayers(position, scenes)` is pure: which scenes are on screen at a frame, their local frame, length and alpha (and the blur fraction), bottom first; past the end the last scene holds its last frame.
+`DrawScenes` draws them with `ImGuiStyleVar_Alpha` pushed while a scene fades, so text and widgets fade with it; `MakeComposition(w, h, fps, scenes)` returns a `Composition` whose `marks` name the scenes, so `timeline` lists them and the command line takes `outro`, `outro@1.2s`, `outro@end`, `#2` and a scene name as a range (`strip outro`).
+`SpringIn(frame, fps, from, to, start, frames)` is a spring that rests after `frames` frames: the unit spring's settle time is stretched to that length, so the bounce stays and the timing is the planned one.
+
 ## Command line
 A video's `main` can be one line, `return imshell::video::Cli(comp, argc, argv, "name");` (`imshell/video_cli.hpp`, `cli.cpp`, over the public API only), and then the video is worked on from a shell, by a person or by an agent that cannot watch it.
 `timeline` prints the size, rate, length and the sound clips; `frame TIMES` writes full-size PNGs, with `--crop x,y,w,h` shown zoomed for small details; `strip` writes a contact sheet of evenly spread frames (or chosen times) with each cell labelled by its frame number; `render [RANGE]` encodes, with `--draft` at half size and `--scale F` at any size; `preview [TIME]` opens the window at a time; `verify` runs `Verify` over a spread of frames (exit 2 when playing and seeking differ).

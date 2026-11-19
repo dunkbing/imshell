@@ -42,11 +42,37 @@ namespace imshell::video {
             return out + "\"";
         }
 
-        // `a..b` (b excluded), `a..`, `..b`, `all`, or one time; false on a word it does not know
+        // a scene by name (any case) or `#n`
+        const Mark* findMark(const Composition& comp, const std::string& name) {
+            auto lower = [](std::string s) {
+                std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+                return s;
+            };
+            if (name.size() > 1 && name[0] == '#') {
+                double n = 0;
+                if (number(name.substr(1), n) && n >= 0 && n < static_cast<double>(comp.marks.size())) {
+                    return &comp.marks[static_cast<size_t>(n)];
+                }
+                return nullptr;
+            }
+            for (const Mark& mark : comp.marks) {
+                if (lower(mark.name) == lower(name)) {
+                    return &mark;
+                }
+            }
+            return nullptr;
+        }
+
+        // `a..b` (b excluded), `a..`, `..b`, `all`, a scene's name, or one time; false on a word it does not know
         bool parseRange(const Composition& comp, const std::string& text, int& from, int& to) {
             if (text == "all") {
                 from = 0;
                 to = comp.frames;
+                return true;
+            }
+            if (const Mark* mark = findMark(comp, text)) {
+                from = std::clamp(mark->start, 0, comp.frames - 1);
+                to = std::clamp(mark->start + mark->frames, from + 1, comp.frames);
                 return true;
             }
             const size_t dots = text.find("..");
@@ -248,7 +274,7 @@ namespace imshell::video {
                          "                                    encode (--draft: half size, --ffmpeg: use the ffmpeg binary)\n"
                          "  preview [TIME] [--paused]         the real-time window\n"
                          "  verify [RANGE]                    playing in order and seeking must give the same pictures\n"
-                         "times: 120 (a frame), 3.2s, 500ms, 1:05.5, 50%%, start, end. ranges: a..b (b excluded), a.., ..b, all\n"
+                         "times: 120 (a frame), 3.2s, 500ms, 1:05.5, 50%%, start, end, a scene (outro, outro@1.2s, outro@end, #2). ranges: a..b (b excluded), a.., ..b, all, a scene\n"
                          "--json prints one json object on stdout; sizes with --draft/--scale need a draw function that lays out from Frame::width/height\n",
                          name);
             return error ? 1 : 0;
@@ -265,10 +291,18 @@ namespace imshell::video {
                     std::printf("%s{\"path\":%s,\"start\":%.3f,\"offset\":%.3f,\"duration\":%.3f,\"volume\":%.3f,\"fadeIn\":%.3f,\"fadeOut\":%.3f}", i ? "," : "",
                                 quote(c.path).c_str(), c.start, c.offset, c.duration, c.volume, c.fadeIn, c.fadeOut);
                 }
+                std::printf("],\"scenes\":[");
+                for (size_t i = 0; i < comp.marks.size(); ++i) {
+                    const Mark& m = comp.marks[i];
+                    std::printf("%s{\"name\":%s,\"start\":%d,\"frames\":%d,\"startSeconds\":%s}", i ? "," : "", quote(m.name).c_str(), m.start, m.frames, seconds(comp, m.start).c_str());
+                }
                 std::printf("]}\n");
                 return 0;
             }
             std::printf("%dx%d at %d fps, %d frames, %.3f s\n", comp.width, comp.height, comp.fps, comp.frames, length);
+            for (const Mark& m : comp.marks) {
+                std::printf("scene %s: frames %d..%d (%s s, %.3f s long)\n", m.name.c_str(), m.start, m.start + m.frames, seconds(comp, m.start).c_str(), static_cast<double>(m.frames) / comp.fps);
+            }
             if (comp.audio.empty()) {
                 std::printf("no sound\n");
             }
@@ -446,31 +480,50 @@ namespace imshell::video {
         }
     } // namespace
 
-    bool ParseTime(const Composition& comp, const std::string& text, int& frame) {
-        double v = 0.0;
-        double frames = 0.0;
-        if (text == "start") {
-            frames = 0;
-        } else if (text == "end") {
-            frames = comp.frames - 1;
-        } else if (text.size() > 1 && text.back() == '%' && number(text.substr(0, text.size() - 1), v)) {
-            frames = v / 100.0 * (comp.frames - 1);
-        } else if (text.size() > 2 && text.compare(text.size() - 2, 2, "ms") == 0 && number(text.substr(0, text.size() - 2), v)) {
-            frames = v / 1000.0 * comp.fps;
-        } else if (text.size() > 1 && text.back() == 's' && number(text.substr(0, text.size() - 1), v)) {
-            frames = v * comp.fps;
-        } else if (text.find(':') != std::string::npos) { // m:ss.s or h:mm:ss
-            double total = 0.0;
-            for (const std::string& part : split(text, ':')) {
-                if (!number(part, v)) {
-                    return false;
+    namespace {
+        // `text` as a number of frames in a stretch of `count` frames at `fps`; not clamped
+        bool timeWord(int fps, int count, const std::string& text, double& frames) {
+            double v = 0.0;
+            if (text == "start") {
+                frames = 0;
+            } else if (text == "end") {
+                frames = count - 1;
+            } else if (text.size() > 1 && text.back() == '%' && number(text.substr(0, text.size() - 1), v)) {
+                frames = v / 100.0 * (count - 1);
+            } else if (text.size() > 2 && text.compare(text.size() - 2, 2, "ms") == 0 && number(text.substr(0, text.size() - 2), v)) {
+                frames = v / 1000.0 * fps;
+            } else if (text.size() > 1 && text.back() == 's' && number(text.substr(0, text.size() - 1), v)) {
+                frames = v * fps;
+            } else if (text.find(':') != std::string::npos) { // m:ss.s or h:mm:ss
+                double total = 0.0;
+                for (const std::string& part : split(text, ':')) {
+                    if (!number(part, v)) {
+                        return false;
+                    }
+                    total = total * 60.0 + v;
                 }
-                total = total * 60.0 + v;
+                frames = total * fps;
+            } else if (number(text, v)) {
+                frames = v; // a bare number is a frame
+            } else {
+                return false;
             }
-            frames = total * comp.fps;
-        } else if (number(text, v)) {
-            frames = v; // a bare number is a frame
-        } else {
+            return true;
+        }
+    } // namespace
+
+    bool ParseTime(const Composition& comp, const std::string& text, int& frame) {
+        double frames = 0.0;
+        const size_t at = text.find('@');
+        if (at != std::string::npos) { // Scene@time: the time counts from the scene's first frame
+            const Mark* mark = findMark(comp, text.substr(0, at));
+            if (!mark || !timeWord(comp.fps, mark->frames, text.substr(at + 1), frames)) {
+                return false;
+            }
+            frames += mark->start;
+        } else if (const Mark* mark = findMark(comp, text)) {
+            frames = mark->start;
+        } else if (!timeWord(comp.fps, comp.frames, text, frames)) {
             return false;
         }
         frame = std::clamp(static_cast<int>(std::lround(frames)), 0, comp.frames - 1);

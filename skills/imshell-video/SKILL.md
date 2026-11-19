@@ -58,7 +58,7 @@ program for everything (the examples use the `imshell_video_demo` name):
 | `preview [TIME] [--paused]` | the real-time window, for the user to watch (no sound); it blocks until closed |
 
 Times: `120` (a frame), `3.2s`, `500ms`, `1:05.5`, `50%`, `start`, `end`; ranges `a..b` (b excluded),
-`a..`, `..b`, `all`; several times separated by commas. `--json` prints one JSON object on
+`a..`, `..b`, `all`; several times separated by commas. With scenes (below) a scene name is a time or a range: `outro`, `outro@1.2s`, `outro@end` (counted from the scene's first frame), `#2`, `strip outro`. `--json` prints one JSON object on
 stdout; progress goes to stderr.
 
 Working order: `timeline` (does the structure and pacing add up?), `strip all -n 12` (does it
@@ -93,8 +93,13 @@ comp.audio = {{.path = "music.mp3", .volume = 0.6f, .fadeIn = 1.0, .fadeOut = 2.
   motion blur works; `f.index` is fine for things that must not blur.
 - `Interpolate(frame, {in}, {out}, ease)` maps and clamps; `Spring(frame, fps, from, to, start)`
   is the exact damped-spring solution (set `SpringConfig` for bouncier or stiffer);
-  `Sequence(frame, lengths)` says which scene a frame falls in and the frame within it;
-  `Loop(frame, length)` repeats. Build scenes as a `switch` on `Sequence(...).index`.
+  `SpringIn(frame, fps, from, to, start, frames)` is a spring that rests after `frames` frames;
+  `Loop(frame, length)` repeats.
+- **Scenes** (`imshell/video_scenes.hpp`): `MakeComposition(w, h, fps, {Scene{"intro", 150, 0, draw}, Scene{"main", 200, 30, draw}})`.
+  A scene's `Frame::index` counts from its own first frame; `overlap` frames fade it in over the end of
+  the previous scene (which stays visible underneath), starting its entrance at the same moment.
+  Name windows per scene (`"card##" + std::to_string(f.scene)`): two windows with one name are one window.
+  `timeline` lists the scenes, and `strip main`, `frame main@1.2s`, `render main` address them.
 - Enter with a spring or ease-out over 300–600 ms, leave faster (ease-in 200–300 ms), stagger
   related items 60–120 ms, give the viewer 1–2 s to read after motion settles, and never move
   everything at once. Keep a little motion during holds.
@@ -129,7 +134,6 @@ on `PATH`.
 
 ## Not available yet
 
-Scenes with overlap and cross-fades (do them by hand with alpha on two draws), video footage as a
-layer, captions, audio visualizers, shaders, loudness analysis, text-clipping and pop detection.
+Video footage as a layer, captions, audio visualizers, shaders, loudness analysis, text-clipping and pop detection.
 If a request needs one of these, say so and give the closest result that works instead of
 reaching for another tool.
