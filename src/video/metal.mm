@@ -94,7 +94,7 @@ namespace {
             MTLRenderPassDescriptor* pass = [MTLRenderPassDescriptor renderPassDescriptor];
             pass.colorAttachments[0].texture = texture;
             pass.colorAttachments[0].loadAction = MTLLoadActionClear;
-            pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
+            pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, comp_.transparent ? 0 : 1);
             pass.colorAttachments[0].storeAction = MTLStoreActionStore;
 
             const Frame frame{.index = index, .frames = comp_.frames, .fps = comp_.fps,
@@ -151,7 +151,8 @@ namespace {
     }
 
     // the buffer's pixels as rgba
-    Image readImage(CVPixelBufferRef buffer, int width, int height) {
+    Image readImage(CVPixelBufferRef buffer, const Composition& comp) {
+        const int width = comp.width, height = comp.height;
         Image image;
         CVPixelBufferLockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
         const auto* src = static_cast<const unsigned char*>(CVPixelBufferGetBaseAddress(buffer));
@@ -170,6 +171,9 @@ namespace {
             }
         }
         CVPixelBufferUnlockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
+        if (comp.transparent) {
+            Unpremultiply(image.rgba);
+        }
         return image;
     }
 
@@ -386,10 +390,10 @@ namespace {
             }
         }
         FfmpegPipe pipe;
-        bool ok = pipe.open(options, comp.width, comp.height, comp.fps, path, audioFile, error);
+        bool ok = pipe.open(options, comp.width, comp.height, comp.fps, path, audioFile, comp.transparent, error);
         bool cancelled = false;
         for (int n = from; ok && n < to; ++n) {
-            const Image image = exposure.draw(renderer, n, true, buffer) ? readImage(buffer, comp.width, comp.height) : Image{};
+            const Image image = exposure.draw(renderer, n, true, buffer) ? readImage(buffer, comp) : Image{};
             ok = image.width > 0 && pipe.write(image.rgba.data(), image.rgba.size());
             if (!ok) {
                 fail(error, "ffmpeg stopped taking frames (is it installed, and does it have libx264?)");
@@ -422,7 +426,7 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
         if (comp.width % 2 || comp.height % 2) {
             return fail(error, "h.264 needs an even width and height");
         }
-        if (NeedsFfmpeg(options)) {
+        if (NeedsFfmpeg(comp, options)) {
             return renderWithFfmpeg(comp, path, options, error);
         }
         int from = 0, to = 0;
@@ -569,7 +573,7 @@ Image RenderFrame(const Composition& comp, int index, const MotionBlur& blur, st
         }
         Image image;
         if (exposure.draw(renderer, std::clamp(index, 0, comp.frames - 1), false, buffer)) {
-            image = readImage(buffer, comp.width, comp.height);
+            image = readImage(buffer, comp);
         } else {
             fail(error, "drawing the frame failed");
         }
@@ -611,7 +615,7 @@ bool Verify(const Composition& comp, std::span<const int> frames, std::string* r
                     return false;
                 }
                 if (wanted.count(n)) {
-                    played[n] = readImage(buffer, comp.width, comp.height);
+                    played[n] = readImage(buffer, comp);
                 }
             }
             CVPixelBufferRelease(buffer);
@@ -656,7 +660,7 @@ bool Frames(const Composition& comp, const Options& options, const std::function
         for (int n = from; ok && n < to; ++n) {
             if (!exposure.draw(renderer, n, true, buffer)) {
                 ok = fail(error, ("drawing frame " + std::to_string(n) + " failed").c_str());
-            } else if (!fn(n, readImage(buffer, comp.width, comp.height)) || (options.progress && !options.progress(n - from + 1, to - from))) {
+            } else if (!fn(n, readImage(buffer, comp)) || (options.progress && !options.progress(n - from + 1, to - from))) {
                 break;
             }
         }

@@ -285,6 +285,48 @@ int main() {
         }
     }
 
+    // transparency: nothing drawn is transparent, a window keeps straight (not premultiplied) colour, and it survives png and prores/vp9
+    {
+        imshell::video::Composition t;
+        t.width = 400;
+        t.height = 300;
+        t.fps = 30;
+        t.frames = 6;
+        t.transparent = true;
+        t.draw = [](const imshell::video::Frame&) {
+            ImGui::SetNextWindowPos(ImVec2(100.f, 100.f));
+            ImGui::SetNextWindowSize(ImVec2(240.f, 200.f));
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.5f);
+            ImGui::Begin("half", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
+            ImGui::End();
+            ImGui::PopStyleVar();
+        };
+        const imshell::video::Image image = imshell::video::RenderFrame(t, 3, &error);
+        check(image.width == 400, ("renders a transparent frame: " + error).c_str());
+        if (image.width == 400) {
+            const unsigned char* corner = &image.rgba[0];
+            const unsigned char* inside = &image.rgba[(static_cast<size_t>(200) * 400 + 200) * 4];
+            check(corner[3] == 0, "the empty canvas is transparent");
+            check(inside[3] > 90 && inside[3] < 170, "a half transparent window is half opaque");
+            imshell::video::Composition opaque = t;
+            opaque.transparent = false;
+            const imshell::video::Image solid = imshell::video::RenderFrame(opaque, 3, &error);
+            const unsigned char* flat = &solid.rgba[(static_cast<size_t>(200) * 400 + 200) * 4];
+            // straight alpha: over black it would be colour * alpha; the stored colour is the window's own, so it is brighter than the blended one
+            check(solid.width == 400 && inside[0] >= flat[0] && inside[0] <= 255, "colour is straight, not premultiplied");
+        }
+        imshell::video::Options o;
+        check(!imshell::video::RenderVideo(t, base + "_alpha.mp4", o, &error) && error.find("transparen") != std::string::npos, "h264 refuses transparency with a message");
+        if (videotest::hasTool("ffmpeg") && videotest::hasTool("ffprobe")) {
+            o.codec = "prores";
+            check(imshell::video::RenderVideo(t, base + "_alpha.mov", o, &error), ("renders prores 4444: " + error).c_str());
+            check(ffprobe(base + "_alpha.mov", "v:0", "pix_fmt").find("yuva444p") == 0, "the prores file has an alpha plane");
+            o.codec = "vp9";
+            check(imshell::video::RenderVideo(t, base + "_alpha.webm", o, &error), ("renders vp9 with alpha: " + error).c_str());
+            check(ffprobe(base + "_alpha.webm", "v:0", "codec_name:stream_tags=alpha_mode").find("vp9,1") == 0, "the webm is marked as having alpha");
+        }
+    }
+
     if (failures == 0) {
         std::puts("video render tests passed");
     }

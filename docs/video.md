@@ -137,7 +137,8 @@ A draft or a scale changes `Composition::width/height`, so a draw function has t
 `Options::codec` (`h264`, `hevc`, `vp9`, `prores`), `bitrate` (kbit/s) and `crf` (constant quality) choose how `RenderVideo` encodes; any of them, or `Encoder::Ffmpeg`, goes through the ffmpeg binary (`NeedsFfmpeg`), since the platform encoders only do h.264 at their own bitrate.
 The file's extension picks the container (`.mp4`, `.webm`, `.mov`); vp9 gets opus sound and the others aac, and prores is 10 bit 4:2:2 with no bitrate or crf.
 The command line has `--codec`, `--bitrate`, `--crf`, and `render --images -o dir` writes `frame_000000.png` and so on through `Frames`.
-Not yet: an alpha channel (the renderers clear to opaque black).
+`Composition::transparent` (`--transparent`) clears to transparent instead of black: the renderers leave colour premultiplied (ImGui's blending), `Unpremultiply` makes it straight before it reaches an `Image`, a png or ffmpeg, and averaging motion blur happens before that.
+The outputs that hold it are `--images` (png), prores (`yuva444p`, 4444) and vp9 (`yuva420p`, `.webm`); h264 and hevc refuse with a message, since libx265 has no alpha and the platform encoders are not asked for it.
 
 `inspect [RANGE]` (`video_check.hpp`, `check.cpp`) plays the frames in order and reports what a viewer would notice: a window whose vertices leave the canvas (a warning at the first or last frames of its scene, where it is probably an entrance or an exit, an error anywhere else, with the overhang in pixels and the command to look at it), frames with nothing drawn (a note), and pops, a part of the picture that changes in one frame between frames that hardly move, with its region (a hard cut at a scene boundary is not one).
 It reads two things: the draw data after imgui laid the frame out, through `drawProbe()` (a process-wide callback each renderer calls once per frame), and the pixels, in 4x4 cells.

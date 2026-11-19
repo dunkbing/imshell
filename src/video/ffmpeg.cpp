@@ -39,7 +39,7 @@ namespace imshell::video {
 #endif
     }
 
-    bool FfmpegPipe::open(const Options& options, int width, int height, int fps, const std::string& path, const std::string& audioFile,
+    bool FfmpegPipe::open(const Options& options, int width, int height, int fps, const std::string& path, const std::string& audioFile, bool alpha,
                           std::string* error) {
         close();
 #ifndef _WIN32
@@ -48,6 +48,12 @@ namespace imshell::video {
         const std::string& ffmpeg = options.ffmpeg;
         const std::string& codec = options.codec;
         const bool vp9 = codec == "vp9", prores = codec == "prores";
+        if (alpha && !vp9 && !prores) {
+            if (error) {
+                *error = "h264 and hevc cannot hold transparency here: use prores (.mov), vp9 (.webm) or --images";
+            }
+            return false;
+        }
         std::string command = ShellQuote(ffmpeg) + " -v error -y -f rawvideo -pix_fmt rgba -s " + std::to_string(width) + "x" +
                               std::to_string(height) + " -r " + std::to_string(fps) + " -i -";
         if (!audioFile.empty()) {
@@ -56,9 +62,9 @@ namespace imshell::video {
             command += " -an";
         }
         if (prores) { // an intermediate for editors: 10 bit 4:2:2, high quality
-            command += " -c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le";
+            command += alpha ? " -c:v prores_ks -profile:v 4 -pix_fmt yuva444p10le" : " -c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le";
         } else if (vp9) {
-            command += " -c:v libvpx-vp9 -pix_fmt yuv420p";
+            command += alpha ? " -c:v libvpx-vp9 -pix_fmt yuva420p -auto-alt-ref 0" : " -c:v libvpx-vp9 -pix_fmt yuv420p";
         } else if (codec == "hevc") {
             command += " -c:v libx265 -pix_fmt yuv420p -tag:v hvc1 -movflags +faststart";
         } else {

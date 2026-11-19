@@ -58,6 +58,7 @@ namespace imshell::video {
         std::function<void(const Frame&)> draw;
         std::vector<AudioClip> audio;          // no clips, no audio track
         std::vector<Mark> marks;               // optional: the scenes, for the command line
+        bool transparent = false;              // clear to transparent instead of black; Image and the png/ffmpeg output carry straight alpha (h264 and hevc cannot hold it: prores, vp9 or png images)
     };
 
     // one frame as 8 bit rgba, rows top to bottom
@@ -66,6 +67,18 @@ namespace imshell::video {
         int height = 0;
         std::vector<unsigned char> rgba;
     };
+
+    // the renderers leave colour premultiplied by alpha (ImGui's blending); images and encoders want it straight
+    inline void Unpremultiply(std::vector<unsigned char>& rgba) {
+        for (size_t i = 0; i + 3 < rgba.size(); i += 4) {
+            const unsigned a = rgba[i + 3];
+            if (a > 0 && a < 255) {
+                for (size_t c = 0; c < 3; ++c) {
+                    rgba[i + c] = static_cast<unsigned char>(std::min(255u, (rgba[i + c] * 255u + a / 2) / a));
+                }
+            }
+        }
+    }
 
     enum class Encoder {
         Default, // the platform's own: AVAssetWriter on Apple (hardware), Media Foundation on Windows (no ffmpeg needed, sound decoded there too); Linux uses ffmpeg
@@ -94,7 +107,7 @@ namespace imshell::video {
     };
 
     // true when the options ask for something only the ffmpeg binary encodes
-    inline bool NeedsFfmpeg(const Options& o) { return o.encoder == Encoder::Ffmpeg || o.codec != "h264" || o.bitrate > 0 || o.crf >= 0; }
+    inline bool NeedsFfmpeg(const Composition& c, const Options& o) { return c.transparent || o.encoder == Encoder::Ffmpeg || o.codec != "h264" || o.bitrate > 0 || o.crf >= 0; }
 
     // render the frames to an mp4 (h.264). false and `error` on failure.
     // macOS and iOS for now (imshell::video links the Metal renderer there)

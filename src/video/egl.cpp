@@ -99,7 +99,7 @@ namespace imshell::video {
                 ImGui::SetCurrentContext(imguiContext_);
                 glBindFramebuffer(GL_FRAMEBUFFER, framebuffer_);
                 glViewport(0, 0, comp_.width, comp_.height);
-                glClearColor(0.f, 0.f, 0.f, 1.f);
+                glClearColor(0.f, 0.f, 0.f, comp_.transparent ? 0.f : 1.f);
                 glClear(GL_COLOR_BUFFER_BIT);
                 DrawComposition(comp_, index, sequential, offset, ImGui_ImplOpenGL3_NewFrame);
                 ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
