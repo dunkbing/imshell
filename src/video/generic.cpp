@@ -217,8 +217,4 @@ namespace imshell::video {
         }
         return ok;
     }
-
-    void Preview(const Composition&, const PreviewOptions&) {
-        std::fprintf(stderr, "imshell::video::Preview is macOS only for now\n");
-    }
 } // namespace imshell::video

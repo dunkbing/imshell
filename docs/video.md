@@ -48,10 +48,13 @@ macOS, Linux and Windows are built.
 The portable part (`generic.cpp`: `RenderFrame`, `RenderVideo` through ffmpeg, `Verify`, blur averaging, the sound mix, a small PNG writer) sits on a `Rasterizer` (`rasterizer.hpp`) that a backend implements as imgui into an offscreen target read back as rgba, so each platform adds one backend file, not a design.
 Its tests run over a fake rasterizer, so they need no GPU and run anywhere.
 On Linux (`egl.cpp`) the target is a framebuffer object on a pbuffer EGL context with desktop OpenGL 3.3, using mesa's surfaceless platform when it is there; with `libegl1`, `libgl1` and `libgl1-mesa-dri` it renders on a machine with no GPU and no display (llvmpipe), which is how the Linux tests ran.
-The sound is decoded by ffmpeg there, the PNG writer is uncompressed (a 1080p frame is about 8 MB), `Encoder::Default` is ffmpeg, and `Preview` is not available yet.
+The sound is decoded by ffmpeg there, the PNG writer is uncompressed (a 1080p frame is about 8 MB), `Encoder::Default` is ffmpeg, and `Preview` is a window over the same rasterizer (below).
 The caller's current GL context is not restored after a render on Linux, so a host that draws with GL itself makes its context current again afterwards.
 On Windows (`d3d11.cpp`) the target is an offscreen RGBA texture read back through a staging copy, on the GPU or on WARP, Direct3D's software renderer, when there is none (the build host has none and ran the tests that way).
 ffmpeg is the encoder there too and has to be on `PATH` or named in `Options::ffmpeg`; Media Foundation as a native encoder is not done.
+
+Preview on Linux and Windows (`preview.cpp`) shows each frame the rasterizer draws through a texture imgui keeps up to date itself (`ImTextureData`, so no platform texture code), with the rasterizer on its own thread so its GL context does not replace the window's.
+Run on Linux under xvfb, where frames advance and the picture shows; on Windows it builds, but the build host's SSM session has no desktop, so the window was not run there.
 A frame is drawn and waited for before the next, so the GPU and the encoder do not overlap yet; double buffering is a later speed-up.
 
 ## Determinism
