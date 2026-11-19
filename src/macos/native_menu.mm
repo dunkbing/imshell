@@ -48,17 +48,23 @@ namespace imshell::detail {
         return true;
     }
 
-    int nativeMenuPopUp(const std::vector<NativeMenuItem>& items, ImVec2 pos) {
+    void nativeMenuPopUp(const std::vector<NativeMenuItem>& items, ImVec2 pos, const std::function<void(int)>& done) {
         NSView* view = (__bridge NSView*)nativeHost();
-        if (!view)
-            return -1;
+        if (!view) {
+            done(-1);
+            return;
+        }
         ImShellMenuTarget* target = [ImShellMenuTarget new];
         target->chosen = -1;
         NSMenu* menu = build(items, target);
         // imgui's origin is the top left; the view's may be the bottom left
         const NSPoint at = NSMakePoint(pos.x, view.isFlipped ? pos.y : view.bounds.size.height - pos.y);
         [menu popUpMenuPositioningItem:nil atLocation:at inView:view]; // returns when it closes
-        return target->chosen;
+        // the os swallowed the button release: imgui must not think a button is still down
+        ImGuiIO& io = ImGui::GetIO();
+        io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+        io.AddMouseButtonEvent(ImGuiMouseButton_Right, false);
+        done(target->chosen);
     }
 
     int nativeMenuPick(const std::vector<NativeMenuItem>& items, const std::vector<int>& path) {
