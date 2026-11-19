@@ -10,6 +10,11 @@
 #include "imshell/video.hpp"
 #include "imgui.h"
 #include "imgui_impl_metal.h"
+#include "ffmpeg.hpp"
+#include <cstdio>
+#include <cstring>
+#include <map>
+#include <set>
 #include <unistd.h>
 
 namespace imshell::video {
@@ -137,6 +142,79 @@ namespace {
         }
         return true;
     }
+
+    // the buffer's pixels as rgba
+    Image readImage(CVPixelBufferRef buffer, int width, int height) {
+        Image image;
+        CVPixelBufferLockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
+        const auto* src = static_cast<const unsigned char*>(CVPixelBufferGetBaseAddress(buffer));
+        const size_t stride = CVPixelBufferGetBytesPerRow(buffer);
+        image.width = width;
+        image.height = height;
+        image.rgba.resize(static_cast<size_t>(width) * height * 4);
+        for (int y = 0; y < height; ++y) {
+            const unsigned char* row = src + y * stride;
+            unsigned char* out = &image.rgba[static_cast<size_t>(y) * width * 4];
+            for (int x = 0; x < width; ++x) { // bgra to rgba
+                out[x * 4 + 0] = row[x * 4 + 2];
+                out[x * 4 + 1] = row[x * 4 + 1];
+                out[x * 4 + 2] = row[x * 4 + 0];
+                out[x * 4 + 3] = row[x * 4 + 3];
+            }
+        }
+        CVPixelBufferUnlockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
+        return image;
+    }
+
+    CVPixelBufferRef makeBuffer(const Composition& comp) {
+        CVPixelBufferRef buffer = nullptr;
+        CVPixelBufferCreate(nullptr, comp.width, comp.height, kCVPixelFormatType_32BGRA,
+                            (__bridge CFDictionaryRef)bufferAttributes(comp.width, comp.height), &buffer);
+        return buffer;
+    }
+
+    // the frame range an Options asks for
+    void frameRange(const Composition& comp, const Options& options, int& from, int& to) {
+        from = std::clamp(options.from, 0, comp.frames - 1);
+        to = options.to < 0 ? comp.frames : std::clamp(options.to, from + 1, comp.frames);
+    }
+
+    // frames through ffmpeg: read back as rgba and piped
+    bool renderWithFfmpeg(const Composition& comp, const std::string& path, const Options& options, std::string* error) {
+        int from = 0, to = 0;
+        frameRange(comp, options, from, to);
+        Renderer renderer(comp);
+        if (!renderer.ok()) {
+            return fail(error, "no metal device");
+        }
+        CVPixelBufferRef buffer = makeBuffer(comp);
+        if (!buffer) {
+            return fail(error, "no pixel buffer");
+        }
+        FfmpegPipe pipe;
+        bool ok = pipe.open(options.ffmpeg, comp.width, comp.height, comp.fps, path, error);
+        bool cancelled = false;
+        for (int n = from; ok && n < to; ++n) {
+            const Image image = renderer.draw(n, true, buffer) ? readImage(buffer, comp.width, comp.height) : Image{};
+            ok = image.width > 0 && pipe.write(image.rgba.data(), image.rgba.size());
+            if (!ok) {
+                fail(error, "ffmpeg stopped taking frames (is it installed, and does it have libx264?)");
+            } else if (options.progress && !options.progress(n - from + 1, to - from)) {
+                cancelled = true;
+                break;
+            }
+        }
+        CVPixelBufferRelease(buffer);
+        const bool finished = pipe.close();
+        if (ok && !cancelled && !finished) {
+            ok = fail(error, "ffmpeg failed");
+        }
+        if (!ok || cancelled) {
+            std::remove(path.c_str());
+            return cancelled ? fail(error, "cancelled") : false;
+        }
+        return true;
+    }
 } // namespace
 
 bool RenderVideo(const Composition& comp, const std::string& path, const Options& options, std::string* error) {
@@ -147,8 +225,11 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
         if (comp.width % 2 || comp.height % 2) {
             return fail(error, "h.264 needs an even width and height");
         }
-        const int from = std::clamp(options.from, 0, comp.frames - 1);
-        const int to = options.to < 0 ? comp.frames : std::clamp(options.to, from + 1, comp.frames);
+        if (options.encoder == Encoder::Ffmpeg) {
+            return renderWithFfmpeg(comp, path, options, error);
+        }
+        int from = 0, to = 0;
+        frameRange(comp, options, from, to);
 
         Renderer renderer(comp);
         if (!renderer.ok()) {
@@ -231,36 +312,77 @@ Image RenderFrame(const Composition& comp, int index, std::string* error) {
             fail(error, "no metal device");
             return {};
         }
-        CVPixelBufferRef buffer = nullptr;
-        if (CVPixelBufferCreate(nullptr, comp.width, comp.height, kCVPixelFormatType_32BGRA,
-                                (__bridge CFDictionaryRef)bufferAttributes(comp.width, comp.height), &buffer) != kCVReturnSuccess) {
+        CVPixelBufferRef buffer = makeBuffer(comp);
+        if (!buffer) {
             fail(error, "no pixel buffer");
             return {};
         }
         Image image;
         if (renderer.draw(std::clamp(index, 0, comp.frames - 1), false, buffer)) {
-            CVPixelBufferLockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
-            const auto* src = static_cast<const unsigned char*>(CVPixelBufferGetBaseAddress(buffer));
-            const size_t stride = CVPixelBufferGetBytesPerRow(buffer);
-            image.width = comp.width;
-            image.height = comp.height;
-            image.rgba.resize(static_cast<size_t>(comp.width) * comp.height * 4);
-            for (int y = 0; y < comp.height; ++y) {
-                const unsigned char* row = src + y * stride;
-                unsigned char* out = &image.rgba[static_cast<size_t>(y) * comp.width * 4];
-                for (int x = 0; x < comp.width; ++x) { // bgra to rgba
-                    out[x * 4 + 0] = row[x * 4 + 2];
-                    out[x * 4 + 1] = row[x * 4 + 1];
-                    out[x * 4 + 2] = row[x * 4 + 0];
-                    out[x * 4 + 3] = row[x * 4 + 3];
-                }
-            }
-            CVPixelBufferUnlockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
+            image = readImage(buffer, comp.width, comp.height);
         } else {
             fail(error, "drawing the frame failed");
         }
         CVPixelBufferRelease(buffer);
         return image;
+    }
+}
+
+bool Verify(const Composition& comp, std::span<const int> frames, std::string* report) {
+    @autoreleasepool {
+        std::string error;
+        if (!validSize(comp, &error)) {
+            if (report) {
+                *report = error;
+            }
+            return false;
+        }
+        std::set<int> wanted;
+        for (int f : frames) {
+            wanted.insert(std::clamp(f, 0, comp.frames - 1));
+        }
+        // one renderer plays every frame up to the last wanted, as a render does
+        std::map<int, Image> played;
+        {
+            Renderer renderer(comp);
+            CVPixelBufferRef buffer = makeBuffer(comp);
+            if (!renderer.ok() || !buffer) {
+                if (report) {
+                    *report = "no metal device";
+                }
+                return false;
+            }
+            for (int n = 0; !wanted.empty() && n <= *wanted.rbegin(); ++n) {
+                if (!renderer.draw(n, true, buffer)) {
+                    CVPixelBufferRelease(buffer);
+                    if (report) {
+                        *report = "drawing frame " + std::to_string(n) + " failed";
+                    }
+                    return false;
+                }
+                if (wanted.count(n)) {
+                    played[n] = readImage(buffer, comp.width, comp.height);
+                }
+            }
+            CVPixelBufferRelease(buffer);
+        }
+        bool same = true;
+        std::string text;
+        for (int f : wanted) {
+            const Image seeked = RenderFrame(comp, f); // a fresh context, as a jump would give
+            if (seeked.rgba != played[f].rgba) {
+                same = false;
+                size_t differing = 0;
+                for (size_t i = 0; i + 3 < seeked.rgba.size(); i += 4) {
+                    differing += std::memcmp(&seeked.rgba[i], &played[f].rgba[i], 4) != 0;
+                }
+                text += "frame " + std::to_string(f) + ": " + std::to_string(differing) + " pixels differ between playing and seeking\n";
+            }
+        }
+        if (report) {
+            *report = text;
+        }
+        return same;
     }
 }
 

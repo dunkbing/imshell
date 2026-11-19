@@ -57,7 +57,7 @@ Two things still make a frame depend on the ones before it: ImGui's own state an
 - `imshell::Animate` (a spring) and ImAnim (`imshell::anim`) keep state and advance by `DeltaTime`, so they are right when frames are drawn in order and wrong after a jump: frame 300 reached by seeking is not frame 300 reached by playing.
   A composition that wants to seek, or be previewed with a scrubber, uses closed-form helpers instead: `Interpolate(frame, in, out, ease)`, `Spring(frame, fps, from, to, config)` (the analytic damped spring, a pure function of the frame), `Sequence`/`Series` for timing scenes, and `Loop`.
   `Frame` carries `sequential`, true only while a render plays frames in order, so a composition that does use a stateful animation can at least say so.
-- `video::Verify(comp, {frames...})` draws each listed frame sequentially and by seeking and compares the pixels, which is the test for this rule.
+- `video::Verify(comp, frames)` draws each listed frame in order and again on a fresh context, compares the pixels and reports the frames that differ: the test for this rule.
   The preview seeks through the same pure path, so what the scrubber shows is what the file will contain.
 
 Some imshell state is per process, not per ImGui context: the current theme, the `Animate` state map, the icon registry, native views and the wake flags of `frames.hpp`.
@@ -74,7 +74,7 @@ The `Encoder` is a small interface (`begin(width, height, fps, audio)`, `frame(p
 |---|---|---|
 | `AVAssetWriter` (VideoToolbox, hardware) | macOS, iOS | H.264 or HEVC, the pixel buffer from the render goes straight in; audio is an AAC input on the same writer |
 | Media Foundation sink writer | Windows | H.264 hardware where the GPU has it; later |
-| `ffmpeg` on `PATH` | everywhere | raw frames over a pipe, `-c:v libx264` or the system's hardware codec; the Linux default, and the fallback for any platform; no link dependency |
+| `ffmpeg` (`Encoder::Ffmpeg`, `Options::ffmpeg` is the binary) | everywhere | raw rgba frames over a pipe, `libx264`, yuv420p; the Linux default, and the fallback for any platform; no link dependency, so a host started from the Dock may need the full path |
 
 Linux has no system encoder that is always there, and GStreamer would be a link dependency on every host, so Linux shells out to `ffmpeg` and says so clearly when it is missing.
 Android's `MediaCodec` comes after the desktops.

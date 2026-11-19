@@ -143,7 +143,7 @@ endif()
 # optional video (imshell/video.hpp): imgui to an mp4 with no window. the frame helpers are header
 # only; the renderer is metal for now
 if(APPLE)
-    add_library(imshell_video STATIC src/video/metal.mm)
+    add_library(imshell_video STATIC src/video/metal.mm src/video/ffmpeg.cpp)
     add_library(imshell::video ALIAS imshell_video)
     set_source_files_properties(src/video/metal.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell_video PUBLIC imshell "-framework AVFoundation" "-framework CoreMedia"
