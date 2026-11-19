@@ -52,7 +52,7 @@ The sound is decoded by ffmpeg there, the PNG writer is uncompressed (a 1080p fr
 The caller's current GL context is not restored after a render on Linux, so a host that draws with GL itself makes its context current again afterwards.
 On Windows (`d3d11.cpp`) the target is an offscreen RGBA texture read back through a staging copy, on the GPU or on WARP, Direct3D's software renderer, when there is none (the build host has none and ran the tests that way).
 ffmpeg is the encoder there too and has to be on `PATH` or named in `Options::ffmpeg`; Media Foundation as a native encoder is not done.
-Rendering is double buffered: the GPU draws frame N+1 while the encoder takes frame N.
+A frame is drawn and waited for before the next, so the GPU and the encoder do not overlap yet; double buffering is a later speed-up.
 
 ## Determinism
 
