@@ -2,6 +2,7 @@
 // `video_demo out.mp4` renders it (`--ffmpeg` through ffmpeg), `video_demo --close 2` previews for two seconds
 #include "imshell/video_captions.hpp"
 #include "imshell/video_cli.hpp"
+#include "imshell/video_footage.hpp"
 #include "imshell/video_scenes.hpp"
 
 #include "imgui.h"
@@ -9,6 +10,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -43,8 +45,14 @@ int main(int argc, char** argv) {
     static const std::vector<Cue> cues = ParseCaptions(
         "WEBVTT\n\n00:00.500 --> 00:02.500\nCaptions come from <00:01.000>a vtt <00:01.500>or srt <00:02.000>file\n\n"
         "00:03.000 --> 00:05.000\nand light the words as they are said\n");
+    // DEMO_FOOTAGE=clip.mp4 puts a clip in the right half (its sound would be an AudioClip with the same path)
+    static std::unique_ptr<Footage> footage = std::getenv("DEMO_FOOTAGE") ? std::make_unique<Footage>(std::getenv("DEMO_FOOTAGE"), comp.fps, 640) : nullptr;
     comp.draw = [scenes = comp.draw](const Frame& f) {
         scenes(f);
+        if (footage && footage->ok()) {
+            const float w = static_cast<float>(f.width);
+            footage->Draw(ImGui::GetBackgroundDrawList(), f.time(), ImVec2(w * 0.55f, w * 0.05f), ImVec2(w * 0.4f, w * 0.4f), Fit::Cover, IM_COL32_WHITE, 16.f);
+        }
         CaptionStyle style;
         style.karaoke = true;
         DrawCaptions(f, cues, style);

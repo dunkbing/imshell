@@ -180,6 +180,8 @@ namespace imshell::video {
                 }
                 std::memcpy(texture_.GetPixels(), rgba_.data(), rgba_.size());
                 texture_.UpdateRect = {0, 0, static_cast<unsigned short>(comp_.width), static_cast<unsigned short>(comp_.height)};
+                texture_.Updates.resize(0); // the backends upload from Updates, not UpdateRect
+                texture_.Updates.push_back(texture_.UpdateRect);
                 if (texture_.Status == ImTextureStatus_OK) { // a texture the backend has not made yet is created with these pixels
                     texture_.SetStatus(ImTextureStatus_WantUpdates);
                 }

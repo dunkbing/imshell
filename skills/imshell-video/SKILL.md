@@ -131,6 +131,10 @@ encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
 `imshell/video_audio_viz.hpp`: construct `AudioAnalysis analysis(comp)` after setting `comp.audio` and before assigning `comp.draw`, then in `draw` use `analysis.bands(f.time(), bands)` (e.g. 32 values 0..1), `analysis.level(f.time())` (pulse a logo or a glow) or `analysis.waveform(f.time(), 0.02, samples)`, and draw them with `DrawBars` / `DrawWave` or your own shapes. They are functions of the time, so the picture is the same when played or seeked. Smooth with `bands(..., release)` (0.8 default), not with state kept between frames.
 
+## Footage
+
+`imshell/video_footage.hpp`: `Footage clip("shot.mp4", comp.fps, 1280)` before `draw` is assigned (check `clip.ok()` and `clip.error()`), then `clip.Draw(ImGui::GetWindowDrawList(), t, pos, size, Fit::Cover, IM_COL32_WHITE, 12.f)` inside a window or on the foreground/background list, with `t` the seconds into the clip (`f.time() - 3.0` starts it at 3 s; `Interpolate` the time to slow or freeze it). Give the clip's own sound as an `AudioClip` with the same path, `start` where the footage starts. It needs the `ffmpeg` binary (no iOS or Android), decodes at most `maxWidth` wide (smaller is faster), and a sequential render is much faster than jumping around, so `frame` on footage takes a moment per time. Check with `frame` at several times, then `verify`.
+
 ## Captions
 
 `imshell/video_captions.hpp`: `ParseCaptions(text)` or `LoadCaptions(path, cues)` read WebVTT or SRT, and `DrawCaptions(f, cues, style)` inside `draw` shows the cue at `f.time()`. Put `<00:01.500>` before a word in a WebVTT cue to time it and set `style.karaoke = true` to light words as they are said. Size, width, position and colours are in `CaptionStyle`; the defaults are white on a dark pill at 5% of the height. Check by `frame` at the cue starts and ends: `inspect` does not look at them.
@@ -146,6 +150,6 @@ encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
 ## Not available yet
 
-Video footage as a layer and shaders.
+Shaders, and footage on iOS and Android (it needs the ffmpeg binary).
 If a request needs one of these, say so and give the closest result that works instead of
 reaching for another tool.
