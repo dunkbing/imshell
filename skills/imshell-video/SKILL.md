@@ -133,7 +133,7 @@ encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
 ## Footage
 
-`imshell/video_footage.hpp`: `Footage clip("shot.mp4", comp.fps, 1280)` before `draw` is assigned (check `clip.ok()` and `clip.error()`), then `clip.Draw(ImGui::GetWindowDrawList(), t, pos, size, Fit::Cover, IM_COL32_WHITE, 12.f)` inside a window or on the foreground/background list, with `t` the seconds into the clip (`f.time() - 3.0` starts it at 3 s; `Interpolate` the time to slow or freeze it). Give the clip's own sound as an `AudioClip` with the same path, `start` where the footage starts. It needs the `ffmpeg` binary (no iOS or Android), decodes at most `maxWidth` wide (smaller is faster), and a sequential render is much faster than jumping around, so `frame` on footage takes a moment per time. Check with `frame` at several times, then `verify`.
+`imshell/video_footage.hpp`: `Footage clip("shot.mp4", comp.fps, 1280)` before `draw` is assigned (check `clip.ok()` and `clip.error()`), then `clip.Draw(ImGui::GetWindowDrawList(), t, pos, size, Fit::Cover, IM_COL32_WHITE, 12.f)` inside a window or on the foreground/background list, with `t` the seconds into the clip (`f.time() - 3.0` starts it at 3 s; `Interpolate` the time to slow or freeze it). Give the clip's own sound as an `AudioClip` with the same path, `start` where the footage starts. It needs the `ffmpeg` binary on the machine that renders, decodes at most `maxWidth` wide (smaller is faster), and a sequential render is much faster than jumping around, so `frame` on footage takes a moment per time. Check with `frame` at several times, then `verify`.
 
 ## Captions
 
@@ -150,6 +150,6 @@ encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
 ## Not available yet
 
-Shaders, and footage on iOS and Android (it needs the ffmpeg binary).
+Shaders.
 If a request needs one of these, say so and give the closest result that works instead of
 reaching for another tool.

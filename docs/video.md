@@ -88,7 +88,7 @@ The `Encoder` is a small interface (`begin(width, height, fps, audio)`, `frame(p
 | `ffmpeg` (`Encoder::Ffmpeg`, `Options::ffmpeg` is the binary) | everywhere | raw rgba frames over a pipe, `libx264`, yuv420p; the Linux default, and the fallback for any platform; no link dependency, so a host started from the Dock may need the full path |
 
 Linux has no system encoder that is always there, and GStreamer would be a link dependency on every host, so Linux shells out to `ffmpeg` and says so clearly when it is missing.
-Android's `MediaCodec` comes after the desktops.
+The tool is for desktops (macOS, Linux, Windows), where an agent drives it from a shell; there are no phone encoders or footage decoders, and none are planned.
 Nothing is linked for the video target unless the host links `imshell::video`; the Apple encoder needs `AVFoundation`, `CoreVideo` and `CoreMedia`, which the system provides.
 
 ## Sound
@@ -152,7 +152,7 @@ Build it from the composition before its `draw` is assigned, and ask it with `f.
 Footage (`video_footage.hpp`, `footage.cpp`): `Footage clip(path, comp.fps, maxWidth)` reads a video through the `ffmpeg` binary (`ProbeVideo` takes its size, rate and length from `ffmpeg -i`, so no ffprobe; a clip rotated by metadata is read upright) and `clip.Draw(drawList, t, pos, size, Fit, tint, rounding)` draws the picture `t` seconds into the clip (`Fit::Cover`, `Contain` or `Stretch`); `clip.pixels(t)` gives the rgba.
 The picture is a pure function of `t`: frame `n = floor(t * fps)` is read on from the running decoder when it is next (or up to 30 ahead), and a seek restarts ffmpeg at `n / fps` (`-ss` before `-i`, decoded and trimmed to the frame), which the tests show gives the same pixels as playing to it; before 0 is the first frame and past the end the last is held.
 One texture per ImGui context is kept (each renderer has its own), as an `ImTextureData` the backend uploads from its `Updates` list (not `UpdateRect`: the three backends read `Updates`); a context created at a freed one's address is detected by asking it for the texture.
-The footage must outlive every render that draws it, a decoder runs on whichever thread asks (under a lock), and it needs the ffmpeg binary, so it is not available on iOS and Android. The clip's sound is an `AudioClip` with the same path (`ffmpeg` and the platform decoders both read the audio of a video file).
+The footage must outlive every render that draws it, a decoder runs on whichever thread asks (under a lock), and it needs the ffmpeg binary on the rendering machine. The clip's sound is an `AudioClip` with the same path (`ffmpeg` and the platform decoders both read the audio of a video file).
 `audio analyze [RANGE]` mixes the sound as a render would (`RenderAudio`) and prints the integrated loudness (ITU-R BS.1770: K-weighting, 400 ms blocks every 100 ms, the -70 LUFS gate and the -10 LU relative gate), the true peak (4x oversampled), sample peak, rms, clipped samples (exit 2) and silences of 0.3 s or more under -60 dBFS; `audio at TIMES` says what plays at a moment, from where in its file and how loud; `audio render` writes the mix as a 32 bit float wav.
 `Frames(comp, options, fn)` plays a range in order and hands each frame to `fn`: the building block of the checks, and of anything that wants the pixels (image sequences, thumbnails).
 The contact sheet labels are digits only (a 3x5 bitmap font): the frame number is the only text it needs.
@@ -166,7 +166,7 @@ The contact sheet labels are digits only (a 3x5 bitmap font): the frame number i
 4. Sound mixer.
 5. `Preview`.
 6. Motion blur.
-7. Windows D3D11 and Media Foundation; iOS (the Metal path already works), Android after.
+7. Windows D3D11 and Media Foundation (done); phones are out of scope.
 8. Web is last and may stay out.
 
 ## What it leaves out
