@@ -30,4 +30,4 @@ What comes next, roughly in order. Each item has an issue with the problem, the 
 
 ## Long term
 
-13. **Screen readers** ([#21](https://github.com/dunkbing/imshell/issues/21)): expose labelled ImGui items to each platform's accessibility API.
+13. **Screen readers** ([#21](https://github.com/dunkbing/imshell/issues/21)): expose labelled ImGui items to each platform's accessibility API. Design in [accessibility.md](accessibility.md).
