@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "imshell/animation.hpp"
 #include "imshell/video.hpp"
+#include "imshell/video_captions.hpp"
 #include "imshell/video_check.hpp"
 #include "video_test_util.hpp"
 
@@ -325,6 +326,30 @@ int main() {
             check(imshell::video::RenderVideo(t, base + "_alpha.webm", o, &error), ("renders vp9 with alpha: " + error).c_str());
             check(ffprobe(base + "_alpha.webm", "v:0", "codec_name:stream_tags=alpha_mode").find("vp9,1") == 0, "the webm is marked as having alpha");
         }
+    }
+
+    // captions draw over the bottom of the frame at the right times
+    {
+        using namespace imshell::video;
+        Composition c;
+        c.width = 800;
+        c.height = 450;
+        c.fps = 30;
+        c.frames = 90;
+        const std::vector<Cue> cues = ParseCaptions("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nA caption that is long enough to need a second line when it is drawn at this size\n");
+        c.draw = [&](const Frame& f) { DrawCaptions(f, cues); };
+        const Image before = RenderFrame(c, 5, &error), during = RenderFrame(c, 45, &error);
+        auto lit = [](const Image& im, int y0, int y1) {
+            int n = 0;
+            for (int y = y0; y < y1; ++y) {
+                for (int x = 0; x < im.width; ++x) {
+                    n += im.rgba[(static_cast<size_t>(y) * im.width + x) * 4] > 200 ? 1 : 0;
+                }
+            }
+            return n;
+        };
+        check(before.width == 800 && lit(before, 0, 450) == 0, "nothing is drawn before the cue");
+        check(during.width == 800 && lit(during, 330, 440) > 200 && lit(during, 0, 250) == 0, "the cue is drawn near the bottom");
     }
 
     if (failures == 0) {
