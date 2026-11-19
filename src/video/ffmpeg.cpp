@@ -20,6 +20,12 @@
 #endif
 
 namespace imshell::video {
+#ifdef _WIN32
+    static const char* const kNullDevice = "NUL";
+#else
+    static const char* const kNullDevice = "/dev/null";
+#endif
+
     // one argument for the shell: single quotes, with any in the text closed and escaped
     std::string ShellQuote(const std::string& s) {
 #ifdef _WIN32
@@ -186,7 +192,7 @@ namespace imshell::video {
         char at[32];
         std::snprintf(at, sizeof at, "%.6f", std::max(start, 0.0));
         const std::string command = ShellQuote(ffmpeg) + " -v error -ss " + at + " -i " + ShellQuote(path) + " -an -vf fps=" + std::to_string(fps) + ",scale=" + std::to_string(width) + ":" +
-                                    std::to_string(height) + " -f rawvideo -pix_fmt rgba -";
+                                    std::to_string(height) + " -f rawvideo -pix_fmt rgba - 2>" + kNullDevice; // closing early makes ffmpeg complain of a broken pipe
         pipe_ = IMSHELL_POPEN(ShellCommand(command).c_str(), IMSHELL_READ_MODE);
         return pipe_ != nullptr;
     }
