@@ -107,6 +107,15 @@ else()
     target_sources(imshell PRIVATE src/native_menu_none.cpp)
 endif()
 
+# vibrancy (imshell/vibrancy.hpp): an NSVisualEffectView region behind the imgui layer on macos; elsewhere
+# the host keeps its opaque sidebar
+if(APPLE AND NOT IOS)
+    target_sources(imshell PRIVATE src/macos/vibrancy.mm)
+    set_source_files_properties(src/macos/vibrancy.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+else()
+    target_sources(imshell PRIVATE src/vibrancy_none.cpp)
+endif()
+
 # optional components (imshell/components.hpp): a host links imshell::components to use them
 add_library(imshell_components STATIC src/components.cpp)
 add_library(imshell::components ALIAS imshell_components)

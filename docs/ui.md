@@ -180,6 +180,25 @@ While a value moves the loop is asked for frames, and once it settles it stops, 
 With the system's reduce motion setting on (macOS and iOS; `IMSHELL_REDUCE_MOTION=1` or `0` overrides it everywhere) values jump to their target.
 `SnapAnimation(id, value)` jumps an id with no motion, for a row that was recycled for another item.
 
+## Vibrancy (`imshell/vibrancy.hpp`)
+
+`Vibrancy(pos, size, material)` puts the system's window material (the blurred, tinted look of a macOS sidebar) behind a region of the imgui content, so the desktop shows through it:
+
+```cpp
+if (imshell::VibrancyAvailable()) {
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    imshell::Vibrancy(vp->Pos, {200, vp->Size.y}); // every frame the sidebar shows: the full height, under the title bar
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0)); // the area draws nothing of its own
+}
+```
+
+For a sidebar that runs under the title bar (as in Finder), start the region at the top of the window and push a transparent `WindowBg` around `BeginTitleBar()` so the bar does not cover it; start the sidebar's items below `TitleBarHeight()` so the traffic lights have room.
+The material is an `NSVisualEffectView` the shell places under the Metal layer, so the sidebar window and every other window over the region must draw a transparent background there.
+One region per window; a frame that does not call it removes it, and while a region shows the window is cleared transparent, with the window's own background colour behind, so windows that cover the whole area should draw their own background.
+Materials: `Sidebar`, `Header`, `Menu`, `Popover`, `Titlebar`, `Window`, `Content`, `Hud`, `Sheet`.
+macOS only for now: elsewhere `VibrancyAvailable()` is false and `Vibrancy` does nothing, so the host keeps its opaque sidebar.
+The gallery has a "Sidebar" toggle (`IMSHELL_GALLERY_VIBRANCY=1` starts with it), a fold button in the title bar and a draggable right edge.
+
 ## Native icons (`imshell/icons.hpp`)
 
 `Icon(name, fallback)` returns a glyph for the platform's own icon of that name, for any text, label or button:
