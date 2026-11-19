@@ -52,7 +52,7 @@ A segmented control and a pop-up read their labels once per id.
 
 ## Native context menus (`imshell/native_menu.hpp`)
 
-`NativeContextMenu(id, builder)` is a right-click menu the OS draws and tracks: an `NSMenu` on macOS and a `UIMenu` on iOS (shown at the touch by a `UIEditMenuInteraction`, iOS 16), so it has the system's look, animation, SF Symbol icons and VoiceOver.
+`NativeContextMenu(id, builder)` is a right-click menu the OS draws and tracks: an `NSMenu` on macOS, a `TrackPopupMenu` menu on Windows and a `UIMenu` on iOS (shown at the touch by a `UIEditMenuInteraction`, iOS 16), so it has the system's look, animation, SF Symbol icons and VoiceOver.
 Call it right after the item the menu belongs to; it returns the `id` of the chosen `NativeMenuItem` once, otherwise -1.
 
 ```cpp
@@ -73,7 +73,8 @@ An item has a label, an id, `enabled`, `checked`, an SF Symbol `icon` and `child
 The builder runs only when the menu opens.
 macOS tracks a menu in its own loop, which cannot run inside an ImGui frame, so the shell opens it right after the frame is drawn and the choice comes back in the next call; on iOS the menu is asynchronous and the choice arrives when the user taps an item.
 On iOS a long press right-clicks, which opens the menu; a separator becomes an inline section.
-Where a platform has no backend (Windows, Linux, Android for now) it is imshell's own menu (`BeginContextMenu`, icons through `Icon`), drawn inside the frame from the builder, so a caller writes one thing; `NativeMenusAvailable()` says which you get.
+On Windows it is a `TrackPopupMenu` popup menu (no icons yet: Windows menus take bitmaps, and there is no Windows icon loader).
+Where a platform has no backend (Linux and Android for now) it is imshell's own menu (`BeginContextMenu`, icons through `Icon`), drawn inside the frame from the builder, so a caller writes one thing; `NativeMenusAvailable()` says which you get.
 A native menu cannot hold ImGui content, so a menu with a slider or a search box is an ImGui popup.
 
 ## Windows

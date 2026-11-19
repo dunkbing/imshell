@@ -1,6 +1,7 @@
 #include "../activity.hpp"
 #include "imshell/app.hpp"
 #include "../glfw_loop.hpp"
+#include "../native_menu.hpp"
 #include "../native_view.hpp"
 #include "dx11_backend.hpp"
 #include "imgui_impl_glfw.h"
@@ -463,6 +464,7 @@ namespace imshell {
             d.backend->present();
         }
         detail::placeNativeViews();
+        detail::runNativeMenus(); // after the frame: TrackPopupMenu runs the menu in its own loop
         runBarAction();
     }
 
