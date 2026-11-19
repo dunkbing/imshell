@@ -52,6 +52,15 @@ namespace imshell {
             ImVec4 keyword, string, number, comment, function, type, operator_;
         } syntax; // code in editors and markdown
 
+        // sizes the theme is built for. the presets keep imshell's (16 pt text, 28 pt controls);
+        // the system theme measures the platform's own (AppKit's regular controls on macOS), and
+        // ApplyTheme puts them into imgui's style
+        struct Metrics {
+            float fontSize = 0;                    // text size; 0 leaves the host's
+            ImVec2 framePadding = ImVec2(8, 6);    // inside a control: its height is the text's plus twice y
+            float disabledAlpha = 0.5f;            // how much of a disabled control shows
+        } metrics;
+
         // corners: controls and popups Md, containers Lg, small controls and tags Sm
         struct Radius {
             static constexpr float Sm = 4.0f;
