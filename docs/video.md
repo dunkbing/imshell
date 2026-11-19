@@ -119,6 +119,15 @@ It plays no sound yet, and the reduce-motion override a render sets stays on whi
 `PreviewOptions::closeAfter` closes the window by itself, for a smoke test; `examples/video` previews or renders a small composition.
 The preview target links `imshell::imshell`; `RenderVideo` alone does not need a window system.
 
+## Command line
+A video's `main` can be one line, `return imshell::video::Cli(comp, argc, argv, "name");` (`imshell/video_cli.hpp`, `cli.cpp`, over the public API only), and then the video is worked on from a shell, by a person or by an agent that cannot watch it.
+`timeline` prints the size, rate, length and the sound clips; `frame TIMES` writes full-size PNGs, with `--crop x,y,w,h` shown zoomed for small details; `strip` writes a contact sheet of evenly spread frames (or chosen times) with each cell labelled by its frame number; `render [RANGE]` encodes, with `--draft` at half size and `--scale F` at any size; `preview [TIME]` opens the window at a time; `verify` runs `Verify` over a spread of frames (exit 2 when playing and seeking differ).
+Times are a frame (`120`), `3.2s`, `500ms`, `1:05.5`, `50%`, `start` or `end`; ranges are `a..b` (b excluded), `a..`, `..b` or `all`.
+`--json` prints one JSON object on stdout, progress goes to stderr.
+A draft or a scale changes `Composition::width/height`, so a draw function has to lay out from `Frame::width/height`.
+The contact sheet labels are digits only (a 3x5 bitmap font): the frame number is the only text it needs.
+`skills/imshell-video/SKILL.md` is the working method for an agent (plan first, no template leftovers, the loop above, motion and sound rules).
+
 ## Order of work
 
 1. `video.hpp`, the composition, `Frame` and the closed-form helpers, with tests that need no GPU (easing, spring, sequence).

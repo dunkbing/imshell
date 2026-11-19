@@ -1,6 +1,6 @@
 // a composition: a card flies in on a spring and a bar fills. `video_demo` previews it,
 // `video_demo out.mp4` renders it (`--ffmpeg` through ffmpeg), `video_demo --close 2` previews for two seconds
-#include "imshell/video.hpp"
+#include "imshell/video_cli.hpp"
 
 #include "imgui.h"
 
@@ -30,32 +30,6 @@ int main(int argc, char** argv) {
         ImGui::End();
     };
 
-    PreviewOptions preview;
-    Options render;
-    std::string out;
-    for (int i = 1; i < argc; ++i) {
-        if (!std::strcmp(argv[i], "--ffmpeg")) {
-            render.encoder = Encoder::Ffmpeg;
-        } else if (!std::strcmp(argv[i], "--close") && i + 1 < argc) {
-            preview.closeAfter = std::atof(argv[++i]);
-        } else {
-            out = argv[i];
-        }
-    }
-
-    if (out.empty()) {
-        Preview(comp, preview);
-        return 0;
-    }
-    std::string error;
-    render.progress = [](int done, int total) {
-        std::fprintf(stderr, "\r%d / %d", done, total);
-        return true;
-    };
-    if (!RenderVideo(comp, out, render, &error)) {
-        std::fprintf(stderr, "\nfailed: %s\n", error.c_str());
-        return 1;
-    }
-    std::fprintf(stderr, "\nwrote %s\n", out.c_str());
-    return 0;
+    // timeline, frame, strip, render, preview, verify: see `imshell_video_demo help`
+    return Cli(comp, argc, argv, "imshell_video_demo");
 }
