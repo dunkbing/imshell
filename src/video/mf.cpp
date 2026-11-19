@@ -83,8 +83,7 @@ namespace imshell::video {
         DeleteFileW(widen(path).c_str());
 
         ComPtr<IMFAttributes> attributes;
-        MFCreateAttributes(&attributes, 1);
-        attributes->SetUINT32(MF_READWRITE_ENABLE_VIDEO_PROCESSING, TRUE); // rgb in, the encoder's yuv out
+        MFCreateAttributes(&attributes, 0); // the sink writer adds the rgb to yuv converter itself
         HRESULT hr = MFCreateSinkWriterFromURL(widen(path).c_str(), nullptr, attributes.Get(), &m.writer);
         if (FAILED(hr)) {
             return failed(error, "could not create the mp4 writer", hr);
