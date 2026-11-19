@@ -219,19 +219,9 @@ struct Gallery : imshell::Delegate {
             ImGui::GetWindowDrawList()->AddLine(ImVec2(viewport->Pos.x + sideWidth - 0.5f, viewport->Pos.y),
                                                 ImVec2(viewport->Pos.x + sideWidth - 0.5f, viewport->Pos.y + viewport->Size.y),
                                                 ImGui::GetColorU32(imshell::CurrentTheme().border));
-            ImGui::End();
-            ImGui::PopStyleVar(3);
-            ImGui::PopStyleColor();
-
-            // the grip: a strip over the right edge; dragging it sets the width
-            const float top = imshell::TitleBarHeight();
-            ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x + sideWidth - 3, viewport->Pos.y + top));
-            ImGui::SetNextWindowSize(ImVec2(6, viewport->Size.y - top));
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-            ImGui::Begin("##sideGrip", nullptr,
-                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoSavedSettings);
-            ImGui::PopStyleVar();
-            ImGui::InvisibleButton("##grip", ImVec2(6, viewport->Size.y - top));
+            // the grip: a strip on the right edge, inside the sidebar so nothing sits over it
+            ImGui::SetCursorScreenPos(ImVec2(viewport->Pos.x + sideWidth - 6, viewport->Pos.y + imshell::TitleBarHeight()));
+            ImGui::InvisibleButton("##grip", ImVec2(6, viewport->Size.y - imshell::TitleBarHeight()));
             if (ImGui::IsItemHovered() || ImGui::IsItemActive())
                 ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
             if (ImGui::IsItemActive()) {
@@ -239,6 +229,8 @@ struct Gallery : imshell::Delegate {
                 imshell::SnapAnimation(widthId, sideBase); // follows the pointer, no easing
             }
             ImGui::End();
+            ImGui::PopStyleVar(3);
+            ImGui::PopStyleColor();
         }
         ImGui::SetNextWindowPos(ImVec2(content.pos.x + sideWidth, content.pos.y));
         ImGui::SetNextWindowSize(ImVec2(content.size.x - sideWidth, content.size.y));
