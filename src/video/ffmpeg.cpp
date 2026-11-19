@@ -27,14 +27,20 @@ namespace imshell::video {
         }
     } // namespace
 
-    bool FfmpegPipe::open(const std::string& ffmpeg, int width, int height, int fps, const std::string& path, std::string* error) {
+    bool FfmpegPipe::open(const std::string& ffmpeg, int width, int height, int fps, const std::string& path, const std::string& audioFile,
+                          std::string* error) {
         close();
 #ifndef _WIN32
         signal(SIGPIPE, SIG_IGN); // a dead ffmpeg is a failed write, not a dead app
 #endif
-        const std::string command = quote(ffmpeg) + " -v error -y -f rawvideo -pix_fmt rgba -s " + std::to_string(width) + "x" +
-                                    std::to_string(height) + " -r " + std::to_string(fps) + " -i - -an -c:v libx264 -pix_fmt yuv420p " +
-                                    "-movflags +faststart " + quote(path);
+        std::string command = quote(ffmpeg) + " -v error -y -f rawvideo -pix_fmt rgba -s " + std::to_string(width) + "x" +
+                              std::to_string(height) + " -r " + std::to_string(fps) + " -i -";
+        if (!audioFile.empty()) {
+            command += " -f f32le -ar 48000 -ac 2 -i " + quote(audioFile) + " -map 0:v -map 1:a -c:a aac -b:a 160k";
+        } else {
+            command += " -an";
+        }
+        command += " -c:v libx264 -pix_fmt yuv420p -movflags +faststart -shortest " + quote(path);
         pipe_ = IMSHELL_POPEN(command.c_str(), "w");
         if (!pipe_) {
             if (error) {

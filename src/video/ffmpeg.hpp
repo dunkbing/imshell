@@ -13,7 +13,8 @@ namespace imshell::video {
         ~FfmpegPipe() { close(); }
 
         // starts `ffmpeg` writing `path` (h.264, yuv420p, so every player opens it)
-        bool open(const std::string& ffmpeg, int width, int height, int fps, const std::string& path, std::string* error);
+        // `audioFile`: raw 48 kHz stereo f32le to add as an aac track, or empty for none
+        bool open(const std::string& ffmpeg, int width, int height, int fps, const std::string& path, const std::string& audioFile, std::string* error);
         // one frame, width * height * 4 bytes
         bool write(const unsigned char* rgba, size_t size);
         // ends the input and waits for ffmpeg; false when it failed

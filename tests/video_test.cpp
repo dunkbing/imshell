@@ -1,4 +1,5 @@
 // the video helpers: pure functions of the frame, no imgui, no gpu
+#include "audio.hpp"
 #include "imshell/video.hpp"
 
 #include <array>
@@ -61,6 +62,49 @@ int main() {
     check(Sequence(99, scenes).index == 2 && Sequence(99, scenes).local == 9, "sequence last scene");
     check(Sequence(500, scenes).index == 2, "sequence stays on the last scene");
     check(Loop(125, 60) == 5 && Loop(-1, 60) == 59 && Loop(7, 0) == 0, "loop wraps");
+
+    // the mixer: placement, trim, volume, fades, clamp
+    {
+        const int r = imshell::video::kAudioRate;
+        imshell::video::Pcm ones(static_cast<size_t>(r) * 2, 1.f); // one second of 1.0, stereo
+        imshell::video::Pcm out(static_cast<size_t>(r) * 2 * 2, 0.f); // a two second window
+        imshell::video::AudioClip clip;
+        clip.start = 0.5;
+        clip.volume = 0.5f;
+        imshell::video::MixClip(out, 0.0, ones, clip);
+        check(out[0] == 0.f && near(out[static_cast<size_t>(r) / 2 * 2], 0.5f) && near(out[static_cast<size_t>(r) / 2 * 2 + 1], 0.5f), "clip starts where it is placed, at its volume");
+        check(out[static_cast<size_t>(r) * 3 / 2 * 2] == 0.f, "clip ends with the file");
+
+        // a window that starts part way into the clip, and a trimmed clip
+        imshell::video::Pcm window(static_cast<size_t>(r) / 2 * 2, 0.f); // half a second from t = 0.75
+        imshell::video::AudioClip whole;
+        whole.start = 0.5;
+        imshell::video::MixClip(window, 0.75, ones, whole);
+        check(window[0] == 1.f && window[window.size() - 2] == 1.f, "a window can start inside a clip");
+        imshell::video::Pcm trimmed(static_cast<size_t>(r) * 2, 0.f);
+        imshell::video::AudioClip cut;
+        cut.offset = 0.25;
+        cut.duration = 0.25;
+        imshell::video::MixClip(trimmed, 0.0, ones, cut);
+        check(trimmed[static_cast<size_t>(r) / 4 * 2 - 2] == 1.f && trimmed[static_cast<size_t>(r) / 4 * 2] == 0.f, "offset and duration trim the clip");
+
+        // fades are linear and end at silence
+        imshell::video::Pcm faded(static_cast<size_t>(r) * 2, 0.f);
+        imshell::video::AudioClip fade;
+        fade.fadeIn = 0.5;
+        fade.fadeOut = 0.5;
+        imshell::video::MixClip(faded, 0.0, ones, fade);
+        check(faded[0] == 0.f && near(faded[static_cast<size_t>(r) / 4 * 2], 0.5f) && near(faded[static_cast<size_t>(r) / 2 * 2], 1.f), "fade in is linear");
+        check(near(faded[static_cast<size_t>(r) * 3 / 4 * 2], 0.5f) && faded[faded.size() - 2] < 0.001f, "fade out is linear");
+
+        // two clips add, and the limiter clamps
+        imshell::video::Pcm sum(static_cast<size_t>(r) * 2, 0.f);
+        imshell::video::MixClip(sum, 0.0, ones, {});
+        imshell::video::MixClip(sum, 0.0, ones, {});
+        check(sum[10] == 2.f, "clips add");
+        imshell::video::Limit(sum);
+        check(sum[10] == 1.f, "the sum is clamped");
+    }
 
     // frame
     const Frame f{.index = 30, .frames = 61, .fps = 60};

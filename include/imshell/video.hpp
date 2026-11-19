@@ -25,6 +25,17 @@ namespace imshell::video {
         float progress() const { return frames > 1 ? static_cast<float>(index) / static_cast<float>(frames - 1) : 0.f; }
     };
 
+    // a sound placed on the timeline; the mixer sums every clip into one 48 kHz stereo track
+    struct AudioClip {
+        std::string path;      // any file the platform decodes (mp3, wav, m4a, ...)
+        double start = 0.0;    // seconds on the video's timeline; negative starts the clip part way in
+        double offset = 0.0;   // seconds skipped at the start of the file
+        double duration = -1.0; // seconds played; -1 = to the end of the file
+        float volume = 1.f;
+        double fadeIn = 0.0;   // seconds, linear
+        double fadeOut = 0.0;
+    };
+
     struct Composition {
         int width = 1920;
         int height = 1080;
@@ -32,6 +43,7 @@ namespace imshell::video {
         int frames = 60;
         std::function<void()> setup;           // once, on the video's own ImGui context: fonts, theme
         std::function<void(const Frame&)> draw;
+        std::vector<AudioClip> audio;          // no clips, no audio track
     };
 
     // one frame as 8 bit rgba, rows top to bottom

@@ -84,7 +84,12 @@ Nothing is linked for the video target unless the host links `imshell::video`; t
 
 A composition's `audio` is a list of clips: `path`, `start` (seconds on the timeline), `offset` and `duration` (trim), `volume`, `fadeIn`, `fadeOut`.
 The mixer decodes each clip to 48 kHz stereo float, sums them into one buffer as long as the video, clamps, and gives the result to the encoder as one track.
-Decoding is the platform's (`ExtAudioFile` on Apple, Media Foundation on Windows, `ffmpeg` elsewhere); the mixer itself is a few dozen lines and has no effects, ducking or resampling beyond the rate conversion.
+Decoding is the platform's (`AVAssetReader` on Apple, Media Foundation on Windows, `ffmpeg` elsewhere); the mixer itself is a few dozen lines and has no effects, ducking or resampling beyond the rate conversion.
+
+A clip with `start` before the first rendered frame (or a frame range that begins mid-clip) is cut to the window.
+The whole mix is held in memory as floats (about 23 MB a minute), which is fine for the clips a composition plays and would need streaming for hours of sound.
+On Apple the track is AAC through the same `AVAssetWriter` as the picture, fed in step with the frames; with `Encoder::Ffmpeg` the mix goes to a temporary raw file next to the output that ffmpeg reads as a second input and the renderer removes afterwards.
+A clip that cannot be read fails the render and leaves no file.
 
 ## Motion blur
 
