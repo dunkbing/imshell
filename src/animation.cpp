@@ -3,6 +3,7 @@
 #include "imshell/frames.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <unordered_map>
@@ -25,8 +26,12 @@ namespace imshell {
 
         int gMovingFrame = -100; // the last frame a value was still moving
 
+        std::atomic<int> gForcedReduceMotion{-1}; // SetReduceMotion: -1 none, else 0 or 1
+
         // IMSHELL_REDUCE_MOTION=1 or 0 overrides the system's setting (tests, a user who wants it)
         bool reduceMotionNow() {
+            if (const int forced = gForcedReduceMotion.load(); forced >= 0)
+                return forced != 0;
             if (const char* env = std::getenv("IMSHELL_REDUCE_MOTION"); env && *env)
                 return *env != '0';
             return detail::SystemReduceMotion();
@@ -119,6 +124,10 @@ namespace imshell {
 
     bool Animating() {
         return ImGui::GetFrameCount() - gMovingFrame <= 1;
+    }
+
+    void SetReduceMotion(std::optional<bool> forced) {
+        gForcedReduceMotion = forced ? (*forced ? 1 : 0) : -1;
     }
 
     bool ReduceMotion() {

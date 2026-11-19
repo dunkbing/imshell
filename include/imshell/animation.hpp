@@ -2,6 +2,8 @@
 
 #include "imgui.h"
 
+#include <optional>
+
 // a value that chases its target with a spring, so motion eases in and out and keeps its
 // momentum when the target changes mid-way (a hover that ends half-way turns back smoothly, as
 // in swiftui). state is kept by id between frames; the loop is asked for frames until the value
@@ -37,4 +39,7 @@ namespace imshell {
 
     // the system's reduce motion setting (apple; false elsewhere until a loader exists)
     bool ReduceMotion();
+    // forces it on or off for the whole process (every thread), above the system and the environment (a video render turns it on so
+    // values do not depend on the frames before); nullopt hands it back
+    void SetReduceMotion(std::optional<bool> forced);
 } // namespace imshell

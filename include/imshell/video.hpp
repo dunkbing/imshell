@@ -7,6 +7,8 @@
 #include <cmath>
 #include <functional>
 #include <span>
+#include <string>
+#include <vector>
 
 namespace imshell::video {
     // what a composition's draw function gets
@@ -31,6 +33,26 @@ namespace imshell::video {
         std::function<void()> setup;           // once, on the video's own ImGui context: fonts, theme
         std::function<void(const Frame&)> draw;
     };
+
+    // one frame as 8 bit rgba, rows top to bottom
+    struct Image {
+        int width = 0;
+        int height = 0;
+        std::vector<unsigned char> rgba;
+    };
+
+    struct Options {
+        int from = 0;                                  // first frame
+        int to = -1;                                   // one past the last frame; -1 = the end
+        std::function<bool(int done, int total)> progress; // return false to cancel
+    };
+
+    // render the frames to an mp4 (h.264, the platform's hardware encoder). false and `error` on failure.
+    // macOS and iOS for now (imshell::video links the Metal renderer there)
+    bool RenderVideo(const Composition& comp, const std::string& path, const Options& options = {}, std::string* error = nullptr);
+    // one frame; width 0 on failure. draws the frame as a render does, so it is what the file holds
+    Image RenderFrame(const Composition& comp, int index, std::string* error = nullptr);
+    bool SavePng(const Image& image, const std::string& path);
 
     enum class Ease { Linear, InCubic, OutCubic, InOutCubic, OutBack };
 

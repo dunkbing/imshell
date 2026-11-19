@@ -62,7 +62,7 @@ Two things still make a frame depend on the ones before it: ImGui's own state an
 
 Some imshell state is per process, not per ImGui context: the current theme, the `Animate` state map, the icon registry, native views and the wake flags of `frames.hpp`.
 A render therefore calls `ApplyTheme()` inside its own context after creating it, never creates a native view or calls `requestFrames`, and runs with `Animate` jumping to its target (the reduce-motion switch, once it is in) so widgets such as `imshell::Button`, which ease their fill, draw the same in any frame order.
-Until that switch is available, a composition that draws such widgets is only exact when played in order.
+The switch is `imshell::SetReduceMotion(true)`, a process wide override: a render running while an app draws on another thread stops that thread's easing too, so render on the app's thread or while it is idle.
 
 Text is the other source of drift: fonts rasterise through the same atlas for every frame, and the renderer builds it once before frame 0, so glyph positions do not change mid-render.
 
