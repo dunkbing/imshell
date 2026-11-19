@@ -5,6 +5,7 @@
 // MakeRasterizer; the Apple build has its own zero copy path (metal.mm) and does not use this
 #include "imgui.h"
 #include "imshell/animation.hpp"
+#include "imshell/themes.hpp"
 #include "imshell/video.hpp"
 
 #include <memory>

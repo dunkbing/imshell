@@ -40,8 +40,10 @@ namespace imshell::video {
 
             bool init(std::string* error) {
                 // the mesa surfaceless platform needs no display server; the default display is the fallback
-                if (epoxy_has_egl_extension(EGL_NO_DISPLAY, "EGL_MESA_platform_surfaceless")) {
-                    display_ = eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, nullptr);
+                // the EXT entry point: epoxy only offers the 1.5 one once a display is initialised
+                if (epoxy_has_egl_extension(EGL_NO_DISPLAY, "EGL_EXT_platform_base") &&
+                    epoxy_has_egl_extension(EGL_NO_DISPLAY, "EGL_MESA_platform_surfaceless")) {
+                    display_ = eglGetPlatformDisplayEXT(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, nullptr);
                 }
                 if (display_ == EGL_NO_DISPLAY) {
                     display_ = eglGetDisplay(EGL_DEFAULT_DISPLAY);
