@@ -39,20 +39,40 @@ namespace imshell::video {
 #endif
     }
 
-    bool FfmpegPipe::open(const std::string& ffmpeg, int width, int height, int fps, const std::string& path, const std::string& audioFile,
+    bool FfmpegPipe::open(const Options& options, int width, int height, int fps, const std::string& path, const std::string& audioFile,
                           std::string* error) {
         close();
 #ifndef _WIN32
         signal(SIGPIPE, SIG_IGN); // a dead ffmpeg is a failed write, not a dead app
 #endif
+        const std::string& ffmpeg = options.ffmpeg;
+        const std::string& codec = options.codec;
+        const bool vp9 = codec == "vp9", prores = codec == "prores";
         std::string command = ShellQuote(ffmpeg) + " -v error -y -f rawvideo -pix_fmt rgba -s " + std::to_string(width) + "x" +
                               std::to_string(height) + " -r " + std::to_string(fps) + " -i -";
         if (!audioFile.empty()) {
-            command += " -f f32le -ar 48000 -ac 2 -i " + ShellQuote(audioFile) + " -map 0:v -map 1:a -c:a aac -b:a 160k";
+            command += " -f f32le -ar 48000 -ac 2 -i " + ShellQuote(audioFile) + " -map 0:v -map 1:a " + (vp9 ? "-c:a libopus -b:a 128k" : "-c:a aac -b:a 160k");
         } else {
             command += " -an";
         }
-        command += " -c:v libx264 -pix_fmt yuv420p -movflags +faststart -shortest " + ShellQuote(path);
+        if (prores) { // an intermediate for editors: 10 bit 4:2:2, high quality
+            command += " -c:v prores_ks -profile:v 3 -pix_fmt yuv422p10le";
+        } else if (vp9) {
+            command += " -c:v libvpx-vp9 -pix_fmt yuv420p";
+        } else if (codec == "hevc") {
+            command += " -c:v libx265 -pix_fmt yuv420p -tag:v hvc1 -movflags +faststart";
+        } else {
+            command += " -c:v libx264 -pix_fmt yuv420p -movflags +faststart";
+        }
+        if (!prores) {
+            if (options.crf >= 0) {
+                command += " -crf " + std::to_string(options.crf) + (vp9 && options.bitrate <= 0 ? " -b:v 0" : ""); // vp9 takes constant quality only with no bitrate
+            }
+            if (options.bitrate > 0) {
+                command += " -b:v " + std::to_string(options.bitrate) + "k";
+            }
+        }
+        command += " -shortest " + ShellQuote(path);
         pipe_ = IMSHELL_POPEN(ShellCommand(command).c_str(), IMSHELL_WRITE_MODE);
         if (!pipe_) {
             if (error) {

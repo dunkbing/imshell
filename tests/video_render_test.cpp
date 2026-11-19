@@ -273,6 +273,18 @@ int main() {
         check(!find(Inspect(c, noPops, &problem), "pop"), "pops can be left out");
     }
 
+    // codec options go through ffmpeg: the codec in the file is the one asked for
+    if (videotest::hasTool("ffmpeg") && videotest::hasTool("ffprobe")) {
+        for (const char* codec : {"hevc", "vp9", "prores"}) {
+            imshell::video::Options o;
+            o.codec = codec;
+            o.crf = std::string(codec) == "prores" ? -1 : 35;
+            const std::string file = base + "_codec_" + codec + (std::string(codec) == "vp9" ? ".webm" : std::string(codec) == "prores" ? ".mov" : ".mp4");
+            check(imshell::video::RenderVideo(mover, file, o, &error), (std::string("renders ") + codec + ": " + error).c_str());
+            check(ffprobe(file, "v:0", "codec_name").find(codec) == 0, (std::string("the file holds ") + codec).c_str());
+        }
+    }
+
     if (failures == 0) {
         std::puts("video render tests passed");
     }

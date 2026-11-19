@@ -86,8 +86,15 @@ namespace imshell::video {
         std::function<bool(int done, int total)> progress; // return false to cancel
         Encoder encoder = Encoder::Default;
         std::string ffmpeg = "ffmpeg";                 // the binary for Encoder::Ffmpeg: a name on PATH or a path
+        // anything but the default needs the ffmpeg binary (the platform encoders are h.264 at their own bitrate)
+        std::string codec = "h264";                    // "h264", "hevc", "vp9" or "prores" (the file's extension picks the container: .mp4, .webm, .mov)
+        int bitrate = 0;                               // kbit/s; 0 = the encoder's default
+        int crf = -1;                                  // constant quality, lower is better (h264 18 to 28, hevc 20 to 30, vp9 25 to 40); -1 = the default
         MotionBlur blur;
     };
+
+    // true when the options ask for something only the ffmpeg binary encodes
+    inline bool NeedsFfmpeg(const Options& o) { return o.encoder == Encoder::Ffmpeg || o.codec != "h264" || o.bitrate > 0 || o.crf >= 0; }
 
     // render the frames to an mp4 (h.264). false and `error` on failure.
     // macOS and iOS for now (imshell::video links the Metal renderer there)
