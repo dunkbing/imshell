@@ -146,13 +146,17 @@ if(TARGET imgui_rich_md)
 endif()
 
 # optional video (imshell/video.hpp): imgui to an mp4 with no window. the frame helpers are header
-# only; the renderer is metal for now
+# only; the renderer is metal on apple, an EGL one on linux (a d3d11 one on windows comes next)
 if(APPLE)
     add_library(imshell_video STATIC src/video/metal.mm src/video/ffmpeg.cpp src/video/audio.cpp)
     add_library(imshell::video ALIAS imshell_video)
     set_source_files_properties(src/video/metal.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell_video PUBLIC imshell "-framework AVFoundation" "-framework CoreMedia"
         "-framework CoreVideo" "-framework Metal" "-framework ImageIO" "-framework CoreGraphics" "-framework Foundation")
+elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT IOS) # linux: desktop GL on an EGL pbuffer (mesa llvmpipe works with no gpu), ffmpeg encodes
+    add_library(imshell_video STATIC src/video/generic.cpp src/video/egl.cpp src/video/png.cpp src/video/ffmpeg.cpp src/video/audio.cpp)
+    add_library(imshell::video ALIAS imshell_video)
+    target_link_libraries(imshell_video PUBLIC imshell PkgConfig::IMSHELL_EPOXY)
 endif()
 
 # optional node editor (imshell/node_editor.hpp): imgui-node-editor, themed
@@ -387,6 +391,12 @@ if(IMSHELL_BUILD_TESTS)
     target_include_directories(imshell_video_test PRIVATE include src/video)
     target_compile_features(imshell_video_test PRIVATE cxx_std_20)
     add_test(NAME imshell_video_test COMMAND imshell_video_test)
+    # the portable layer over a fake rasterizer: runs on any machine with no gpu
+    add_executable(imshell_video_generic_test tests/video_generic_test.cpp src/video/generic.cpp src/video/png.cpp
+                   src/video/ffmpeg.cpp src/video/audio.cpp ${IMSHELL_TEST_IMGUI})
+    target_include_directories(imshell_video_generic_test PRIVATE include src/video ${IMSHELL_IMGUI_DIR})
+    target_compile_features(imshell_video_generic_test PRIVATE cxx_std_20)
+    add_test(NAME imshell_video_generic_test COMMAND imshell_video_generic_test)
     if(TARGET imshell_video)
         add_executable(imshell_video_render_test tests/video_render_test.cpp ${IMSHELL_TEST_IMGUI})
         target_include_directories(imshell_video_render_test PRIVATE include ${IMSHELL_IMGUI_DIR})
