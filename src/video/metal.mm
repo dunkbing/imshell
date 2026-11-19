@@ -6,15 +6,18 @@
 #import <ImageIO/ImageIO.h>
 #import <Metal/Metal.h>
 #include "imshell/animation.hpp"
+#include "imshell/app.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/video.hpp"
 #include "imgui.h"
 #include "imgui_impl_metal.h"
 #include "audio.hpp"
 #include "ffmpeg.hpp"
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <set>
 #include <unistd.h>
 
@@ -583,5 +586,163 @@ bool SavePng(const Image& image, const std::string& path) {
     }
     CGColorSpaceRelease(space);
     return ok;
+}
+
+namespace {
+    // the preview window: the composition drawn by the same renderer a file render uses, copied into
+    // one texture the window shows, under a play button and a scrubber
+    class PreviewDelegate : public imshell::Delegate {
+    public:
+        PreviewDelegate(const Composition& comp, const PreviewOptions& options) : comp_(comp), options_(options) {
+            frame_ = std::clamp(options.startFrame, 0, comp.frames - 1);
+            playing_ = options.play;
+            loop_ = options.loop;
+        }
+
+        void setup() override {
+            renderer_ = std::make_unique<Renderer>(comp_); // inside the app's context: it hands it back when it goes
+            MTLTextureDescriptor* descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+                                                                                                  width:comp_.width
+                                                                                                 height:comp_.height
+                                                                                              mipmapped:NO];
+            descriptor.usage = MTLTextureUsageShaderRead;
+            descriptor.storageMode = MTLStorageModeShared;
+            texture_ = [MTLCreateSystemDefaultDevice() newTextureWithDescriptor:descriptor];
+            buffer_ = makeBuffer(comp_);
+            start_ = std::chrono::steady_clock::now();
+            started_ = start_;
+            baseFrame_ = frame_;
+        }
+
+        ~PreviewDelegate() override {
+            if (buffer_) {
+                CVPixelBufferRelease(buffer_);
+            }
+        }
+
+        bool wantsFrames() override { return playing_; }
+
+        bool shouldQuit() override {
+            const bool done = options_.closeAfter > 0.0 && seconds(started_) >= options_.closeAfter;
+            if (done) {
+                renderer_.reset(); // before the app destroys the context it was made in
+            }
+            return done;
+        }
+
+        bool closeRequested() override {
+            renderer_.reset();
+            return true;
+        }
+
+        void frame() override {
+            if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+                togglePlay();
+            }
+            if (playing_) {
+                const int total = comp_.frames;
+                const int at = baseFrame_ + static_cast<int>(seconds(start_) * comp_.fps);
+                if (at >= total && !loop_) {
+                    playing_ = false;
+                    frame_ = total - 1;
+                } else {
+                    frame_ = at % total;
+                }
+            }
+            if (renderer_ && (shown_ != frame_ || dirty_)) {
+                show(frame_);
+            }
+
+            const ImGuiViewport* viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(viewport->WorkPos);
+            ImGui::SetNextWindowSize(viewport->WorkSize);
+            ImGui::Begin("##preview", nullptr,
+                         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+            const float bar = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().WindowPadding.y;
+            const ImVec2 area(ImGui::GetContentRegionAvail().x, std::max(ImGui::GetContentRegionAvail().y - bar, 1.f));
+            const float scale = std::min(area.x / comp_.width, area.y / comp_.height);
+            const ImVec2 size(comp_.width * scale, comp_.height * scale);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (area.x - size.x) * 0.5f);
+            ImGui::Image(ImTextureID(reinterpret_cast<intptr_t>((__bridge void*)texture_)), size);
+
+            ImGui::SetCursorPosY(ImGui::GetWindowHeight() - bar + ImGui::GetStyle().WindowPadding.y * 0.5f);
+            if (ImGui::Button(playing_ ? "Pause" : "Play")) {
+                togglePlay();
+            }
+            ImGui::SameLine();
+            ImGui::Checkbox("Loop", &loop_);
+            ImGui::SameLine();
+            ImGui::Text("%d / %d  %.2fs", frame_ + 1, comp_.frames, static_cast<double>(frame_) / comp_.fps);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            int scrub = frame_;
+            if (ImGui::SliderInt("##frame", &scrub, 0, comp_.frames - 1, "")) {
+                frame_ = scrub;
+                baseFrame_ = scrub;
+                start_ = std::chrono::steady_clock::now();
+            }
+            ImGui::End();
+        }
+
+    private:
+        static double seconds(std::chrono::steady_clock::time_point since) {
+            return std::chrono::duration<double>(std::chrono::steady_clock::now() - since).count();
+        }
+
+        void togglePlay() {
+            playing_ = !playing_;
+            if (playing_) { // play on from where it stands
+                if (frame_ >= comp_.frames - 1) {
+                    frame_ = 0;
+                }
+                baseFrame_ = frame_;
+                start_ = std::chrono::steady_clock::now();
+            }
+        }
+
+        // draws frame n and copies it into the texture
+        void show(int n) {
+            dirty_ = false;
+            if (!renderer_->draw(n, false, buffer_)) {
+                return;
+            }
+            CVPixelBufferLockBaseAddress(buffer_, kCVPixelBufferLock_ReadOnly);
+            [texture_ replaceRegion:MTLRegionMake2D(0, 0, comp_.width, comp_.height)
+                        mipmapLevel:0
+                          withBytes:CVPixelBufferGetBaseAddress(buffer_)
+                        bytesPerRow:CVPixelBufferGetBytesPerRow(buffer_)];
+            CVPixelBufferUnlockBaseAddress(buffer_, kCVPixelBufferLock_ReadOnly);
+            shown_ = n;
+        }
+
+        Composition comp_;
+        PreviewOptions options_;
+        std::unique_ptr<Renderer> renderer_;
+        id<MTLTexture> texture_ = nil;
+        CVPixelBufferRef buffer_ = nullptr;
+        std::chrono::steady_clock::time_point start_, started_;
+        int baseFrame_ = 0;
+        int frame_ = 0;
+        int shown_ = -1;
+        bool dirty_ = true;
+        bool playing_ = true;
+        bool loop_ = true;
+    };
+} // namespace
+
+void Preview(const Composition& comp, const PreviewOptions& options) {
+    @autoreleasepool {
+        if (comp.width <= 0 || comp.height <= 0 || comp.fps <= 0 || comp.frames <= 0) {
+            return;
+        }
+        imshell::Config config;
+        config.title = "Preview";
+        const float toolbar = 56.f;
+        const float fit = std::min({1.f, 1200.f / comp.width, 760.f / comp.height});
+        config.width = std::max(480, static_cast<int>(comp.width * fit));
+        config.height = static_cast<int>(comp.height * fit + toolbar);
+        PreviewDelegate delegate(comp, options);
+        imshell::Run(config, delegate);
+    }
 }
 } // namespace imshell::video
