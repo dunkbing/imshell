@@ -3,6 +3,7 @@
 #include "imshell/button.hpp"
 #include "imshell/icons.hpp"
 #include "imshell/native_view.hpp"
+#include "imshell/select.hpp"
 #include "imshell/toggle_button.hpp"
 #include "native_controls.hpp"
 
@@ -27,6 +28,14 @@ namespace imshell {
         if (detail::nativeControlsAvailable())
             return detail::nativeSegmented(id, std::span<const char* const>(labels.begin(), labels.size()), current);
         return SegmentedTabs(id, labels, current);
+    }
+
+    bool NativePopUp(const char* id, const char* const items[], int itemCount, int* current) {
+        if (detail::nativeControlsAvailable())
+            return detail::nativePopUp(id, std::span<const char* const>(items, static_cast<size_t>(itemCount)), current);
+        const int before = *current;
+        Select(id, current, items, itemCount);
+        return *current != before;
     }
 
 #if !defined(__APPLE__) || TARGET_OS_IPHONE

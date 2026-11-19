@@ -26,4 +26,12 @@ namespace imshell {
     // segments (one selected); true in the frame the selection changed. the labels are read once
     // per id, so changing them later needs another id
     bool NativeSegmented(const char* id, std::initializer_list<const char*> labels, int* current);
+
+    // a pop-up menu showing the chosen item (an NSPopUpButton; on ios a button that opens a UIMenu);
+    // true in the frame the choice changed. the items are read once per id. without a backend it
+    // is imshell::Select
+    bool NativePopUp(const char* id, const char* const items[], int itemCount, int* current);
+    inline bool NativePopUp(const char* id, std::initializer_list<const char*> items, int* current) {
+        return NativePopUp(id, items.begin(), static_cast<int>(items.size()), current);
+    }
 } // namespace imshell

@@ -200,4 +200,70 @@ namespace imshell::detail {
         segments.enabled = !disabled();
         return changed;
     }
+
+    bool nativePopUp(const char* id, std::span<const char* const> items, int* current) {
+        const ImGuiID key = ImGui::GetID(id);
+        // the control's own width (it fits the widest item): known after it exists, a guess before
+        static std::unordered_map<ImGuiID, CGSize> sizes;
+        CGSize& size = sizes[key];
+        PlatformView* box = (__bridge PlatformView*)NativeView(id, size.width > 0 ? frameOf(size) : ImVec2(160, ImGui::GetFrameHeight()), [&] {
+            ImShellControlTarget* target = [ImShellControlTarget new];
+#if TARGET_OS_IPHONE
+            // a button that opens a menu and shows the pick
+            NSMutableArray<UIAction*>* actions = [NSMutableArray array];
+            for (int i = 0; i < static_cast<int>(items.size()); ++i) {
+                UIAction* action = [UIAction actionWithTitle:@(items[i]) image:nil identifier:nil handler:^(UIAction*) { [target fire:nil]; }];
+                action.state = i == *current ? UIMenuElementStateOn : UIMenuElementStateOff;
+                [actions addObject:action];
+            }
+            UIButton* control = [UIButton buttonWithType:UIButtonTypeSystem];
+            control.menu = [UIMenu menuWithChildren:actions];
+            control.showsMenuAsPrimaryAction = YES;
+            control.changesSelectionAsPrimaryAction = YES;
+            [control sizeToFit];
+#else
+            NSPopUpButton* control = [[NSPopUpButton alloc] initWithFrame:NSZeroRect pullsDown:NO];
+            for (const char* item : items)
+                [control addItemWithTitle:@(item)];
+            [control selectItemAtIndex:*current];
+            control.target = target;
+            control.action = @selector(fire:);
+            control.frame = CGRectMake(0, 0, control.fittingSize.width, control.fittingSize.height);
+#endif
+            return (__bridge_retained void*)boxFor(control, target);
+        });
+        if (!box)
+            return false;
+        PlatformView* control = box.subviews.firstObject;
+#if TARGET_OS_IPHONE
+        UIButton* popup = (UIButton*)control;
+        size = popup.frame.size;
+        int selected = *current;
+        for (int i = 0; i < static_cast<int>(popup.menu.children.count); ++i)
+            if (((UIAction*)popup.menu.children[i]).state == UIMenuElementStateOn)
+                selected = i;
+#else
+        NSPopUpButton* popup = (NSPopUpButton*)control;
+        size = popup.fittingSize;
+        const int selected = static_cast<int>(popup.indexOfSelectedItem);
+#endif
+        if (control.frame.size.width != size.width)
+            control.frame = CGRectMake(0, 0, size.width, size.height);
+        bool changed = false;
+        ImShellControlTarget* target = targetOf(box);
+        if (target->changed) {
+            target->changed = false;
+            changed = selected != *current;
+            *current = selected;
+        } else if (selected != *current) { // set from the app
+#if TARGET_OS_IPHONE
+            for (int i = 0; i < static_cast<int>(popup.menu.children.count); ++i)
+                ((UIAction*)popup.menu.children[i]).state = i == *current ? UIMenuElementStateOn : UIMenuElementStateOff;
+#else
+            [popup selectItemAtIndex:*current];
+#endif
+        }
+        popup.enabled = !disabled();
+        return changed;
+    }
 } // namespace imshell::detail

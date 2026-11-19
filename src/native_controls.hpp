@@ -8,4 +8,5 @@ namespace imshell::detail {
     bool nativeControlsAvailable();
     bool nativeSwitch(const char* id, bool* value);
     bool nativeSegmented(const char* id, std::span<const char* const> labels, int* current);
+    bool nativePopUp(const char* id, std::span<const char* const> items, int* current);
 } // namespace imshell::detail

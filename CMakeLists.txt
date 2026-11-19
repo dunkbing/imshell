@@ -451,7 +451,7 @@ if(IMSHELL_BUILD_TESTS)
     endif()
     add_test(NAME imshell_icons_test COMMAND imshell_icons_test)
     add_executable(imshell_native_controls_test tests/native_controls_test.cpp src/native_controls.cpp src/native_controls_none.cpp
-                   src/button.cpp src/toggle_button.cpp ${IMSHELL_MOTION_SOURCES} src/themes.cpp src/icons.cpp src/icons_none.cpp ${IMSHELL_TEST_IMGUI})
+                   src/button.cpp src/toggle_button.cpp src/select.cpp ${IMSHELL_MOTION_SOURCES} src/themes.cpp src/icons.cpp src/icons_none.cpp ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_native_controls_test PRIVATE include src ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_native_controls_test PRIVATE cxx_std_20)
     if(APPLE)
