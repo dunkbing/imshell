@@ -94,6 +94,13 @@ if (imshell::BeginResizable("main")) {
 - **Options**: `axis` (`Horizontal`, `Vertical`), `size` of the group (as `BeginChild`), `disabled`, `hitSize` (the band around a handle that takes the mouse, 8 by default), and the handle's colours `line` and `lit` (`ImGuiCol_Separator` and `ImGuiCol_SeparatorActive` by default). The handle is one screen pixel at rest and two while hovered or dragged.
 - Each panel is a child window: `childFlags` and `windowFlags` go to it. Groups nest: begin one inside a panel.
 
+## Text that fits (`imshell/text.hpp`)
+
+`TextEllipsis(text, maxWidth)` draws one line cut to the width with an ellipsis, for list rows and labels; a cut line shows the whole text in a tooltip while hovered, and it returns true when it cut.
+`maxWidth` 0 means the rest of the line.
+`Ellipsize(text, maxWidth)` returns the cut string for code that draws it another way.
+The cut is on whole characters (never inside a UTF-8 sequence) and keeps the longest prefix that fits; the mark is U+2026 where the font has it, else three dots.
+
 ## Menus and dialogs (`imshell/menu.hpp`)
 
 Open menus through these so every menu gets the same padding (`kMenuPadding`):
