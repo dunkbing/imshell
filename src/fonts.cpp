@@ -2,6 +2,7 @@
 
 #include "emoji.hpp"
 #include "imgui_internal.h"
+#include "imshell/icons.hpp"
 
 #include <cstdint>
 #include <cstdlib>
@@ -309,6 +310,7 @@ namespace imshell {
         if (emoji)
             MergeEmoji(font);
         MergeThai(font);
+        MergeIcons(font);
         if (font && systemCjk && !cjkData().empty()) {
             ImFontConfig config;
             config.FontDataOwnedByAtlas = false;

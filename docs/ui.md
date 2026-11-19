@@ -140,6 +140,22 @@ imshell::OpenDialog({.filters = {{"CSV files", "csv,tsv"}, {"All files", "*"}}, 
 
 On iOS the documents folder shows in the Files app under the app's name. Filters become content types (iOS) or MIME types (Android, from a short table; anything else allows any file). On the desktops, link Native File Dialog Extended (vcpkg `nativefiledialog-extended`); imshell finds it with `find_package(nfd)`.
 
+## Native icons (`imshell/icons.hpp`)
+
+`Icon(name, fallback)` returns a glyph for the platform's own icon of that name, for any text, label or button:
+
+```cpp
+imshell::IconButton(imshell::Icon("trash", kFaTrash), imshell::ButtonVariant::Destructive);
+ImGui::Text("%s Settings", imshell::Icon("gearshape"));
+```
+
+Names are SF Symbol names, the one vocabulary every platform maps from.
+On macOS and iOS the glyph is the SF Symbol, drawn by the system at the font's size and weight, so it scales with the font, sits on the text's baseline and is tinted by the text colour.
+Where the platform has no loader yet (Windows, Linux, Android, the web) `Icon` returns `fallback`, the host's own icon font glyph, or null; an unknown name does the same.
+So an app passes its icon font glyph as the fallback and gets the native icon where there is one.
+`AddFont` merges the source into its font; a font made another way calls `MergeIcons`.
+The glyphs live in the supplementary private use area (U+F0000 and up), which cannot collide with an icon font in the ordinary one; it needs `IMGUI_USE_WCHAR32`, which imshell's build sets.
+
 ## Emoji
 
 `AddFont` merges the system's colour emoji into the font (`emoji = true`, the default), and `MergeEmoji(font)` does it for a font made elsewhere (the markdown renderer calls it for the faces it loads, never for the app's own fonts). The emoji font's glyphs are pictures at fixed sizes, which ImGui's rasterizers cannot draw, so a small font loader draws each one at the size asked for: CoreText on macOS and iOS, DirectWrite and Direct2D with Segoe UI Emoji on Windows, FreeType with Noto Color Emoji on Linux and Android (`IMSHELL_EMOJI_FONT` names another file). FreeType is optional: CMake looks for it, and a build without it has no emoji. Linux distributions ship it (Ubuntu: `libfreetype-dev`); the Android NDK does not, so an Android host adds it itself (vcpkg `freetype`) or goes without. The web has none yet. Text, icons and CJK keep their own rasterizer.
