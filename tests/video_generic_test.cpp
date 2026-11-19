@@ -1,13 +1,16 @@
 // the portable video code (generic.cpp, ffmpeg.cpp, png.cpp) over a fake rasterizer, so it runs
 // anywhere with no gpu: blur averaging, Verify, RenderVideo through ffmpeg with sound, the png writer
 #include "ffmpeg.hpp"
+#include "imshell/video_cli.hpp"
 #include "video_test_util.hpp"
 #include "rasterizer.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <string>
 #include <sys/stat.h>
 
@@ -69,6 +72,7 @@ namespace {
 }
 
 namespace imshell::video {
+    void Preview(const Composition&, const PreviewOptions&) {} // the window is not what this test is about
     std::unique_ptr<Rasterizer> MakeRasterizer(const Composition& comp, std::string*) {
         return std::make_unique<Fake>(comp);
     }
@@ -141,6 +145,40 @@ int main() {
         std::puts("ffmpeg not installed: skipped the ffmpeg checks");
     }
     std::remove((base + ".png").c_str());
+
+    // the command line: time words, and the commands writing files
+    {
+        int f = -1;
+        check(ParseTime(comp, "end", f) && f == comp.frames - 1, "end is the last frame");
+        check(ParseTime(comp, "start", f) && f == 0, "start is frame 0");
+        check(ParseTime(comp, "4", f) && f == 4, "a bare number is a frame");
+        check(ParseTime(comp, "0.5s", f) && f == std::min(comp.frames - 1, static_cast<int>(std::lround(0.5 * comp.fps))), "seconds");
+        check(ParseTime(comp, "500ms", f) && f == std::min(comp.frames - 1, static_cast<int>(std::lround(0.5 * comp.fps))), "milliseconds");
+        check(ParseTime(comp, "0:01.5", f) && f == std::min(comp.frames - 1, static_cast<int>(std::lround(1.5 * comp.fps))), "minutes and seconds");
+        check(ParseTime(comp, "50%", f) && f == static_cast<int>(std::lround(0.5 * (comp.frames - 1))), "a percentage");
+        check(ParseTime(comp, "9999", f) && f == comp.frames - 1, "a time past the end is clamped");
+        check(!ParseTime(comp, "soon", f) && !ParseTime(comp, "", f), "words that are no time");
+
+        const std::string shots = dir + "/imshell_video_cli_frames";
+        std::string sheet = base + "_strip.png";
+        const char* frameArgs[] = {"video", "frame", "3,end", "-o", shots.c_str(), "--crop", "8,4,16,8"};
+        check(Cli(comp, 7, const_cast<char**>(frameArgs)) == 0, "frame writes");
+        const char* stripArgs[] = {"video", "strip", "all", "-n", "5", "--columns", "3", "--width", "32", "-o", sheet.c_str()};
+        check(Cli(comp, 11, const_cast<char**>(stripArgs)) == 0, "strip writes");
+        const char* verifyArgs[] = {"video", "verify"};
+        check(Cli(comp, 2, const_cast<char**>(verifyArgs)) == 0, "verify agrees on a deterministic composition");
+        const char* timelineArgs[] = {"video", "timeline", "--json"};
+        check(Cli(comp, 3, const_cast<char**>(timelineArgs)) == 0, "timeline prints");
+        const char* badArgs[] = {"video", "frame", "soon"};
+        check(Cli(comp, 3, const_cast<char**>(badArgs)) == 1, "a bad time is a usage error");
+        if (haveProbe) {
+            // the crop is zoomed to about 960 px wide; the strip is 3 columns of 32 px and 2 rows with 8 px gaps
+            check(videotest::capture("ffprobe -v error -show_entries stream=width -of csv=p=0 " + videotest::quoted(shots + "/frame_3.png")).find("960") == 0, "the crop is zoomed");
+            check(videotest::capture("ffprobe -v error -show_entries stream=width,height -of csv=p=0 " + videotest::quoted(sheet)).find("128,") == 0, "the strip has its columns");
+        }
+        std::remove(sheet.c_str());
+        std::filesystem::remove_all(shots);
+    }
 
     if (failures == 0) {
         std::puts("video generic tests passed");
