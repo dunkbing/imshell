@@ -237,7 +237,8 @@ namespace imshell::detail {
                 // coverage only: white, tinted by the text; the brush was black, so the alpha is the coverage
                 for (int p = 0; p < w * h; ++p)
                     pixels[p * 4] = pixels[p * 4 + 1] = pixels[p * 4 + 2] = 255;
-                ok = PutEmojiGlyph(atlas, src, baked, out, pixels, w, h, left, bottom, density, false);
+                // centred on the text: the middle of a capital sits about 0.35 em above the baseline
+                ok = PutEmojiGlyph(atlas, src, baked, out, pixels, w, h, left, static_cast<int>(std::lround(0.35f * em - h / 2.0f)), density, false);
             }
             if (dib)
                 DeleteObject(dib);
