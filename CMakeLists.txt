@@ -35,6 +35,9 @@ add_library(imshell STATIC
     src/toggle_button.cpp
 )
 add_library(imshell::imshell ALIAS imshell)
+if(NOT APPLE OR IOS)
+    target_sources(imshell PRIVATE src/system_theme_none.cpp)
+endif()
 
 # 32-bit characters in imgui: emoji and other text past U+FFFF (16-bit ImWchar shows them as
 # "?"). it changes imgui's structs, so every file that includes imgui.h must see it: the
@@ -140,6 +143,7 @@ elseif(APPLE)
         src/macos/clipboard.mm
         src/macos/text_input.mm
         src/macos/tray.mm
+        src/macos/system_theme.mm
         src/apple/notifications.mm
         src/apple/haptics.mm
         src/apple/native_view.mm
@@ -149,7 +153,7 @@ elseif(APPLE)
     )
     # arc for both: they share MetalBackend, whose id members must be owned one way
     set_source_files_properties(src/macos/app.mm src/macos/metal_backend.mm src/macos/native_button.mm
-                                src/macos/clipboard.mm src/macos/text_input.mm src/macos/tray.mm src/apple/notifications.mm src/apple/haptics.mm src/apple/native_view.mm
+                                src/macos/clipboard.mm src/macos/text_input.mm src/macos/tray.mm src/macos/system_theme.mm src/apple/notifications.mm src/apple/haptics.mm src/apple/native_view.mm
                                 PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell PUBLIC glfw
         "-framework Metal" "-framework QuartzCore" "-framework AppKit" "-framework Carbon" "-framework Foundation"
@@ -370,6 +374,13 @@ if(IMSHELL_BUILD_TESTS)
     target_compile_definitions(imshell_components_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
     add_test(NAME imshell_components_test COMMAND imshell_components_test)
     add_executable(imshell_theme_test tests/theme_test.cpp src/themes.cpp ${IMSHELL_TEST_IMGUI})
+    if(APPLE AND NOT IOS)
+        target_sources(imshell_theme_test PRIVATE src/macos/system_theme.mm)
+        set_source_files_properties(src/macos/system_theme.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+        target_link_libraries(imshell_theme_test PRIVATE "-framework AppKit")
+    else()
+        target_sources(imshell_theme_test PRIVATE src/system_theme_none.cpp)
+    endif()
     target_include_directories(imshell_theme_test PRIVATE include ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_theme_test PRIVATE cxx_std_20)
     add_test(NAME imshell_theme_test COMMAND imshell_theme_test)

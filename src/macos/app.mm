@@ -12,6 +12,8 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
+#include <cstring>
+#include <string>
 #include <thread>
 
 #define GLFW_EXPOSE_NATIVE_COCOA
@@ -34,7 +36,7 @@ namespace imshell {
         enum class BarAction { None, Drag, DoubleClick } gBarAction = BarAction::None;
         ImGuiWindow* gFocusBeforeBar = nullptr; // a click on the bar hands focus back to it
         float gBarHeight = 28;
-        const Theme* gTheme = nullptr; // the theme the window was last given
+        std::string gTheme, gSystemKey; // what the window was last given; the system look last read
 
         // a key-up the window never got (cmd swallows them, screenshots and overlays eat them)
         // leaves imgui holding the key, and glfw too: its next press arrives as a repeat, which
@@ -97,15 +99,28 @@ namespace imshell {
                 check(GLFW_KEY_A + i, (ImGuiKey)(ImGuiKey_A + i));
         }
 
-        // the window (traffic lights, sheets, native views) follows the theme, as on windows and linux
+        // the window (traffic lights, sheets, native views) follows the theme, as on windows and linux;
+        // the system theme follows the system's light/dark and accent, and leaves the window's own
+        // appearance unset so appkit does too
         void followTheme() {
-            const Theme* theme = &imshell::CurrentTheme();
-            if (theme == gTheme || !gWindow)
+            if (!gWindow)
                 return;
-            gTheme = theme;
-            const ImVec4 c = theme->background;
+            const bool system = std::strcmp(imshell::CurrentTheme().id, "system") == 0;
+            if (system) {
+                const std::string key = imshell::SystemThemeKey();
+                if (key != gSystemKey) {
+                    gSystemKey = key;
+                    imshell::SetTheme(imshell::SystemTheme());
+                }
+            }
+            const Theme& theme = imshell::CurrentTheme();
+            const ImVec4 c = theme.background;
+            const std::string seen = std::string(theme.id) + std::to_string(c.x + c.y * 3 + c.z * 7) + (theme.dark ? "d" : "l");
+            if (seen == gTheme)
+                return;
+            gTheme = seen;
             gWindow.backgroundColor = [NSColor colorWithRed:c.x green:c.y blue:c.z alpha:c.w];
-            gWindow.appearance = [NSAppearance appearanceNamed:theme->dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
+            gWindow.appearance = system ? nil : [NSAppearance appearanceNamed:theme.dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
         }
 
         // macos pins the traffic lights to its 28 pt bar: grow their container and centre them

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <vector>
 
 namespace {
     int failures = 0;
@@ -36,7 +37,10 @@ namespace {
 } // namespace
 
 int main() {
-    for (const imshell::Theme& t : imshell::Themes()) {
+    std::vector<imshell::Theme> all(imshell::Themes().begin(), imshell::Themes().end());
+    if (imshell::SystemThemeAvailable())
+        all.push_back(imshell::SystemTheme()); // the current appearance
+    for (const imshell::Theme& t : all) {
         // body text 4.5, quiet text and button labels 3 (wcag aa, large text and ui)
         need(t, "foreground on background", t.foreground, t.background, 4.5f);
         need(t, "foreground on popover", t.popoverForeground, t.popover, 4.5f);
