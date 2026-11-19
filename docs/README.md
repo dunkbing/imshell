@@ -12,6 +12,7 @@
 - [Editor](editor.md): an optional code editor (`imshell::editor`) with hooks for highlighting and completion.
 - [Markdown](markdown.md): optional markdown (`imshell::markdown`) through imgui_rich_md, with code blocks in the editor.
 - [Node editor](node-editor.md): optional node graphs (`imshell::node_editor`) through imgui-node-editor, themed.
+- [Video](video.md): design for rendering ImGui frames to a video file, offscreen and deterministic (`imshell::video`).
 - [Platforms](platforms.md): what each platform supports and how they differ.
 - [Roadmap](roadmap.md): what comes next, with the issues.
 
