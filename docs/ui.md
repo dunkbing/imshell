@@ -28,6 +28,10 @@ if (imshell::Button("Delete", imshell::ButtonVariant::Destructive)) remove();
 
 States come from the role: `Hovered(c)` and `Pressed(c)` step a fill toward the foreground (10% and 20%), `WithAlpha(c, a)` tints (selection is `primary` at 20%, pressed rows 40%), `Mix(a, b, t)` blends. Every theme meets WCAG AA on its pairs (body text 4.5, quiet text, labels on fills and links 3); `tests/theme_test.cpp` checks them.
 
+`SystemTheme()` is the platform's own look: on macOS it reads `NSColor`'s semantic colours (window and control backgrounds, label levels, separator, the user's accent, the system hues) for the current appearance and returns a theme with id `"system"`.
+Set it with `SetTheme(SystemTheme())`; while it is current the shell rebuilds it when the user switches light or dark or picks another accent, and leaves the window's own appearance unset so AppKit follows the system.
+Elsewhere `SystemThemeAvailable()` is false and `SystemTheme()` returns the first preset, so an app can offer "System" only where it exists.
+
 `ApplyTheme()` styles ImGui from the current theme; the shells call it, `SetTheme` too once a context exists. `Themes()` lists the presets for a picker. The library does not look themes up by name or save the pick: an app keeps `t.id` and finds it again (`std::string_view(t.id) == saved`). `SetTheme` copies the theme, so an app can start from a preset, change roles and set that.
 
 Sizes: `Radius::Sm` (4, tags and small controls), `Md` (6, controls and popups), `Lg` (8, cards and containers), `Full` (pills). `Spacing::XS` (2), `S` (4), `M` (8), `L` (16), `XL` (20); `Theme::Spacing` and `Theme::Radius` are the same.

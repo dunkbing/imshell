@@ -3,6 +3,7 @@
 #include "imgui.h"
 
 #include <span>
+#include <string>
 
 // imshell's design tokens: colors named by what they are for, a radius scale and a spacing
 // scale. every theme sets every role for its light or dark look; widgets and apps draw with
@@ -71,6 +72,13 @@ namespace imshell {
 
     // the built-in presets, for a picker; an app keeps the saved id and finds it here
     std::span<const Theme> Themes();
+
+    // the platform's own look: on macos nscolor's semantic colors for the current appearance
+    // (id "system"); elsewhere SystemThemeAvailable() is false and this is the first preset.
+    // the macos shell rebuilds it when the appearance or accent changes while it is current
+    bool SystemThemeAvailable();
+    Theme SystemTheme();
+    std::string SystemThemeKey(); // changes when the system look does
 
     // the theme widgets draw with
     const Theme& CurrentTheme();
