@@ -155,5 +155,5 @@ encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 ## Not available yet
 
 GPU shader programs: use the CPU effects in `Composition::post` instead.
-If a request needs one of these, say so and give the closest result that works instead of
+If a request needs it, say so and give the closest result that works instead of
 reaching for another tool.
