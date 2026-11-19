@@ -93,9 +93,11 @@ A clip that cannot be read fails the render and leaves no file.
 
 ## Motion blur
 
-`options.motionBlur = {samples, shutter}` draws each frame `samples` times at times spread over `shutter` of a frame interval (0.5 is a 180 degree shutter) and averages them.
-The sub-frames are accumulated on the GPU into a 16 bit float target, so the cost is `samples` draws and one resolve, and it only works for compositions that are pure functions of time, which is the same rule as seeking.
-It is off by default.
+`Options::blur = {samples, shutter}` draws each frame `samples` times at moments spread over `shutter` of a frame interval (0.5 is a 180 degree shutter), centred on the frame, and averages them.
+`Frame::offset` carries the sample's distance from the frame in frames, and `Frame::position()` and `time()` include it: a composition that gives `position()` to `Interpolate` and `Spring` moves between samples, one that reads `index` does not and comes out sharp.
+It is off by default (`samples` 1), and `RenderFrame(comp, n, blur)` shows a blurred frame without encoding.
+The samples are averaged on the CPU after a readback, in the encoded (not linear) values, so the cost is `samples` draws and reads per frame; accumulating on the GPU in a 16 bit float target is the way to make it cheaper later.
+Like seeking, it only means something for compositions that are pure functions of time.
 
 ## Preview
 

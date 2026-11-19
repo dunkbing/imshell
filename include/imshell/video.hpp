@@ -19,8 +19,11 @@ namespace imshell::video {
         int width = 0;
         int height = 0;
         bool sequential = false; // frames are drawn in order (a render), not jumped to
+        float offset = 0.f;      // motion blur: this draw is a sample that far (in frames) from `index`
 
-        double time() const { return static_cast<double>(index) / fps; }
+        // seconds, with the blur offset; pass position() to the helpers so a blurred frame moves
+        double time() const { return (static_cast<double>(index) + offset) / fps; }
+        double position() const { return static_cast<double>(index) + offset; }
         // 0 on the first frame, 1 on the last
         float progress() const { return frames > 1 ? static_cast<float>(index) / static_cast<float>(frames - 1) : 0.f; }
     };
@@ -58,12 +61,21 @@ namespace imshell::video {
         Ffmpeg,  // an `ffmpeg` binary, raw frames over a pipe (libx264); the fallback anywhere
     };
 
+    // motion blur: each frame is drawn `samples` times at moments spread over `shutter` of a frame
+    // interval (0.5 is a 180 degree shutter), centred on the frame, and averaged. only what a
+    // composition derives from Frame::position() or time() moves between samples
+    struct MotionBlur {
+        int samples = 1;      // 1 = off
+        float shutter = 0.5f;
+    };
+
     struct Options {
         int from = 0;                                  // first frame
         int to = -1;                                   // one past the last frame; -1 = the end
         std::function<bool(int done, int total)> progress; // return false to cancel
         Encoder encoder = Encoder::Default;
         std::string ffmpeg = "ffmpeg";                 // the binary for Encoder::Ffmpeg: a name on PATH or a path
+        MotionBlur blur;
     };
 
     // render the frames to an mp4 (h.264). false and `error` on failure.
@@ -71,6 +83,7 @@ namespace imshell::video {
     bool RenderVideo(const Composition& comp, const std::string& path, const Options& options = {}, std::string* error = nullptr);
     // one frame; width 0 on failure. draws the frame as a render does, so it is what the file holds
     Image RenderFrame(const Composition& comp, int index, std::string* error = nullptr);
+    Image RenderFrame(const Composition& comp, int index, const MotionBlur& blur, std::string* error = nullptr);
     bool SavePng(const Image& image, const std::string& path);
     // draws each listed frame in order (as a render does) and again on its own (as a seek does)
     // and compares the pixels. false when any differ, `report` names them: the composition keeps
@@ -100,7 +113,7 @@ namespace imshell::video {
     };
 
     // maps frame in [in.from, in.to] to [out.from, out.to], clamped outside, eased
-    inline float Interpolate(int frame, Range in, Range out, Ease e = Ease::Linear) {
+    inline float Interpolate(double frame, Range in, Range out, Ease e = Ease::Linear) {
         const float span = in.to - in.from;
         const float t = span != 0.f ? (static_cast<float>(frame) - in.from) / span : (static_cast<float>(frame) >= in.to ? 1.f : 0.f);
         return out.from + (out.to - out.from) * ease(e, t);
@@ -114,8 +127,8 @@ namespace imshell::video {
 
     // a damped spring released at rest at `start` (a frame), moving from `from` to `to`: the exact
     // solution, so it can be jumped to. before `start` it stays at `from`
-    inline float Spring(int frame, int fps, float from, float to, int start = 0, SpringConfig c = {}) {
-        const double t = static_cast<double>(frame - start) / fps; // double: exp and cosh overflow floats when overdamped
+    inline float Spring(double frame, int fps, float from, float to, int start = 0, SpringConfig c = {}) {
+        const double t = (frame - start) / fps; // double: exp and cosh overflow floats when overdamped
         if (t <= 0.0) {
             return from;
         }

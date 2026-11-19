@@ -184,6 +184,40 @@ int main() {
         }
     }
 
+    // motion blur: a rect that moves 20 px a frame is smeared over its path by the shutter,
+    // samples=1 changes nothing, and the same frame blurred twice is the same picture
+    auto mover = comp;
+    mover.draw = [](const imshell::video::Frame& f) {
+        ImGui::GetBackgroundDrawList()->AddRectFilled(ImVec2(20.f + 20.f * static_cast<float>(f.position()), 60.f),
+                                                      ImVec2(40.f + 20.f * static_cast<float>(f.position()), 120.f), IM_COL32(255, 255, 255, 255));
+    };
+    const auto sharp = imshell::video::RenderFrame(mover, 5);
+    const auto sharpToo = imshell::video::RenderFrame(mover, 5, imshell::video::MotionBlur{1, 1.f});
+    const auto blurred = imshell::video::RenderFrame(mover, 5, imshell::video::MotionBlur{8, 1.f});
+    check(sharp.rgba == sharpToo.rgba, "one sample is the plain frame");
+    check(blurred.rgba == imshell::video::RenderFrame(mover, 5, imshell::video::MotionBlur{8, 1.f}).rgba, "a blurred frame is repeatable");
+    auto greys = [](const imshell::video::Image& image) {
+        size_t n = 0;
+        for (size_t i = 0; i + 3 < image.rgba.size(); i += 4) {
+            n += image.rgba[i] > 20 && image.rgba[i] < 235;
+        }
+        return n;
+    };
+    check(greys(sharp) == 0, "a sharp rect has no in-between pixels");
+    check(greys(blurred) > 300, "a blurred rect has a smear of in-between pixels");
+    // the smear reaches half a frame (10 px) either way: sharp covers x 120..140, blurred 110..150
+    const auto at = [&](const imshell::video::Image& image, int x) { return image.rgba[(static_cast<size_t>(90) * image.width + x) * 4]; };
+    check(at(sharp, 112) == 0 && at(blurred, 112) > 0 && at(blurred, 100) == 0 && at(blurred, 160) == 0, "the smear spans the shutter");
+    // the encoders take blurred frames too
+    imshell::video::Options blurOptions;
+    blurOptions.blur = {4, 0.5f};
+    check(imshell::video::RenderVideo(mover, base + "_blur.mp4", blurOptions, &error), ("renders blurred: " + error).c_str());
+    check(stat((base + "_blur.mp4").c_str(), &st) == 0 && st.st_size > 1000, "the blurred file is there");
+    if (std::system("command -v ffmpeg >/dev/null 2>&1") == 0) {
+        blurOptions.encoder = imshell::video::Encoder::Ffmpeg;
+        check(imshell::video::RenderVideo(mover, base + "_blur_ff.mp4", blurOptions, &error), ("renders blurred through ffmpeg: " + error).c_str());
+    }
+
     if (failures == 0) {
         std::puts("video render tests passed");
     }
