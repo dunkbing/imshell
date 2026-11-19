@@ -1,6 +1,7 @@
 // the portable video code (generic.cpp, ffmpeg.cpp, png.cpp) over a fake rasterizer, so it runs
 // anywhere with no gpu: blur averaging, Verify, RenderVideo through ffmpeg with sound, the png writer
 #include "ffmpeg.hpp"
+#include "imshell/video_audio_viz.hpp"
 #include "imshell/video_captions.hpp"
 #include "imshell/video_check.hpp"
 #include "imshell/video_cli.hpp"
@@ -223,6 +224,34 @@ int main() {
         check(srt.size() == 2 && std::fabs(srt[0].start - 0.5) < 1e-9 && std::fabs(srt[1].start - 3600.0) < 1e-9, "srt times, with commas and an hour");
         check(ParseCaptions("not captions at all").empty() && ParseCaptions("").empty(), "no cues in text that is not captions");
         check(CueAt(cues, 2.0) == &cues[0] && CueAt(cues, 3.5) == nullptr && CueAt(cues, 4.0) == &cues[1], "the cue showing at a time");
+    }
+
+    // audio visualizer analysis: a 1 kHz sine at half scale for two seconds, then silence
+    {
+        std::vector<float> pcm(48000 * 4 * 2, 0.f);
+        for (size_t n = 0; n < 48000 * 2; ++n) {
+            pcm[n * 2] = pcm[n * 2 + 1] = 0.5f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 1000.0 * n / 48000.0));
+        }
+        const AudioAnalysis a(pcm);
+        check(std::fabs(a.seconds() - 4.0) < 1e-9, "the analysis knows the length");
+        std::vector<float> bands(32);
+        a.bands(1.0, bands);
+        const size_t top = static_cast<size_t>(std::max_element(bands.begin(), bands.end()) - bands.begin());
+        check(top >= 16 && top <= 18 && bands[top] > 0.8f, "the 1 kHz band is the loudest and near full");
+        check(bands[2] < 0.3f && bands[30] < 0.3f, "far bands are quiet");
+        check(a.level(1.0) > 0.8f && a.level(3.5) == 0.f, "level: loud while it plays, zero in the silence");
+        std::vector<float> again(32);
+        a.bands(1.0, again);
+        check(bands == again, "the same time gives the same bands");
+        std::vector<float> after(32);
+        a.bands(3.5, after);
+        check(*std::max_element(after.begin(), after.end()) == 0.f, "a release does not reach 1.5 s past the end");
+        a.bands(2.04, after);
+        check(*std::max_element(after.begin(), after.end()) > 0.1f && *std::max_element(after.begin(), after.end()) < bands[top], "just after the end the bands fall away");
+        std::vector<float> wave(200);
+        a.waveform(1.0, 0.01, wave);
+        check(*std::max_element(wave.begin(), wave.end()) > 0.45f && *std::min_element(wave.begin(), wave.end()) < -0.45f, "the waveform reaches the amplitude");
+        check(AudioAnalysis(std::vector<float>{}).level(1.0) == 0.f, "no sound is level 0");
     }
 
     // a sound bound to a scene moves with it

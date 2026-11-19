@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "imshell/animation.hpp"
 #include "imshell/video.hpp"
+#include "imshell/video_audio_viz.hpp"
 #include "imshell/video_captions.hpp"
 #include "imshell/video_check.hpp"
 #include "video_test_util.hpp"
@@ -350,6 +351,43 @@ int main() {
         };
         check(before.width == 800 && lit(before, 0, 450) == 0, "nothing is drawn before the cue");
         check(during.width == 800 && lit(during, 330, 440) > 200 && lit(during, 0, 250) == 0, "the cue is drawn near the bottom");
+    }
+
+    // visualizer draw helpers: bars follow the sound (a tone for the first second, then silence)
+    {
+        using namespace imshell::video;
+        std::vector<float> pcm(48000 * 2 * 2, 0.f);
+        for (size_t n = 0; n < 48000; ++n) {
+            pcm[n * 2] = pcm[n * 2 + 1] = 0.5f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 1000.0 * n / 48000.0));
+        }
+        const AudioAnalysis analysis(pcm);
+        Composition c;
+        c.width = 640;
+        c.height = 360;
+        c.fps = 30;
+        c.frames = 60;
+        c.draw = [&](const Frame& f) {
+            float bands[24];
+            analysis.bands(f.time(), bands);
+            float wave[64];
+            analysis.waveform(f.time(), 0.01, wave);
+            ImDrawList* dl = ImGui::GetForegroundDrawList();
+            DrawBars(dl, ImVec2(20.f, 20.f), ImVec2(600.f, 200.f), bands, IM_COL32(255, 255, 255, 255));
+            DrawWave(dl, ImVec2(20.f, 240.f), ImVec2(600.f, 100.f), wave, IM_COL32(255, 255, 255, 255));
+        };
+        auto lit = [](const Image& im, int y0, int y1) {
+            int n = 0;
+            for (int y = y0; y < y1; ++y) {
+                for (int x = 0; x < im.width; ++x) {
+                    n += im.rgba[(static_cast<size_t>(y) * im.width + x) * 4] > 200 ? 1 : 0;
+                }
+            }
+            return n;
+        };
+        const Image tone = RenderFrame(c, 15, &error), quiet = RenderFrame(c, 50, &error);
+        check(tone.width == 640 && lit(tone, 20, 220) > 2000, "bars are tall while the tone plays");
+        check(quiet.width == 640 && lit(quiet, 20, 215) == 0 && lit(quiet, 215, 222) > 0, "in silence the bars are a thin line at the base");
+        check(lit(tone, 240, 340) > 100, "the wave is drawn");
     }
 
     if (failures == 0) {
