@@ -184,7 +184,8 @@ ImGui::Text("%s Settings", imshell::Icon("gearshape"));
 
 Names are SF Symbol names, the one vocabulary every platform maps from.
 On macOS and iOS the glyph is the SF Symbol, drawn by the system at the font's size and weight, so it scales with the font, sits on the text's baseline and is tinted by the text colour.
-Where the platform has no loader yet (Windows, Linux, Android, the web) `Icon` returns `fallback`, the host's own icon font glyph, or null; an unknown name does the same.
+On Windows the glyph comes from Segoe Fluent Icons (Windows 11) or Segoe MDL2 Assets (Windows 10), through a table of about 80 common SF Symbol names to its codepoints (`src/windows/icons.cpp`); a name outside the table has no icon.
+Where the platform has no loader yet (Linux, Android, the web), or the icon font is not installed (a Windows Server edition), `Icon` returns `fallback`, the host's own icon font glyph, or null; an unknown name does the same.
 So an app passes its icon font glyph as the fallback and gets the native icon where there is one.
 `AddFont` merges the source into its font; a font made another way calls `MergeIcons`.
 The glyphs live in the supplementary private use area (U+F0000 and up), which cannot collide with an icon font in the ordinary one; it needs `IMGUI_USE_WCHAR32`, which imshell's build sets.
