@@ -182,7 +182,7 @@ elseif(WIN32) # direct3d 11 offscreen (warp with no gpu), ffmpeg encodes
     target_link_libraries(imshell_video PUBLIC imshell d3d11 dxgi mfplat mfreadwrite mfuuid ole32)
 endif()
 if(TARGET imshell_video)
-    target_sources(imshell_video PRIVATE src/video/cli.cpp src/video/check.cpp) # the command line and the checks, over the public api only
+    target_sources(imshell_video PRIVATE src/video/cli.cpp src/video/check.cpp src/video/footage.cpp) # the command line and the checks, over the public api only
 endif()
 
 # optional node editor (imshell/node_editor.hpp): imgui-node-editor, themed

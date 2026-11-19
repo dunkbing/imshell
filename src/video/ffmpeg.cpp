@@ -1,6 +1,10 @@
 #include "ffmpeg.hpp"
 
 #include <signal.h>
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <cstdlib>
 #include <string>
 
 #ifdef _WIN32
@@ -16,6 +20,12 @@
 #endif
 
 namespace imshell::video {
+#ifdef _WIN32
+    static const char* const kNullDevice = "NUL";
+#else
+    static const char* const kNullDevice = "/dev/null";
+#endif
+
     // one argument for the shell: single quotes, with any in the text closed and escaped
     std::string ShellQuote(const std::string& s) {
 #ifdef _WIN32
@@ -122,5 +132,79 @@ namespace imshell::video {
         }
         pcm.resize(pcm.size() / 2 * 2); // whole frames
         return ok;
+    }
+} // namespace imshell::video
+
+namespace imshell::video {
+    VideoInfo ProbeVideo(const std::string& ffmpeg, const std::string& path) {
+        VideoInfo info;
+        FILE* pipe = IMSHELL_POPEN(ShellCommand(ShellQuote(ffmpeg) + " -hide_banner -i " + ShellQuote(path) + " 2>&1").c_str(), IMSHELL_READ_MODE);
+        if (!pipe) {
+            return info;
+        }
+        std::string text;
+        char chunk[4096];
+        for (size_t n; (n = std::fread(chunk, 1, sizeof chunk, pipe)) > 0;) {
+            text.append(chunk, n);
+        }
+        IMSHELL_PCLOSE(pipe); // ffmpeg exits with an error when given no output: only the text matters
+
+        const size_t dur = text.find("Duration: ");
+        if (dur != std::string::npos) {
+            int h = 0, m = 0;
+            double s = 0.0;
+            if (std::sscanf(text.c_str() + dur + 10, "%d:%d:%lf", &h, &m, &s) == 3) {
+                info.seconds = h * 3600.0 + m * 60.0 + s;
+            }
+        }
+        const size_t video = text.find("Video: ");
+        if (video == std::string::npos) {
+            return info;
+        }
+        const size_t end = text.find('\n', video);
+        const std::string line = text.substr(video, end == std::string::npos ? std::string::npos : end - video);
+        for (size_t i = 0; i + 3 < line.size(); ++i) { // the "1280x720" token: not the codec tag's 0x31637661
+            int w = 0, h = 0, used = 0;
+            if (line[i] == ' ' && std::sscanf(line.c_str() + i + 1, "%dx%d%n", &w, &h, &used) == 2 && w >= 2 && h >= 2 && w <= 16384 && h <= 16384) {
+                info.width = w;
+                info.height = h;
+                break;
+            }
+        }
+        const size_t fpsAt = line.find(" fps");
+        if (fpsAt != std::string::npos) {
+            size_t from = fpsAt;
+            while (from > 0 && (std::isdigit(static_cast<unsigned char>(line[from - 1])) || line[from - 1] == '.')) {
+                --from;
+            }
+            info.fps = std::atof(line.substr(from, fpsAt - from).c_str());
+        }
+        const size_t rot = text.find("rotation of ", video);
+        if (rot != std::string::npos && std::abs(std::atof(text.c_str() + rot + 12)) > 45.0 && std::abs(std::atof(text.c_str() + rot + 12)) < 135.0) {
+            std::swap(info.width, info.height); // ffmpeg turns the picture upright when it decodes
+        }
+        info.ok = info.width > 0 && info.height > 0;
+        return info;
+    }
+
+    bool FfmpegReader::open(const std::string& ffmpeg, const std::string& path, double start, int fps, int width, int height) {
+        close();
+        char at[32];
+        std::snprintf(at, sizeof at, "%.6f", std::max(start, 0.0));
+        const std::string command = ShellQuote(ffmpeg) + " -v error -ss " + at + " -i " + ShellQuote(path) + " -an -vf fps=" + std::to_string(fps) + ",scale=" + std::to_string(width) + ":" +
+                                    std::to_string(height) + " -f rawvideo -pix_fmt rgba - 2>" + kNullDevice; // closing early makes ffmpeg complain of a broken pipe
+        pipe_ = IMSHELL_POPEN(ShellCommand(command).c_str(), IMSHELL_READ_MODE);
+        return pipe_ != nullptr;
+    }
+
+    bool FfmpegReader::read(unsigned char* rgba, size_t size) {
+        return pipe_ && std::fread(rgba, 1, size, pipe_) == size;
+    }
+
+    void FfmpegReader::close() {
+        if (pipe_) {
+            IMSHELL_PCLOSE(pipe_);
+            pipe_ = nullptr;
+        }
     }
 } // namespace imshell::video

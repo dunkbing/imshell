@@ -5,6 +5,7 @@
 #include "imshell/video.hpp"
 #include "imshell/video_audio_viz.hpp"
 #include "imshell/video_captions.hpp"
+#include "imshell/video_footage.hpp"
 #include "imshell/video_check.hpp"
 #include "video_test_util.hpp"
 
@@ -388,6 +389,70 @@ int main() {
         check(tone.width == 640 && lit(tone, 20, 220) > 2000, "bars are tall while the tone plays");
         check(quiet.width == 640 && lit(quiet, 20, 215) == 0 && lit(quiet, 215, 222) > 0, "in silence the bars are a thin line at the base");
         check(lit(tone, 240, 340) > 100, "the wave is drawn");
+    }
+
+    // footage: a clip made with ffmpeg's test pattern, read in order, by seeking and past its end
+    if (videotest::hasTool("ffmpeg")) {
+        using namespace imshell::video;
+        const std::string clip = base + "_footage.mp4";
+        std::remove(clip.c_str());
+        videotest::capture("ffmpeg -v error -y -f lavfi -i testsrc=size=160x90:rate=30:duration=2 -pix_fmt yuv420p " + videotest::quoted(clip) + " 2>&1");
+        Footage missing("/no/such/clip.mp4", 30);
+        check(!missing.ok() && !missing.error().empty() && missing.pixels(0.0) == nullptr, "a missing file is not ok and has an error");
+        Footage footage(clip, 30);
+        check(footage.ok() && footage.width() == 160 && footage.height() == 90 && std::fabs(footage.seconds() - 2.0) < 0.1,
+              ("the clip's size and length are read: " + footage.error()).c_str());
+        if (footage.ok()) {
+            const size_t bytes = static_cast<size_t>(footage.width()) * footage.height() * 4;
+            std::vector<std::vector<unsigned char>> played;
+            for (int n = 0; n < 12; ++n) { // in order
+                const unsigned char* p = footage.pixels(n / 30.0);
+                check(p != nullptr, "a frame is read");
+                played.emplace_back(p, p + bytes);
+            }
+            check(played[0] != played[5] && played[5] != played[11], "the pattern moves between frames");
+            const unsigned char* seek = footage.pixels(7 / 30.0); // back, by seeking
+            check(std::vector<unsigned char>(seek, seek + bytes) == played[7], "seeking back gives the frame that was played");
+            const unsigned char* far = footage.pixels(45 / 30.0); // and forward past the skip window
+            const std::vector<unsigned char> forty5(far, far + bytes);
+            Footage fresh(clip, 30);
+            const unsigned char* again = fresh.pixels(45 / 30.0); // a new decoder jumping straight there
+            check(std::vector<unsigned char>(again, again + bytes) == forty5, "jumping straight to a frame equals playing to it");
+            for (int n = 0; n < 12; ++n) { // each frame by a fresh decoder jumping to it
+                Footage jump(clip, 30);
+                const unsigned char* j = jump.pixels(n / 30.0);
+                check(j && std::vector<unsigned char>(j, j + bytes) == played[static_cast<size_t>(n)], ("a fresh seek to frame " + std::to_string(n) + " equals playing to it").c_str());
+            }
+            const unsigned char* before = footage.pixels(-1.0);
+            check(std::vector<unsigned char>(before, before + bytes) == played[0], "before the start is the first frame");
+            const unsigned char* last = footage.pixels(2.0);
+            const std::vector<unsigned char> lastFrame(last, last + bytes);
+            const unsigned char* held = footage.pixels(9.0);
+            check(std::vector<unsigned char>(held, held + bytes) == lastFrame, "after the end the last frame is held");
+        }
+
+        // drawn in a composition: playing in order and seeking give the same pictures
+        Footage drawn(clip, 30);
+        Composition c;
+        c.width = 320;
+        c.height = 180;
+        c.fps = 30;
+        c.frames = 40;
+        c.draw = [&](const Frame& f) { drawn.Draw(ImGui::GetForegroundDrawList(), f.time(), ImVec2(0.f, 0.f), ImVec2(320.f, 180.f), Fit::Cover); };
+        const Image first = RenderFrame(c, 2, &error), later = RenderFrame(c, 20, &error);
+        check(first.width == 320 && first.rgba != later.rgba, "footage is drawn, and changes with time");
+        auto colourOf = [](const Image& im) { // a test pattern has colour, not black
+            long sum = 0;
+            for (size_t i = 0; i < im.rgba.size(); i += 4) {
+                sum += im.rgba[i] + im.rgba[i + 1] + im.rgba[i + 2];
+            }
+            return sum;
+        };
+        check(colourOf(first) > 320L * 180 * 100 && colourOf(later) > 320L * 180 * 100, "the footage's picture reaches every frame, each from its own render (a new imgui context each)");
+        std::string report;
+        const int checkFrames[] = {0, 5, 20, 33};
+        check(Verify(c, checkFrames, &report), ("playing and seeking footage agree: " + report).c_str());
+        std::remove(clip.c_str());
     }
 
     if (failures == 0) {
