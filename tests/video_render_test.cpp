@@ -4,6 +4,7 @@
 #include "imshell/animation.hpp"
 #include "imshell/video.hpp"
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -77,6 +78,34 @@ int main() {
     check(!imshell::video::RenderVideo(comp, base + "_cancel.mp4", options), "cancel fails the render");
     check(stat((base + "_cancel.mp4").c_str(), &st) != 0, "cancel removes the file");
 
+    // verify: a pure composition passes, one that keeps state between frames is caught
+    const std::array<int, 3> probe{0, 7, 20};
+    std::string report;
+    check(imshell::video::Verify(comp, probe, &report), ("a pure composition verifies: " + report).c_str());
+    auto stateful = comp;
+    stateful.draw = [counter = 0](const imshell::video::Frame&) mutable {
+        ImGui::SetNextWindowPos(ImVec2(static_cast<float>(10 + counter++), 40));
+        ImGui::Begin("card", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::Text("moves with the calls");
+        ImGui::End();
+    };
+    check(!imshell::video::Verify(stateful, probe, &report) && report.find("frame 7") != std::string::npos, "state between frames is caught");
+
+    // ffmpeg encoder, when it is installed; a missing binary is an error, not a crash
+    options.progress = nullptr;
+    options.encoder = imshell::video::Encoder::Ffmpeg;
+    options.ffmpeg = "/nonexistent/ffmpeg";
+    check(!imshell::video::RenderVideo(comp, base + "_ff.mp4", options, &error) && !error.empty(), "a missing ffmpeg fails with a message");
+    if (std::system("command -v ffmpeg >/dev/null 2>&1") == 0) {
+        options.ffmpeg = "ffmpeg";
+        check(imshell::video::RenderVideo(comp, base + "_ff.mp4", options, &error), ("renders through ffmpeg: " + error).c_str());
+        check(stat((base + "_ff.mp4").c_str(), &st) == 0 && st.st_size > 1000, "the ffmpeg file is there");
+        options.from = 5;
+        options.to = 15;
+        check(imshell::video::RenderVideo(comp, base + "_ff_range.mp4", options, &error), "renders a frame range through ffmpeg");
+    } else {
+        std::puts("ffmpeg not installed: skipped the ffmpeg render");
+    }
     // widgets that ease (Animate) jump to their target during a render, whatever frame it starts at
     std::vector<float> seen;
     auto easing = comp;
@@ -94,6 +123,7 @@ int main() {
     }
     check(exact, "Animate sits on its target during a render");
     check(!imshell::ReduceMotion(), "reduce motion is handed back");
+    check(imshell::video::Verify(easing, probe, &report), ("an eased composition verifies: " + report).c_str());
 
     if (failures == 0) {
         std::puts("video render tests passed");

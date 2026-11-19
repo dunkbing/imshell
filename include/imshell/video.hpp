@@ -41,18 +41,29 @@ namespace imshell::video {
         std::vector<unsigned char> rgba;
     };
 
+    enum class Encoder {
+        Default, // the platform's own (AVAssetWriter, hardware, on Apple)
+        Ffmpeg,  // an `ffmpeg` binary, raw frames over a pipe (libx264); the fallback anywhere
+    };
+
     struct Options {
         int from = 0;                                  // first frame
         int to = -1;                                   // one past the last frame; -1 = the end
         std::function<bool(int done, int total)> progress; // return false to cancel
+        Encoder encoder = Encoder::Default;
+        std::string ffmpeg = "ffmpeg";                 // the binary for Encoder::Ffmpeg: a name on PATH or a path
     };
 
-    // render the frames to an mp4 (h.264, the platform's hardware encoder). false and `error` on failure.
+    // render the frames to an mp4 (h.264). false and `error` on failure.
     // macOS and iOS for now (imshell::video links the Metal renderer there)
     bool RenderVideo(const Composition& comp, const std::string& path, const Options& options = {}, std::string* error = nullptr);
     // one frame; width 0 on failure. draws the frame as a render does, so it is what the file holds
     Image RenderFrame(const Composition& comp, int index, std::string* error = nullptr);
     bool SavePng(const Image& image, const std::string& path);
+    // draws each listed frame in order (as a render does) and again on its own (as a seek does)
+    // and compares the pixels. false when any differ, `report` names them: the composition keeps
+    // state between frames, which a scrubber or a range render would show as a different picture
+    bool Verify(const Composition& comp, std::span<const int> frames, std::string* report = nullptr);
 
     enum class Ease { Linear, InCubic, OutCubic, InOutCubic, OutBack };
 
