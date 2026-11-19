@@ -44,12 +44,14 @@ Per backend the ImGui renderer backend is initialised on that context without a 
 | Windows | an `ID3D11Texture2D` render target | a staging texture and `Map`, then the encoder |
 | Linux, Android | a framebuffer object on a surfaceless EGL context (no window, no `GtkGLArea`) | `glReadPixels` into a pixel buffer |
 
-macOS and Linux are built.
-The portable part (`generic.cpp`: `RenderFrame`, `RenderVideo` through ffmpeg, `Verify`, blur averaging, the sound mix, a small PNG writer) sits on a `Rasterizer` (`rasterizer.hpp`) that a backend implements as imgui into an offscreen target read back as rgba, so Windows adds one backend file (`d3d11.cpp`), not a design.
+macOS, Linux and Windows are built.
+The portable part (`generic.cpp`: `RenderFrame`, `RenderVideo` through ffmpeg, `Verify`, blur averaging, the sound mix, a small PNG writer) sits on a `Rasterizer` (`rasterizer.hpp`) that a backend implements as imgui into an offscreen target read back as rgba, so each platform adds one backend file, not a design.
 Its tests run over a fake rasterizer, so they need no GPU and run anywhere.
 On Linux (`egl.cpp`) the target is a framebuffer object on a pbuffer EGL context with desktop OpenGL 3.3, using mesa's surfaceless platform when it is there; with `libegl1`, `libgl1` and `libgl1-mesa-dri` it renders on a machine with no GPU and no display (llvmpipe), which is how the Linux tests ran.
 The sound is decoded by ffmpeg there, the PNG writer is uncompressed (a 1080p frame is about 8 MB), `Encoder::Default` is ffmpeg, and `Preview` is not available yet.
 The caller's current GL context is not restored after a render on Linux, so a host that draws with GL itself makes its context current again afterwards.
+On Windows (`d3d11.cpp`) the target is an offscreen RGBA texture read back through a staging copy, on the GPU or on WARP, Direct3D's software renderer, when there is none (the build host has none and ran the tests that way).
+ffmpeg is the encoder there too and has to be on `PATH` or named in `Options::ffmpeg`; Media Foundation as a native encoder is not done.
 Rendering is double buffered: the GPU draws frame N+1 while the encoder takes frame N.
 
 ## Determinism
