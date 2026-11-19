@@ -117,11 +117,13 @@ namespace imshell {
             }
             const Theme& theme = imshell::CurrentTheme();
             const ImVec4 c = theme.background;
-            const std::string seen = std::string(theme.id) + std::to_string(c.x + c.y * 3 + c.z * 7) + (theme.dark ? "d" : "l");
+            const bool see = detail::vibrancyActive(); // the desktop must show through the window
+            const std::string seen = (see ? "v" : "o") + std::string(theme.id) + std::to_string(c.x + c.y * 3 + c.z * 7) + (theme.dark ? "d" : "l");
             if (seen == gTheme)
                 return;
             gTheme = seen;
-            gWindow.backgroundColor = [NSColor colorWithRed:c.x green:c.y blue:c.z alpha:c.w];
+            gWindow.opaque = !see;
+            gWindow.backgroundColor = see ? NSColor.clearColor : [NSColor colorWithRed:c.x green:c.y blue:c.z alpha:c.w];
             gWindow.appearance = system ? nil : [NSAppearance appearanceNamed:theme.dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
         }
 

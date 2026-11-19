@@ -178,6 +178,8 @@ struct Gallery : imshell::Delegate {
         if (sidebar)
             ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
         const auto bar = imshell::BeginTitleBar();
+        if (sidebar) // the bar is transparent over the sidebar only; the rest keeps the theme's background
+            ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(bar.pos.x + sideWidth, bar.pos.y), ImVec2(bar.pos.x + bar.size.x, bar.pos.y + bar.size.y), ImGui::GetColorU32(imshell::CurrentTheme().background));
         if (sidebar) {
             // the fold button next to the traffic lights, as in the system's apps
             if (imshell::IconButton(imshell::Icon("sidebar.left", "="), imshell::ButtonVariant::Ghost))
@@ -197,7 +199,7 @@ struct Gallery : imshell::Delegate {
         if (sidebar && sideWidth > 1) {
             const bool material = imshell::VibrancyAvailable();
             if (material)
-                imshell::Vibrancy(viewport->Pos, ImVec2(sideWidth, viewport->Size.y));
+                imshell::Vibrancy(viewport->Pos, ImVec2(sideWidth, viewport->Size.y), imshell::VibrancyMaterial::Sidebar);
             ImGui::SetNextWindowPos(viewport->Pos);
             ImGui::SetNextWindowSize(ImVec2(sideWidth, viewport->Size.y));
             ImGui::PushStyleColor(ImGuiCol_WindowBg, material ? ImVec4(0, 0, 0, 0) : ImGui::GetStyleColorVec4(ImGuiCol_ChildBg));
