@@ -310,7 +310,7 @@ namespace {
         }
         const double windowStart = static_cast<double>(from) / comp.fps;
         mix.assign(WindowFrames(static_cast<double>(to - from) / comp.fps) * 2, 0.f);
-        for (const AudioClip& clip : comp.audio) {
+        for (const AudioClip& clip : PlacedAudio(comp)) {
             Pcm pcm;
             if (!decodeClip(clip.path, pcm, error)) {
                 return false;

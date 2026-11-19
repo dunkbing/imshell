@@ -34,12 +34,13 @@ namespace imshell::video {
     // a sound placed on the timeline; the mixer sums every clip into one 48 kHz stereo track
     struct AudioClip {
         std::string path;      // any file the platform decodes (mp3, wav, m4a, ...)
-        double start = 0.0;    // seconds on the video's timeline; negative starts the clip part way in
+        double start = 0.0;    // seconds on the video's timeline (or after the first frame of `scene`); negative starts the clip part way in
         double offset = 0.0;   // seconds skipped at the start of the file
         double duration = -1.0; // seconds played; -1 = to the end of the file
         float volume = 1.f;
         double fadeIn = 0.0;   // seconds, linear
         double fadeOut = 0.0;
+        std::string scene;     // a Mark's name: the clip moves with that scene when its length or place changes
     };
 
     // a named stretch of the timeline, shown by `timeline` and addressed as `Name`, `Name@1.2s` or `Name@end`
@@ -60,6 +61,21 @@ namespace imshell::video {
         std::vector<Mark> marks;               // optional: the scenes, for the command line
         bool transparent = false;              // clear to transparent instead of black; Image and the png/ffmpeg output carry straight alpha (h264 and hevc cannot hold it: prores, vp9 or png images)
     };
+
+    // the clips with `start` on the whole timeline: a clip with a scene counts from that scene's first frame; a name no Mark has leaves it
+    // as written (Cli's timeline says so)
+    inline std::vector<AudioClip> PlacedAudio(const Composition& comp) {
+        std::vector<AudioClip> clips = comp.audio;
+        for (AudioClip& c : clips) {
+            for (const Mark& m : comp.marks) {
+                if (!c.scene.empty() && m.name == c.scene) {
+                    c.start += static_cast<double>(m.start) / comp.fps;
+                    break;
+                }
+            }
+        }
+        return clips;
+    }
 
     // one frame as 8 bit rgba, rows top to bottom
     struct Image {

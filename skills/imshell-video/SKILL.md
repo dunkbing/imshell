@@ -120,8 +120,8 @@ comp.audio = {{.path = "music.mp3", .volume = 0.6f, .fadeIn = 1.0, .fadeOut = 2.
 ## Sound
 
 `Composition::audio` is a list of `AudioClip` (path, `start` seconds on the video's timeline,
-`offset` into the file, `duration`, `volume`, `fadeIn`, `fadeOut`); the mixer sums them to
-48 kHz stereo and clamps. Time effects from the constants that drive the motion. Check the placement
+`offset` into the file, `duration`, `volume`, `fadeIn`, `fadeOut`, `scene`); the mixer sums them to
+48 kHz stereo and clamps. Give a sound the name of its scene (`.scene = "main"`) and its `start` counts from that scene's first frame, so changing a scene's length moves its sounds with it. Time effects from the constants that drive the motion. Check the placement
 with `timeline` and `audio at 3.1s`, the levels with `audio analyze` (aim for about -14 LUFS
 integrated for web video, true peak below -1 dBTP, no clipping, no silence you did not plan), and
 listen to the mix without rendering the video with `audio render -o mix.wav`. Windows and Apple
