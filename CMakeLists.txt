@@ -140,6 +140,16 @@ if(TARGET imgui_rich_md)
     target_compile_definitions(imgui_rich_md PUBLIC IMGUI_USE_WCHAR32)
 endif()
 
+# optional video (imshell/video.hpp): imgui to an mp4 with no window. the frame helpers are header
+# only; the renderer is metal for now
+if(APPLE)
+    add_library(imshell_video STATIC src/video/metal.mm)
+    add_library(imshell::video ALIAS imshell_video)
+    set_source_files_properties(src/video/metal.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+    target_link_libraries(imshell_video PUBLIC imshell "-framework AVFoundation" "-framework CoreMedia"
+        "-framework CoreVideo" "-framework Metal" "-framework ImageIO" "-framework CoreGraphics" "-framework Foundation")
+endif()
+
 # optional node editor (imshell/node_editor.hpp): imgui-node-editor, themed
 if(EXISTS ${IMSHELL_NODE_EDITOR_DIR}/imgui_node_editor.cpp)
     add_library(imshell_node_editor STATIC src/node_editor.cpp
@@ -368,6 +378,13 @@ if(IMSHELL_BUILD_TESTS)
     target_include_directories(imshell_video_test PRIVATE include)
     target_compile_features(imshell_video_test PRIVATE cxx_std_20)
     add_test(NAME imshell_video_test COMMAND imshell_video_test)
+    if(TARGET imshell_video)
+        add_executable(imshell_video_render_test tests/video_render_test.cpp ${IMSHELL_TEST_IMGUI})
+        target_include_directories(imshell_video_render_test PRIVATE include ${IMSHELL_IMGUI_DIR})
+        target_compile_features(imshell_video_render_test PRIVATE cxx_std_20)
+        target_link_libraries(imshell_video_render_test PRIVATE imshell_video)
+        add_test(NAME imshell_video_render_test COMMAND imshell_video_render_test)
+    endif()
     if(APPLE AND NOT IOS)
         add_executable(imshell_clipboard_test tests/clipboard_test.mm src/macos/clipboard.mm src/clipboard.cpp)
         set_source_files_properties(tests/clipboard_test.mm src/macos/clipboard.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
