@@ -2,6 +2,7 @@
 // anywhere with no gpu: blur averaging, Verify, RenderVideo through ffmpeg with sound, the png writer
 #include "ffmpeg.hpp"
 #include "imshell/video_cli.hpp"
+#include "imshell/video_scenes.hpp"
 #include "video_test_util.hpp"
 #include "rasterizer.hpp"
 
@@ -145,6 +146,38 @@ int main() {
         std::puts("ffmpeg not installed: skipped the ffmpeg checks");
     }
     std::remove((base + ".png").c_str());
+
+    // scenes: layers at a frame, the overlap cross-fade, marks and their time words
+    {
+        const std::vector<Scene> scenes = {{"intro", 30, 0, nullptr}, {"main", 40, 10, nullptr}, {"outro", 20, 0, nullptr}};
+        check(SceneFrames(scenes) == 90, "scenes add up");
+        auto layers = SceneLayers(5, scenes);
+        check(layers.size() == 1 && layers[0].scene == 0 && layers[0].local == 5 && layers[0].alpha == 1.f, "a frame in the first scene");
+        layers = SceneLayers(25, scenes); // main fades in over the last 10 frames of intro: it starts at 20
+        check(layers.size() == 2 && layers[0].scene == 0 && layers[1].scene == 1 && layers[1].local == 5 && std::fabs(layers[1].alpha - 0.5f) < 1e-6f, "the overlap shows both, the new one half in");
+        check(layers[0].alpha == 1.f, "the one underneath stays fully visible");
+        layers = SceneLayers(30, scenes);
+        check(layers.size() == 1 && layers[0].scene == 1 && layers[0].local == 10 && layers[0].length == 50 && layers[0].alpha == 1.f, "after the overlap only the new scene");
+        layers = SceneLayers(70, scenes);
+        check(layers.size() == 1 && layers[0].scene == 2 && layers[0].local == 0, "a cut at the scene boundary");
+        layers = SceneLayers(500, scenes);
+        check(layers.size() == 1 && layers[0].scene == 2 && layers[0].local == 19, "past the end the last scene holds its last frame");
+        layers = SceneLayers(25.5, scenes);
+        check(layers.size() == 2 && layers[1].local == 5 && std::fabs(layers[1].offset - 0.5) < 1e-9, "a blur sample keeps its fraction");
+
+        const Composition made = MakeComposition(64, 36, 30, scenes);
+        check(made.frames == 90 && made.marks.size() == 3 && made.marks[1].start == 20 && made.marks[1].frames == 50, "marks start where the scene starts drawing");
+        int f = -1;
+        check(ParseTime(made, "main", f) && f == 20, "a scene name is its first frame");
+        check(ParseTime(made, "MAIN@1s", f) && f == 50, "Scene@time counts from the scene, any case");
+        check(ParseTime(made, "main@end", f) && f == 69, "Scene@end is the scene's last frame");
+        check(ParseTime(made, "#2", f) && f == 70, "#n is a scene by number");
+        check(!ParseTime(made, "nothere@1s", f), "an unknown scene is no time");
+
+        check(std::fabs(SpringIn(0, 30, 0.f, 1.f, 0, 30) - 0.f) < 1e-6f, "a settling spring starts at its start");
+        check(std::fabs(SpringIn(30, 30, 0.f, 1.f, 0, 30) - 1.f) < 0.002f, "and is at rest after the frames it was given");
+        check(std::fabs(SpringIn(100, 30, 0.f, 1.f, 0, 30) - 1.f) < 0.002f, "and stays there");
+    }
 
     // the command line: time words, and the commands writing files
     {
