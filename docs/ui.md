@@ -149,6 +149,14 @@ imshell::OpenDialog({.filters = {{"CSV files", "csv,tsv"}, {"All files", "*"}}, 
 
 On iOS the documents folder shows in the Files app under the app's name. Filters become content types (iOS) or MIME types (Android, from a short table; anything else allows any file). On the desktops, link Native File Dialog Extended (vcpkg `nativefiledialog-extended`); imshell finds it with `find_package(nfd)`.
 
+## Animation engine (`imshell/anim.hpp`)
+
+For more than a spring, link `imshell::anim`: it builds [ImAnim](https://github.com/soufianekhiat/ImAnim) (the `external/imanim` submodule, MIT) with tweens, keyframe clips, paths, noise and OKLAB colour blending, and ties it to the frame loop.
+Call `imshell::anim::BeginFrame()` once per frame after `ImGui::NewFrame()`, then use ImAnim's own API (`iam_tween_float` and the rest; its docs are in the submodule).
+ImAnim does not say when it is idle and an idle imshell app sleeps, so wrap a tween's result in `imshell::anim::Settle(value, target)`: it returns the value and asks for frames until it reaches the target.
+A clip that plays calls `imshell::requestFrames()` itself while it does.
+`IMSHELL_IMANIM_DIR` points at another copy of ImAnim.
+
 ## Animation (`imshell/animation.hpp`)
 
 `Animate(id, target)` returns a value that chases its target with a spring, for a hover, a press, a panel opening:
