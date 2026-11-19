@@ -57,7 +57,7 @@ namespace imshell::video {
     };
 
     enum class Encoder {
-        Default, // the platform's own (AVAssetWriter, hardware, on Apple)
+        Default, // the platform's own: AVAssetWriter on Apple (hardware), Media Foundation on Windows (no ffmpeg needed, sound decoded there too); Linux uses ffmpeg
         Ffmpeg,  // an `ffmpeg` binary, raw frames over a pipe (libx264); the fallback anywhere
     };
 

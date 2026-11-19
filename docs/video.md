@@ -51,7 +51,8 @@ On Linux (`egl.cpp`) the target is a framebuffer object on a pbuffer EGL context
 The sound is decoded by ffmpeg there, the PNG writer is uncompressed (a 1080p frame is about 8 MB), `Encoder::Default` is ffmpeg, and `Preview` is a window over the same rasterizer (below).
 The caller's current GL context is not restored after a render on Linux, so a host that draws with GL itself makes its context current again afterwards.
 On Windows (`d3d11.cpp`) the target is an offscreen RGBA texture read back through a staging copy, on the GPU or on WARP, Direct3D's software renderer, when there is none (the build host has none and ran the tests that way).
-ffmpeg is the encoder there too and has to be on `PATH` or named in `Options::ffmpeg`; Media Foundation as a native encoder is not done.
+`Encoder::Default` there is Media Foundation (`mf.cpp`): the system's h.264 encoder (software, so no GPU is needed) and aac encoder into an mp4, and its source reader decodes the sound clips, so a render needs no ffmpeg; `Encoder::Ffmpeg` still works.
+The sound is written in step with the frames, as on Apple. Checked on the build host with no ffmpeg on `PATH`: h.264 baseline, 30 frames, aac 48 kHz stereo, audible.
 
 Preview on Linux and Windows (`preview.cpp`) shows each frame the rasterizer draws through a texture imgui keeps up to date itself (`ImTextureData`, so no platform texture code), with the rasterizer on its own thread so its GL context does not replace the window's.
 Run on Linux under xvfb, where frames advance and the picture shows; on Windows it builds, but the build host's SSM session has no desktop, so the window was not run there.

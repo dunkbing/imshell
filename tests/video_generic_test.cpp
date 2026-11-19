@@ -113,6 +113,7 @@ int main() {
         auto sound = comp;
         sound.audio.push_back({.path = base + ".wav", .start = 0.25, .volume = 0.8f});
         Options options;
+        options.encoder = Encoder::Ffmpeg; // this test is about the ffmpeg path, whatever the platform default
         std::string error;
         check(RenderVideo(sound, base + ".mp4", options, &error), ("renders through ffmpeg: " + error).c_str());
         struct stat st {};

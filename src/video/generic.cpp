@@ -2,6 +2,7 @@
 // Rasterizer (egl.cpp, d3d11.cpp). the Apple build has its own (metal.mm)
 #include "audio.hpp"
 #include "ffmpeg.hpp"
+#include "mf.hpp"
 #include "png.hpp"
 #include "rasterizer.hpp"
 
@@ -52,6 +53,16 @@ namespace imshell::video {
             return true;
         }
 
+        // the platform's decoder unless ffmpeg was asked for
+        bool decode(const Options& options, const std::string& path, Pcm& pcm, std::string* error) {
+#ifdef _WIN32
+            if (options.encoder != Encoder::Ffmpeg) {
+                return DecodeWithMf(path, pcm, error);
+            }
+#endif
+            return DecodeWithFfmpeg(options.ffmpeg, path, pcm, error);
+        }
+
         // every clip mixed for frames [from, to); empty when there is no sound
         bool mixAudio(const Composition& comp, const Options& options, int from, int to, Pcm& mix, std::string* error) {
             mix.clear();
@@ -61,7 +72,7 @@ namespace imshell::video {
             mix.assign(WindowFrames(static_cast<double>(to - from) / comp.fps) * 2, 0.f);
             for (const AudioClip& clip : comp.audio) {
                 Pcm pcm;
-                if (!DecodeWithFfmpeg(options.ffmpeg, clip.path, pcm, error)) {
+                if (!decode(options, clip.path, pcm, error)) {
                     return false;
                 }
                 MixClip(mix, static_cast<double>(from) / comp.fps, pcm, clip);
@@ -69,6 +80,45 @@ namespace imshell::video {
             Limit(mix);
             return true;
         }
+#ifdef _WIN32
+        // Media Foundation: the sound goes in step with the frames, as the Apple path does
+        bool renderWithMf(const Composition& comp, const std::string& path, const Options& options, int from, int to, Rasterizer& rasterizer,
+                          const Pcm& mix, std::string* error) {
+            MfWriter writer;
+            if (!writer.open(path, comp.width, comp.height, comp.fps, !mix.empty(), error)) {
+                return false;
+            }
+            const size_t mixFrames = mix.size() / 2;
+            size_t audioDone = 0;
+            auto feedAudio = [&](size_t upTo) {
+                upTo = std::min(upTo, mixFrames);
+                const bool ok = upTo <= audioDone || writer.audio(&mix[audioDone * 2], audioDone, upTo - audioDone);
+                audioDone = std::max(audioDone, upTo);
+                return ok;
+            };
+            bool ok = true, cancelled = false;
+            std::vector<unsigned char> rgba;
+            for (int n = from; ok && n < to; ++n) {
+                ok = exposure(rasterizer, comp, n, true, options.blur, rgba) && writer.video(rgba.data(), n - from) &&
+                     feedAudio(static_cast<size_t>(n - from + 1) * 48000 / comp.fps);
+                if (!ok) {
+                    fail(error, "drawing, or the encoder stopped taking frames");
+                } else if (options.progress && !options.progress(n - from + 1, to - from)) {
+                    cancelled = true;
+                    break;
+                }
+            }
+            ok = ok && !cancelled && feedAudio(mixFrames) && writer.finish(error);
+            if (!ok || cancelled) {
+                std::string ignored;
+                writer.finish(&ignored);
+                std::remove(path.c_str());
+                return cancelled ? fail(error, "cancelled") : false;
+            }
+            return true;
+        }
+#endif
+
     } // namespace
 
     Image RenderFrame(const Composition& comp, int index, std::string* error) {
@@ -112,6 +162,11 @@ namespace imshell::video {
         if (!mixAudio(comp, options, from, to, mix, error)) {
             return false;
         }
+#ifdef _WIN32
+        if (options.encoder != Encoder::Ffmpeg) {
+            return renderWithMf(comp, path, options, from, to, *rasterizer, mix, error);
+        }
+#endif
         std::string audioFile;
         if (!mix.empty()) {
             audioFile = path + ".audio.f32";
