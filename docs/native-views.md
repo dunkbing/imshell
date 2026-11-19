@@ -33,6 +33,31 @@ if (imshell::NativeButton("###sidebar", "sidebar.left", "Toggle Sidebar"))
 
 It returns true on a real click (the `NSButton`'s action, which also wakes an idle loop) and on a click on the ImGui item underneath, which is what Dear ImGui's test engine produces. Windows, Linux and iOS have no equivalent: draw an ImGui button there.
 
+## Native context menus (`imshell/native_menu.hpp`)
+
+`NativeContextMenu(id, builder)` is a right-click menu the OS draws and tracks: an `NSMenu` on macOS, so it has the system's look, animation, SF Symbol icons and VoiceOver.
+Call it right after the item the menu belongs to; it returns the `id` of the chosen `NativeMenuItem` once, otherwise -1.
+
+```cpp
+ImGui::Selectable(name);
+switch (imshell::NativeContextMenu("##row", [&] {
+    return std::vector<imshell::NativeMenuItem>{
+        {.label = "Copy", .id = 1, .icon = "doc.on.doc"},
+        imshell::NativeMenuItem::Separator(),
+        {.label = "Delete", .id = 2, .enabled = canDelete},
+    };
+})) {
+case 1: copy(); break;
+case 2: remove(); break;
+}
+```
+
+An item has a label, an id, `enabled`, `checked`, an SF Symbol `icon` and `children` for a submenu.
+The builder runs only when the menu opens.
+macOS tracks a menu in its own loop, which cannot run inside an ImGui frame, so the shell opens it right after the frame is drawn and the choice comes back in the next call.
+Where a platform has no backend (Windows, Linux, iOS, Android for now) it is imshell's own menu (`BeginContextMenu`, icons through `Icon`), drawn inside the frame from the builder, so a caller writes one thing; `NativeMenusAvailable()` says which you get.
+A native menu cannot hold ImGui content, so a menu with a slider or a search box is an ImGui popup.
+
 ## Windows
 
 `create` returns an `HWND` (any window: a Win32 control, a WebView2 host window). imshell makes it a child of a clipping window it creates inside the main window, so the main window's `WS_CLIPCHILDREN` keeps Direct3D from drawing over it.
