@@ -5,6 +5,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_internal.h"
 #include "metal_backend.hpp"
+#include "../native_menu.hpp"
 #include "../native_view.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
@@ -361,6 +362,7 @@ namespace imshell {
                 d.backend->present();
             }
             detail::placeNativeViews();
+            detail::runNativeMenus(); // after the frame: the os tracks the menu in its own loop
         }
         runBarAction();
     }

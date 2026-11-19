@@ -15,6 +15,7 @@ A small toolkit for building cross-platform applications with [Dear ImGui](https
 - **[Editor](docs/editor.md)** (`imshell::editor`): a multi-line code editor with selection, undo and highlighting hooks.
 - **[Markdown](docs/markdown.md)** (`imshell::markdown`): selectable rich text, tables, code blocks and Mermaid.
 - **[Node editor](docs/node-editor.md)** (`imshell::node_editor`): imgui-node-editor, themed.
+- **[Animation engine](docs/ui.md#animation-engine-imshellanimhpp)** (`imshell::anim`): ImAnim's tweens, clips, paths and colour blending, tied to imshell's frame loop.
 
 [`docs/`](docs/README.md) covers each part in depth, starting with [getting started](docs/getting-started.md); [`platforms.md`](docs/platforms.md) has what each platform supports.
 
@@ -40,7 +41,7 @@ if (imshell::Button("Save", imshell::ButtonVariant::Primary))
     save();
 ```
 
-Dear ImGui (docking), its test engine, imgui_rich_md and imgui-node-editor are submodules in `external/` (clone with `--recursive`). The host compiles the ImGui core once, from `IMSHELL_IMGUI_DIR`; see [getting started](docs/getting-started.md) for using your own copies.
+Dear ImGui (docking), its test engine, imgui_rich_md, imgui-node-editor and ImAnim are submodules in `external/` (clone with `--recursive`). The host compiles the ImGui core once, from `IMSHELL_IMGUI_DIR`; see [getting started](docs/getting-started.md) for using your own copies.
 
 ## Status
 

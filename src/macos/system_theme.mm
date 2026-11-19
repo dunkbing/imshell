@@ -3,6 +3,7 @@
 
 #import <AppKit/AppKit.h>
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 
@@ -88,6 +89,18 @@ namespace imshell {
             t.chart[2] = t.hues.orange;
             t.chart[3] = t.hues.purple;
             t.chart[4] = t.hues.red;
+            // sizes measured from AppKit's regular controls, so a control here is as tall as a native one
+            NSButton* button = [NSButton buttonWithTitle:@"Save" target:nil action:nil];
+            const CGFloat font = NSFont.systemFontSize;
+            const CGFloat text = [@"Save" sizeWithAttributes:@{NSFontAttributeName : [NSFont systemFontOfSize:font]}].width;
+            const NSSize fit = button.fittingSize;
+            t.metrics.fontSize = static_cast<float>(font);
+            t.metrics.framePadding = ImVec2(std::clamp(std::round(static_cast<float>(fit.width - text) * 0.5f), 6.0f, 16.0f),
+                                            std::clamp(static_cast<float>(fit.height - font) * 0.5f, 3.0f, 10.0f));
+            // disabled text is a quarter of the label's weight; imgui fades the whole control, so keep it legible
+            t.metrics.disabledAlpha = std::clamp(static_cast<float>(NSColor.disabledControlTextColor.alphaComponent /
+                                                                    std::max<CGFloat>(NSColor.labelColor.alphaComponent, 0.01)),
+                                                 0.35f, 0.6f);
             // xcode's reading: pink keywords, red strings, blue numbers, quiet comments
             t.syntax = {t.hues.pink, t.hues.red, t.hues.blue, t.mutedForeground, t.hues.teal, t.hues.sky, fg};
         }];
