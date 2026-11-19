@@ -20,6 +20,7 @@ Call it from Objective-C++ (`.mm`), since you create Cocoa objects.
 - **Layout:** the view takes its space like any ImGui item. After each frame imshell moves it there and clips it to its ImGui window, so scrolling, docking and resizing all follow.
 - **Input:** the view gets its own clicks and keys from the OS. A click on ImGui gives the keyboard back to ImGui (on iOS, a touch on the ImGui view).
 - **Always on top:** native views sit above everything ImGui draws, because ImGui draws the whole UI into one surface. While an ImGui window, popup or tooltip overlaps the view, imshell hides the view, so menus never end up behind it.
+- **Small overlay windows:** ImGui clamps every window to `WindowMinSize` (32 by default), so a thin overlay such as a resize grip is really 32 px wide and hides any native view under it once it is on top. Put grips inside an existing window, or push `ImGuiStyleVar_WindowMinSize` of `(0, 0)`.
 - **Lifetime:** a view not drawn in a frame (its tab closed, scrolled away, collapsed) is hidden. After 3 seconds unused it is removed and released.
 
 ## Native buttons
