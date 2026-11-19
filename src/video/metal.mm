@@ -75,16 +75,16 @@ namespace {
         bool ok() const { return ok_; }
 
         // draws frame `index` into the buffer (bgra, opaque black behind the composition)
-        bool draw(int index, bool sequential, CVPixelBufferRef buffer) {
+        bool draw(int index, bool sequential, CVPixelBufferRef buffer, float offset = 0.f) {
             ImGuiContext* saved = ImGui::GetCurrentContext();
             ImGui::SetCurrentContext(context_);
-            const bool done = drawFrame(index, sequential, buffer);
+            const bool done = drawFrame(index, sequential, buffer, offset);
             ImGui::SetCurrentContext(saved);
             return done;
         }
 
     private:
-        bool drawFrame(int index, bool sequential, CVPixelBufferRef buffer) {
+        bool drawFrame(int index, bool sequential, CVPixelBufferRef buffer, float offset) {
             CVMetalTextureRef cvTexture = nullptr;
             if (CVMetalTextureCacheCreateTextureFromImage(nullptr, cache_, buffer, nullptr, MTLPixelFormatBGRA8Unorm,
                                                           comp_.width, comp_.height, 0, &cvTexture) != kCVReturnSuccess) {
@@ -98,7 +98,7 @@ namespace {
             pass.colorAttachments[0].storeAction = MTLStoreActionStore;
 
             const Frame frame{.index = index, .frames = comp_.frames, .fps = comp_.fps,
-                              .width = comp_.width, .height = comp_.height, .sequential = sequential};
+                              .width = comp_.width, .height = comp_.height, .sequential = sequential, .offset = offset};
             ImGui::GetIO().DeltaTime = 1.f / static_cast<float>(comp_.fps);
             // twice: windows size themselves on their second frame, so the first is thrown away
             for (int i = 0; i < 2; ++i) {
@@ -176,6 +176,71 @@ namespace {
                             (__bridge CFDictionaryRef)bufferAttributes(comp.width, comp.height), &buffer);
         return buffer;
     }
+
+    // draws a frame once, or as `blur.samples` draws spread over the shutter and averaged (in the
+    // encoded values, not linear light) into the target buffer
+    class Exposure {
+    public:
+        Exposure(const Composition& comp, const MotionBlur& blur) : comp_(comp), blur_(blur) {
+            samples_ = std::max(blur.samples, 1);
+            if (samples_ > 1) {
+                scratch_ = makeBuffer(comp);
+                sum_.resize(static_cast<size_t>(comp.width) * comp.height * 4);
+            }
+        }
+        ~Exposure() {
+            if (scratch_) {
+                CVPixelBufferRelease(scratch_);
+            }
+        }
+
+        bool ok() const { return samples_ == 1 || scratch_; }
+
+        bool draw(Renderer& renderer, int index, bool sequential, CVPixelBufferRef target) {
+            if (samples_ == 1) {
+                return renderer.draw(index, sequential, target);
+            }
+            std::fill(sum_.begin(), sum_.end(), 0.f);
+            const size_t row = static_cast<size_t>(comp_.width) * 4;
+            for (int s = 0; s < samples_; ++s) {
+                const float offset = ((static_cast<float>(s) + 0.5f) / static_cast<float>(samples_) - 0.5f) * blur_.shutter;
+                if (!renderer.draw(index, sequential, scratch_, offset)) {
+                    return false;
+                }
+                CVPixelBufferLockBaseAddress(scratch_, kCVPixelBufferLock_ReadOnly);
+                const auto* src = static_cast<const unsigned char*>(CVPixelBufferGetBaseAddress(scratch_));
+                const size_t stride = CVPixelBufferGetBytesPerRow(scratch_);
+                for (int y = 0; y < comp_.height; ++y) {
+                    float* acc = &sum_[static_cast<size_t>(y) * row];
+                    const unsigned char* line = src + y * stride;
+                    for (size_t i = 0; i < row; ++i) {
+                        acc[i] += line[i];
+                    }
+                }
+                CVPixelBufferUnlockBaseAddress(scratch_, kCVPixelBufferLock_ReadOnly);
+            }
+            CVPixelBufferLockBaseAddress(target, 0);
+            auto* dst = static_cast<unsigned char*>(CVPixelBufferGetBaseAddress(target));
+            const size_t stride = CVPixelBufferGetBytesPerRow(target);
+            const float scale = 1.f / static_cast<float>(samples_);
+            for (int y = 0; y < comp_.height; ++y) {
+                const float* acc = &sum_[static_cast<size_t>(y) * row];
+                unsigned char* line = dst + y * stride;
+                for (size_t i = 0; i < row; ++i) {
+                    line[i] = static_cast<unsigned char>(acc[i] * scale + 0.5f);
+                }
+            }
+            CVPixelBufferUnlockBaseAddress(target, 0);
+            return true;
+        }
+
+    private:
+        const Composition& comp_;
+        MotionBlur blur_;
+        int samples_ = 1;
+        CVPixelBufferRef scratch_ = nullptr;
+        std::vector<float> sum_;
+    };
 
     // the frame range an Options asks for
     void frameRange(const Composition& comp, const Options& options, int& from, int& to) {
@@ -290,7 +355,8 @@ namespace {
         int from = 0, to = 0;
         frameRange(comp, options, from, to);
         Renderer renderer(comp);
-        if (!renderer.ok()) {
+        Exposure exposure(comp, options.blur);
+        if (!renderer.ok() || !exposure.ok()) {
             return fail(error, "no metal device");
         }
         CVPixelBufferRef buffer = makeBuffer(comp);
@@ -320,7 +386,7 @@ namespace {
         bool ok = pipe.open(options.ffmpeg, comp.width, comp.height, comp.fps, path, audioFile, error);
         bool cancelled = false;
         for (int n = from; ok && n < to; ++n) {
-            const Image image = renderer.draw(n, true, buffer) ? readImage(buffer, comp.width, comp.height) : Image{};
+            const Image image = exposure.draw(renderer, n, true, buffer) ? readImage(buffer, comp.width, comp.height) : Image{};
             ok = image.width > 0 && pipe.write(image.rgba.data(), image.rgba.size());
             if (!ok) {
                 fail(error, "ffmpeg stopped taking frames (is it installed, and does it have libx264?)");
@@ -360,7 +426,8 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
         frameRange(comp, options, from, to);
 
         Renderer renderer(comp);
-        if (!renderer.ok()) {
+        Exposure exposure(comp, options.blur);
+        if (!renderer.ok() || !exposure.ok()) {
             return fail(error, "no metal device");
         }
 
@@ -434,7 +501,7 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
                 ok = fail(error, "no pixel buffer from the encoder's pool");
                 break;
             }
-            ok = renderer.draw(n, true, buffer) && [adaptor appendPixelBuffer:buffer withPresentationTime:CMTimeMake(n - from, comp.fps)];
+            ok = exposure.draw(renderer, n, true, buffer) && [adaptor appendPixelBuffer:buffer withPresentationTime:CMTimeMake(n - from, comp.fps)];
             CVPixelBufferRelease(buffer);
             feedAudio(frameEnd);
             if (!ok) {
@@ -478,12 +545,17 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
 }
 
 Image RenderFrame(const Composition& comp, int index, std::string* error) {
+    return RenderFrame(comp, index, MotionBlur{}, error);
+}
+
+Image RenderFrame(const Composition& comp, int index, const MotionBlur& blur, std::string* error) {
     @autoreleasepool {
         if (!validSize(comp, error)) {
             return {};
         }
         Renderer renderer(comp);
-        if (!renderer.ok()) {
+        Exposure exposure(comp, blur);
+        if (!renderer.ok() || !exposure.ok()) {
             fail(error, "no metal device");
             return {};
         }
@@ -493,7 +565,7 @@ Image RenderFrame(const Composition& comp, int index, std::string* error) {
             return {};
         }
         Image image;
-        if (renderer.draw(std::clamp(index, 0, comp.frames - 1), false, buffer)) {
+        if (exposure.draw(renderer, std::clamp(index, 0, comp.frames - 1), false, buffer)) {
             image = readImage(buffer, comp.width, comp.height);
         } else {
             fail(error, "drawing the frame failed");
