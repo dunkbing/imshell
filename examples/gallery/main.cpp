@@ -5,6 +5,7 @@
 #include "imshell/button.hpp"
 #include "imshell/components.hpp"
 #include "imshell/editor.hpp"
+#include "imshell/native_menu.hpp"
 #include "imshell/fonts.hpp"
 #include "imshell/icons.hpp"
 #include "imshell/native_controls.hpp"
@@ -182,6 +183,25 @@ struct Gallery : imshell::Delegate {
         imshell::Button("Outline", imshell::ButtonVariant::Outline);
         ImGui::SameLine();
         imshell::Button("Ghost", imshell::ButtonVariant::Ghost);
+        ui::EndCard();
+
+        ImGui::Spacing();
+        ui::BeginCard("menu", "Context menu");
+        ImGui::TextUnformatted("Right-click the row");
+        ImGui::Selectable("invoice-2026.pdf");
+        switch (imshell::NativeContextMenu("##rowMenu", [] {
+            return std::vector<imshell::NativeMenuItem>{
+                {.label = "Copy", .id = 1, .icon = "doc.on.doc"},
+                {.label = "Rename", .id = 2, .icon = "pencil"},
+                imshell::NativeMenuItem::Separator(),
+                {.label = "Delete", .id = 3, .icon = "trash"},
+            };
+        })) {
+        case 1: ui::Toast("Copied"); break;
+        case 2: ui::Toast("Rename"); break;
+        case 3: ui::Toast("Deleted", ui::Tone::Danger); break;
+        default: break;
+        }
         ui::EndCard();
 
         ImGui::Spacing();
