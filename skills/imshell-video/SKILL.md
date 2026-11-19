@@ -127,6 +127,10 @@ integrated for web video, true peak below -1 dBTP, no clipping, no silence you d
 listen to the mix without rendering the video with `audio render -o mix.wav`. Windows and Apple
 encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
+## Captions
+
+`imshell/video_captions.hpp`: `ParseCaptions(text)` or `LoadCaptions(path, cues)` read WebVTT or SRT, and `DrawCaptions(f, cues, style)` inside `draw` shows the cue at `f.time()`. Put `<00:01.500>` before a word in a WebVTT cue to time it and set `style.karaoke = true` to light words as they are said. Size, width, position and colours are in `CaptionStyle`; the defaults are white on a dark pill at 5% of the height. Check by `frame` at the cue starts and ends: `inspect` does not look at them.
+
 ## Finish
 
 1. `timeline` matches the plan; `strip all` reads; key frames were checked at full size.
@@ -138,6 +142,6 @@ encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
 ## Not available yet
 
-Video footage as a layer, captions, audio visualizers and shaders.
+Video footage as a layer, audio visualizers and shaders.
 If a request needs one of these, say so and give the closest result that works instead of
 reaching for another tool.

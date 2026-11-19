@@ -1,6 +1,7 @@
 // the portable video code (generic.cpp, ffmpeg.cpp, png.cpp) over a fake rasterizer, so it runs
 // anywhere with no gpu: blur averaging, Verify, RenderVideo through ffmpeg with sound, the png writer
 #include "ffmpeg.hpp"
+#include "imshell/video_captions.hpp"
 #include "imshell/video_check.hpp"
 #include "imshell/video_cli.hpp"
 #include "imshell/video_scenes.hpp"
@@ -202,6 +203,26 @@ int main() {
         check(std::fabs(SpringIn(0, 30, 0.f, 1.f, 0, 30) - 0.f) < 1e-6f, "a settling spring starts at its start");
         check(std::fabs(SpringIn(30, 30, 0.f, 1.f, 0, 30) - 1.f) < 0.002f, "and is at rest after the frames it was given");
         check(std::fabs(SpringIn(100, 30, 0.f, 1.f, 0, 30) - 1.f) < 0.002f, "and stays there");
+    }
+
+    // captions: webvtt with inline word times, plain webvtt, srt
+    {
+        const std::string vtt =
+            "WEBVTT\n\nNOTE a comment\n\n1\n00:00:01.000 --> 00:00:03.000 align:center\nHello <00:00:01.500>big <00:00:02.000><c>world</c>\n\n"
+            "00:04.000 --> 00:06.000\nsecond cue\nover two lines\n";
+        const std::vector<Cue> cues = ParseCaptions(vtt);
+        check(cues.size() == 2, "two cues");
+        if (cues.size() == 2) {
+            check(std::fabs(cues[0].start - 1.0) < 1e-9 && std::fabs(cues[0].end - 3.0) < 1e-9 && cues[0].text == "Hello big world", "the first cue's time and text");
+            check(cues[0].words.size() == 3 && std::fabs(cues[0].words[1].start - 1.5) < 1e-9 && std::fabs(cues[0].words[1].end - 2.0) < 1e-9 && std::fabs(cues[0].words[2].end - 3.0) < 1e-9,
+                  "inline timestamps set the words' times");
+            check(std::fabs(cues[0].words[0].start - 1.0) < 1e-9, "the first word starts with the cue");
+            check(cues[1].text == "second cue over two lines" && cues[1].words.size() == 5 && std::fabs(cues[1].words[1].start - 4.4) < 1e-9, "untimed words are spread evenly");
+        }
+        const std::vector<Cue> srt = ParseCaptions("1\r\n00:00:00,500 --> 00:00:01,500\r\nfrom srt\r\n\r\n2\r\n01:00:00,000 --> 01:00:02,000\r\nan hour in\r\n");
+        check(srt.size() == 2 && std::fabs(srt[0].start - 0.5) < 1e-9 && std::fabs(srt[1].start - 3600.0) < 1e-9, "srt times, with commas and an hour");
+        check(ParseCaptions("not captions at all").empty() && ParseCaptions("").empty(), "no cues in text that is not captions");
+        check(CueAt(cues, 2.0) == &cues[0] && CueAt(cues, 3.5) == nullptr && CueAt(cues, 4.0) == &cues[1], "the cue showing at a time");
     }
 
     // a sound bound to a scene moves with it

@@ -1,5 +1,6 @@
 // a composition: a card flies in on a spring and a bar fills. `video_demo` previews it,
 // `video_demo out.mp4` renders it (`--ffmpeg` through ffmpeg), `video_demo --close 2` previews for two seconds
+#include "imshell/video_captions.hpp"
 #include "imshell/video_cli.hpp"
 #include "imshell/video_scenes.hpp"
 
@@ -9,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <vector>
 
 int main(int argc, char** argv) {
     using namespace imshell::video;
@@ -36,6 +38,17 @@ int main(int argc, char** argv) {
         ImGui::End();
     }};
     Composition comp = MakeComposition(1280, 720, 60, {card, outro});
+
+    // captions over everything: webvtt with a time before each word lights them as they are said
+    static const std::vector<Cue> cues = ParseCaptions(
+        "WEBVTT\n\n00:00.500 --> 00:02.500\nCaptions come from <00:01.000>a vtt <00:01.500>or srt <00:02.000>file\n\n"
+        "00:03.000 --> 00:05.000\nand light the words as they are said\n");
+    comp.draw = [scenes = comp.draw](const Frame& f) {
+        scenes(f);
+        CaptionStyle style;
+        style.karaoke = true;
+        DrawCaptions(f, cues, style);
+    };
 
     // timeline, frame, strip, render, preview, verify: see `imshell_video_demo help`
     return Cli(comp, argc, argv, "imshell_video_demo");
