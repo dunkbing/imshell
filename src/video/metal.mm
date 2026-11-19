@@ -5,6 +5,7 @@
 #import <CoreVideo/CoreVideo.h>
 #import <ImageIO/ImageIO.h>
 #import <Metal/Metal.h>
+#include "imshell/animation.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/video.hpp"
 #include "imgui.h"
@@ -42,6 +43,7 @@ namespace {
             io.DisplayFramebufferScale = ImVec2(1.f, 1.f);
             ImGui_ImplMetal_Init(device_);
             imshell::ApplyTheme(); // the theme is process wide, the style is per context
+            imshell::SetReduceMotion(true); // Animate jumps to its target: no value depends on the frames before
             if (comp.setup) {
                 comp.setup();
             }
@@ -53,6 +55,7 @@ namespace {
                 ImGui::SetCurrentContext(context_);
                 ImGui_ImplMetal_Shutdown();
                 ImGui::DestroyContext(context_);
+                imshell::SetReduceMotion(std::nullopt);
                 ImGui::SetCurrentContext(previous_);
             }
             if (cache_) {

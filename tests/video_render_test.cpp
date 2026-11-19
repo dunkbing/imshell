@@ -1,11 +1,13 @@
 // the metal renderer: a frame is the same picture drawn twice or after other frames, differs
 // between frames, and a render writes a playable file. needs a gpu
 #include "imgui.h"
+#include "imshell/animation.hpp"
 #include "imshell/video.hpp"
 
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 #include <sys/stat.h>
 
 namespace {
@@ -74,6 +76,24 @@ int main() {
     options.progress = [](int done, int) { return done < 3; };
     check(!imshell::video::RenderVideo(comp, base + "_cancel.mp4", options), "cancel fails the render");
     check(stat((base + "_cancel.mp4").c_str(), &st) != 0, "cancel removes the file");
+
+    // widgets that ease (Animate) jump to their target during a render, whatever frame it starts at
+    std::vector<float> seen;
+    auto easing = comp;
+    easing.draw = [&seen](const imshell::video::Frame& f) {
+        const float target = (f.index / 10) % 2 ? 1.f : 0.f;
+        seen.push_back(imshell::Animate(ImGui::GetID("fade"), target) - target);
+    };
+    setenv("IMSHELL_REDUCE_MOTION", "0", 1); // the system setting may be on; a render must not depend on it
+    check(!imshell::ReduceMotion(), "reduce motion is off before a render");
+    imshell::video::RenderFrame(easing, 5);
+    imshell::video::RenderFrame(easing, 15);
+    bool exact = seen.size() == 4;
+    for (float d : seen) {
+        exact = exact && d == 0.f;
+    }
+    check(exact, "Animate sits on its target during a render");
+    check(!imshell::ReduceMotion(), "reduce motion is handed back");
 
     if (failures == 0) {
         std::puts("video render tests passed");
