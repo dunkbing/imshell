@@ -146,7 +146,7 @@ if(TARGET imgui_rich_md)
 endif()
 
 # optional video (imshell/video.hpp): imgui to an mp4 with no window. the frame helpers are header
-# only; the renderer is metal on apple, an EGL one on linux (a d3d11 one on windows comes next)
+# only; the renderer is metal on apple, an EGL one on linux, direct3d 11 on windows
 if(APPLE)
     add_library(imshell_video STATIC src/video/metal.mm src/video/ffmpeg.cpp src/video/audio.cpp)
     add_library(imshell::video ALIAS imshell_video)
@@ -157,6 +157,11 @@ elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT IOS) # linux: desktop GL 
     add_library(imshell_video STATIC src/video/generic.cpp src/video/egl.cpp src/video/png.cpp src/video/ffmpeg.cpp src/video/audio.cpp)
     add_library(imshell::video ALIAS imshell_video)
     target_link_libraries(imshell_video PUBLIC imshell PkgConfig::IMSHELL_EPOXY)
+elseif(WIN32) # direct3d 11 offscreen (warp with no gpu), ffmpeg encodes
+    add_library(imshell_video STATIC src/video/generic.cpp src/video/d3d11.cpp src/video/png.cpp src/video/ffmpeg.cpp src/video/audio.cpp)
+    add_library(imshell::video ALIAS imshell_video)
+    target_compile_definitions(imshell_video PRIVATE NOMINMAX)
+    target_link_libraries(imshell_video PUBLIC imshell d3d11 dxgi)
 endif()
 
 # optional node editor (imshell/node_editor.hpp): imgui-node-editor, themed
