@@ -127,6 +127,10 @@ integrated for web video, true peak below -1 dBTP, no clipping, no silence you d
 listen to the mix without rendering the video with `audio render -o mix.wav`. Windows and Apple
 encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
+## Audio visualizers
+
+`imshell/video_audio_viz.hpp`: construct `AudioAnalysis analysis(comp)` after setting `comp.audio` and before assigning `comp.draw`, then in `draw` use `analysis.bands(f.time(), bands)` (e.g. 32 values 0..1), `analysis.level(f.time())` (pulse a logo or a glow) or `analysis.waveform(f.time(), 0.02, samples)`, and draw them with `DrawBars` / `DrawWave` or your own shapes. They are functions of the time, so the picture is the same when played or seeked. Smooth with `bands(..., release)` (0.8 default), not with state kept between frames.
+
 ## Captions
 
 `imshell/video_captions.hpp`: `ParseCaptions(text)` or `LoadCaptions(path, cues)` read WebVTT or SRT, and `DrawCaptions(f, cues, style)` inside `draw` shows the cue at `f.time()`. Put `<00:01.500>` before a word in a WebVTT cue to time it and set `style.karaoke = true` to light words as they are said. Size, width, position and colours are in `CaptionStyle`; the defaults are white on a dark pill at 5% of the height. Check by `frame` at the cue starts and ends: `inspect` does not look at them.
@@ -142,6 +146,6 @@ encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
 ## Not available yet
 
-Video footage as a layer, audio visualizers and shaders.
+Video footage as a layer and shaders.
 If a request needs one of these, say so and give the closest result that works instead of
 reaching for another tool.
