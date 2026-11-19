@@ -158,10 +158,10 @@ elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT IOS) # linux: desktop GL 
     add_library(imshell::video ALIAS imshell_video)
     target_link_libraries(imshell_video PUBLIC imshell PkgConfig::IMSHELL_EPOXY)
 elseif(WIN32) # direct3d 11 offscreen (warp with no gpu), ffmpeg encodes
-    add_library(imshell_video STATIC src/video/generic.cpp src/video/d3d11.cpp src/video/png.cpp src/video/ffmpeg.cpp src/video/audio.cpp src/video/preview.cpp)
+    add_library(imshell_video STATIC src/video/generic.cpp src/video/d3d11.cpp src/video/png.cpp src/video/ffmpeg.cpp src/video/audio.cpp src/video/mf.cpp src/video/preview.cpp)
     add_library(imshell::video ALIAS imshell_video)
     target_compile_definitions(imshell_video PRIVATE NOMINMAX)
-    target_link_libraries(imshell_video PUBLIC imshell d3d11 dxgi)
+    target_link_libraries(imshell_video PUBLIC imshell d3d11 dxgi mfplat mfreadwrite mfuuid ole32)
 endif()
 
 # optional node editor (imshell/node_editor.hpp): imgui-node-editor, themed
@@ -401,6 +401,10 @@ if(IMSHELL_BUILD_TESTS)
                    src/video/ffmpeg.cpp src/video/audio.cpp ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_video_generic_test PRIVATE include src/video ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_video_generic_test PRIVATE cxx_std_20)
+    if(WIN32)
+        target_sources(imshell_video_generic_test PRIVATE src/video/mf.cpp)
+        target_link_libraries(imshell_video_generic_test PRIVATE mfplat mfreadwrite mfuuid ole32)
+    endif()
     add_test(NAME imshell_video_generic_test COMMAND imshell_video_generic_test)
     if(TARGET imshell_video)
         add_executable(imshell_video_render_test tests/video_render_test.cpp ${IMSHELL_TEST_IMGUI})
