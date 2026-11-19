@@ -5,10 +5,15 @@
 #include "imshell/button.hpp"
 #include "imshell/components.hpp"
 #include "imshell/editor.hpp"
+#include "imshell/fonts.hpp"
+#include "imshell/icons.hpp"
+#include "imshell/native_controls.hpp"
 #include "imshell/select.hpp"
+#include "imshell/toggle_button.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
 
+#include <cstdio>
 #include <cstdlib>
 #include <algorithm>
 #include <cctype>
@@ -77,6 +82,58 @@ struct Gallery : imshell::Delegate {
                        "print(\"total\", total)\n");
     }
 
+    // the system's own ui font where there is one, with the native icons merged in
+    void setup() override {
+        static std::vector<char> file;
+        if (FILE* f = std::fopen("/System/Library/Fonts/SFNS.ttf", "rb")) {
+            std::fseek(f, 0, SEEK_END);
+            file.resize(static_cast<size_t>(std::ftell(f)));
+            std::rewind(f);
+            if (std::fread(file.data(), 1, file.size(), f) != file.size())
+                file.clear();
+            std::fclose(f);
+        }
+        if (!file.empty())
+            imshell::AddFont({{file.data(), file.size()}}, 15.0f);
+        else
+            imshell::MergeIcons(ImGui::GetIO().Fonts->AddFontDefault());
+    }
+
+    void nativeIcons() {
+        static const char* names[] = {"gearshape", "trash", "magnifyingglass", "plus", "folder", "doc.on.doc",
+                                      "arrow.clockwise", "square.and.arrow.up", "star", "heart", "lock", "bell"};
+        for (const char* n : names) {
+            ImGui::Text("%s", imshell::Icon(n, "?"));
+            ImGui::SameLine(0, 14);
+        }
+        ImGui::NewLine();
+        imshell::IconLabelButton(imshell::Icon("plus", "+"), "New");
+        ImGui::SameLine();
+        imshell::IconLabelButton(imshell::Icon("trash", "x"), "Delete", imshell::ButtonVariant::Destructive);
+        ImGui::SameLine();
+        imshell::IconButton(imshell::Icon("gearshape", "*"), imshell::ButtonVariant::Ghost);
+        ImGui::SameLine();
+        imshell::IconButton(imshell::Icon("magnifyingglass", "?"));
+    }
+
+    // the os's own switch and segmented control beside imshell's, to compare
+    void nativeControls() {
+        static bool nativeOn = true, ownOn = true;
+        static int nativeView = 0, ownView = 0;
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(imshell::NativeControlsAvailable() ? "Native" : "Fallback");
+        ImGui::SameLine();
+        imshell::NativeSwitch("##nativeSwitch", &nativeOn);
+        ImGui::SameLine();
+        imshell::NativeSegmented("##nativeSegments", {"List", "Grid", "Cards"}, &nativeView);
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted("imshell ");
+        ImGui::SameLine();
+        imshell::ToggleButton("##ownSwitch", &ownOn);
+        ImGui::SameLine();
+        imshell::SegmentedTabs("##ownSegments", {"List", "Grid", "Cards"}, &ownView);
+    }
+
     void frame() override {
         const auto bar = imshell::BeginTitleBar();
         const char* title = "imshell components";
@@ -91,6 +148,9 @@ struct Gallery : imshell::Delegate {
         ImGui::SetNextWindowSize(content.size);
         ImGui::Begin("gallery", nullptr, ImGuiWindowFlags_NoDecoration);
         themePicker();
+        nativeIcons();
+        nativeControls();
+        ImGui::Spacing();
         const float column = std::min(420.0f, (ImGui::GetContentRegionAvail().x - 24) / 2);
         const bool twoColumns = ImGui::GetContentRegionAvail().x > 640;
 
@@ -222,11 +282,12 @@ struct Gallery : imshell::Delegate {
             std::vector<const char*> v;
             for (const auto& t : imshell::Themes())
                 v.push_back(t.name);
+            v.push_back("System");
             return v;
         }();
         ImGui::SetNextItemWidth(220);
         if (imshell::Select("##theme", &theme, names.data(), static_cast<int>(names.size()))) {
-            imshell::SetTheme(imshell::Themes()[theme]);
+            imshell::SetTheme(theme < static_cast<int>(imshell::Themes().size()) ? imshell::Themes()[theme] : imshell::SystemTheme());
         }
         ImGui::Spacing();
     }
@@ -237,6 +298,10 @@ static Gallery gallery; // android: outlives a recreated activity
 int main() {
     const char* pick = std::getenv("IMSHELL_GALLERY_THEME"); // screenshots open one theme
     const std::string_view want = pick ? pick : "tokyo-night";
+    if (want == "system") {
+        imshell::SetTheme(imshell::SystemTheme());
+        gallery.theme = static_cast<int>(imshell::Themes().size());
+    }
     for (size_t i = 0; i < imshell::Themes().size(); ++i)
         if (want == imshell::Themes()[i].id) {
             imshell::SetTheme(imshell::Themes()[i]);

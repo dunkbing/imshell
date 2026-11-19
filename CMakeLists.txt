@@ -79,6 +79,16 @@ else()
     target_sources(imshell PRIVATE src/icons_none.cpp)
 endif()
 
+# native controls (imshell/native_controls.hpp): the os's switch and segmented control through
+# NativeView on apple; imshell's own widgets elsewhere until a platform has a backend
+target_sources(imshell PRIVATE src/native_controls.cpp)
+if(APPLE)
+    target_sources(imshell PRIVATE src/apple/native_controls.mm)
+    set_source_files_properties(src/apple/native_controls.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+else()
+    target_sources(imshell PRIVATE src/native_controls_none.cpp)
+endif()
+
 # optional components (imshell/components.hpp): a host links imshell::components to use them
 add_library(imshell_components STATIC src/components.cpp)
 add_library(imshell::components ALIAS imshell_components)
@@ -424,6 +434,11 @@ if(IMSHELL_BUILD_TESTS)
         target_link_libraries(imshell_icons_test PRIVATE Freetype::Freetype)
     endif()
     add_test(NAME imshell_icons_test COMMAND imshell_icons_test)
+    add_executable(imshell_native_controls_test tests/native_controls_test.cpp src/native_controls.cpp src/native_controls_none.cpp
+                   src/button.cpp src/toggle_button.cpp src/themes.cpp src/icons.cpp src/icons_none.cpp ${IMSHELL_TEST_IMGUI})
+    target_include_directories(imshell_native_controls_test PRIVATE include src ${IMSHELL_IMGUI_DIR})
+    target_compile_features(imshell_native_controls_test PRIVATE cxx_std_20)
+    add_test(NAME imshell_native_controls_test COMMAND imshell_native_controls_test)
     add_executable(imshell_resizable_test tests/resizable_test.cpp src/resizable.cpp ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_resizable_test PRIVATE include ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_resizable_test PRIVATE cxx_std_20)
