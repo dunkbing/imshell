@@ -29,7 +29,7 @@ namespace imshell::video {
         }
 
         // one frame, or `blur.samples` of them averaged (in the encoded values)
-        bool exposure(Rasterizer& rasterizer, const Composition& comp, int index, bool sequential, const MotionBlur& blur,
+        bool exposureOnly(Rasterizer& rasterizer, const Composition& comp, int index, bool sequential, const MotionBlur& blur,
                       std::vector<unsigned char>& rgba) {
             const int samples = std::max(blur.samples, 1);
             if (samples == 1) {
@@ -58,6 +58,19 @@ namespace imshell::video {
             }
             if (comp.transparent) {
                 Unpremultiply(rgba);
+            }
+            return true;
+        }
+
+        // the finished frame: the exposure, then Composition::post
+        bool exposure(Rasterizer& rasterizer, const Composition& comp, int index, bool sequential, const MotionBlur& blur, std::vector<unsigned char>& rgba) {
+            if (!exposureOnly(rasterizer, comp, index, sequential, blur, rgba)) {
+                return false;
+            }
+            if (comp.post) {
+                Image image{comp.width, comp.height, std::move(rgba)};
+                ApplyPost(comp, index, image);
+                rgba = std::move(image.rgba);
             }
             return true;
         }
@@ -239,7 +252,7 @@ namespace imshell::video {
             }
             std::vector<unsigned char> rgba;
             for (int n = 0; !wanted.empty() && n <= *wanted.rbegin(); ++n) {
-                if (!rasterizer->render(n, true, 0.f, rgba)) {
+                if (!exposure(*rasterizer, comp, n, true, MotionBlur{}, rgba)) { // as a render makes it: straight alpha, then post
                     if (report) {
                         *report = "drawing frame " + std::to_string(n) + " failed";
                     }

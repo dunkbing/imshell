@@ -174,6 +174,11 @@ namespace imshell::video {
                 ImGuiContext* app = ImGui::GetCurrentContext();
                 bool ok = false;
                 worker_.run([&] { ok = rasterizer_->render(n, false, 0.f, rgba_); });
+                if (ok && comp_.post) {
+                    Image image{comp_.width, comp_.height, std::move(rgba_)};
+                    ApplyPost(comp_, n, image);
+                    rgba_ = std::move(image.rgba);
+                }
                 ImGui::SetCurrentContext(app);
                 if (!ok || rgba_.size() != static_cast<size_t>(texture_.GetSizeInBytes())) {
                     return;

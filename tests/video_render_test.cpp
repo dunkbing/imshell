@@ -7,6 +7,7 @@
 #include "imshell/video_captions.hpp"
 #include "imshell/video_footage.hpp"
 #include "imshell/video_check.hpp"
+#include "imshell/video_effects.hpp"
 #include "video_test_util.hpp"
 
 #include <array>
@@ -453,6 +454,40 @@ int main() {
         const int checkFrames[] = {0, 5, 20, 33};
         check(Verify(c, checkFrames, &report), ("playing and seeking footage agree: " + report).c_str());
         std::remove(clip.c_str());
+    }
+
+    // Composition::post runs on every finished frame: what a render, a single frame and verify all see
+    {
+        using namespace imshell::video;
+        Composition c;
+        c.width = 320;
+        c.height = 180;
+        c.fps = 30;
+        c.frames = 12;
+        c.draw = [](const Frame& f) {
+            ImDrawList* dl = ImGui::GetForegroundDrawList();
+            dl->AddRectFilled(ImVec2(0.f, 0.f), ImVec2(320.f, 180.f), IM_COL32(200, 200, 200, 255));
+            dl->AddRectFilled(ImVec2(20.f + 10.f * static_cast<float>(f.index), 40.f), ImVec2(80.f + 10.f * static_cast<float>(f.index), 100.f), IM_COL32(40, 120, 255, 255));
+        };
+        const Image plain = RenderFrame(c, 4, &error);
+        c.post = [](const Frame& f, Image& image) {
+            Vignette(image, 0.9f, 0.2f);
+            Grain(image, 0.03f, static_cast<uint32_t>(f.index));
+        };
+        const Image styled = RenderFrame(c, 4, &error);
+        check(plain.width == 320 && styled.width == 320 && plain.rgba != styled.rgba, "post changes the frame");
+        const size_t corner = 0, middle = (static_cast<size_t>(90) * 320 + 160) * 4;
+        check(styled.rgba[corner] < plain.rgba[corner] && std::abs(styled.rgba[middle] - plain.rgba[middle]) < 12, "the vignette darkens the corner and leaves the middle");
+        const int checkFrames[] = {0, 3, 7, 11};
+        std::string report;
+        check(Verify(c, checkFrames, &report), ("playing and seeking agree with post (grain by frame): " + report).c_str());
+        const Image later = RenderFrame(c, 5, &error);
+        check(later.rgba != styled.rgba, "post sees the frame index (the grain moves)");
+        Composition t = c;
+        t.transparent = true;
+        t.post = [](const Frame&, Image& image) { Grade(image, 0.f, 1.f, 0.f); };
+        const Image grey = RenderFrame(t, 4, &error);
+        check(grey.width == 320 && grey.rgba[middle] == grey.rgba[middle + 1] && grey.rgba[middle + 1] == grey.rgba[middle + 2] && grey.rgba[middle + 3] == 255, "post runs on transparent frames too (straight rgba)");
     }
 
     if (failures == 0) {
