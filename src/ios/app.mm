@@ -8,6 +8,7 @@
 #include "imshell/tab_bar.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/text_input.hpp"
+#include "../native_menu.hpp"
 #include "../native_view.hpp"
 #include "../touch.hpp"
 
@@ -921,6 +922,7 @@ namespace imshell {
                 [commands commit];
             }
             detail::placeNativeViews();
+            detail::runNativeMenus(); // after the frame: a menu may open at the touch
         }
         settle(impl_->delegate->wantsFrames() || touch::animating() || detail::isImGuiUserActive() ||
                ImGui::GetCurrentContext()->InputEventsQueue.Size > 0); // queued input: a frame each

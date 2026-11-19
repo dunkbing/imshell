@@ -76,15 +76,13 @@ namespace imshell {
             std::vector<Pending> now;
             now.swap(gPending);
             for (const Pending& p : now) {
-                const int chosen = nativeMenuPopUp(p.items, p.pos);
-                if (chosen >= 0)
-                    gChosen[p.key] = chosen;
+                const ImGuiID key = p.key;
+                nativeMenuPopUp(p.items, p.pos, [key](int chosen) {
+                    if (chosen >= 0)
+                        gChosen[key] = chosen;
+                    requestFrames(); // show the pick
+                });
             }
-            // the os swallowed the button's release: imgui must not think a button is still down
-            ImGuiIO& io = ImGui::GetIO();
-            io.AddMouseButtonEvent(ImGuiMouseButton_Left, false);
-            io.AddMouseButtonEvent(ImGuiMouseButton_Right, false);
-            requestFrames(); // show the pick
         }
     } // namespace detail
 } // namespace imshell

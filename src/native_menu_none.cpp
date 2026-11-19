@@ -6,8 +6,8 @@ namespace imshell::detail {
         return false;
     }
 
-    int nativeMenuPopUp(const std::vector<NativeMenuItem>&, ImVec2) {
-        return -1;
+    void nativeMenuPopUp(const std::vector<NativeMenuItem>&, ImVec2, const std::function<void(int)>& done) {
+        done(-1);
     }
 
     int nativeMenuPick(const std::vector<NativeMenuItem>&, const std::vector<int>&) {
