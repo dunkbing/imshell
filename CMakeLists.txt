@@ -33,6 +33,7 @@ add_library(imshell STATIC
     src/select.cpp
     src/resizable.cpp
     src/spinner.cpp
+    src/text.cpp
     src/themes.cpp
     src/toggle_button.cpp
 )
@@ -538,6 +539,10 @@ if(IMSHELL_BUILD_TESTS)
     target_compile_features(imshell_resizable_test PRIVATE cxx_std_20)
     target_compile_definitions(imshell_resizable_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
     add_test(NAME imshell_resizable_test COMMAND imshell_resizable_test)
+    add_executable(imshell_text_test tests/text_test.cpp src/text.cpp ${IMSHELL_TEST_IMGUI})
+    target_include_directories(imshell_text_test PRIVATE include ${IMSHELL_IMGUI_DIR})
+    target_compile_features(imshell_text_test PRIVATE cxx_std_20)
+    add_test(NAME imshell_text_test COMMAND imshell_text_test)
     add_executable(imshell_editor_test tests/editor_test.cpp src/editor.cpp src/button.cpp ${IMSHELL_MOTION_SOURCES} src/themes.cpp ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_editor_test PRIVATE include ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_editor_test PRIVATE cxx_std_20)
