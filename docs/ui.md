@@ -190,7 +190,7 @@ The material is an `NSVisualEffectView` the shell places under the Metal layer, 
 One region per window; a frame that does not call it removes it, and while a region shows the window is cleared transparent, with the window's own background colour behind, so windows that cover the whole area should draw their own background.
 Materials: `Sidebar`, `Header`, `Menu`, `Popover`, `Titlebar`, `Window`, `Content`, `Hud`, `Sheet`.
 macOS only for now: elsewhere `VibrancyAvailable()` is false and `Vibrancy` does nothing, so the host keeps its opaque sidebar.
-The gallery has a "Sidebar vibrancy" toggle (`IMSHELL_GALLERY_VIBRANCY=1` starts with it).
+The gallery has a "Sidebar" toggle (`IMSHELL_GALLERY_VIBRANCY=1` starts with it), a fold button in the title bar and a draggable right edge.
 
 ## Native icons (`imshell/icons.hpp`)
 
