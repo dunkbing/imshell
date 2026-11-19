@@ -2,6 +2,7 @@
 // `video_demo out.mp4` renders it (`--ffmpeg` through ffmpeg), `video_demo --close 2` previews for two seconds
 #include "imshell/video_captions.hpp"
 #include "imshell/video_cli.hpp"
+#include "imshell/video_effects.hpp"
 #include "imshell/video_footage.hpp"
 #include "imshell/video_scenes.hpp"
 
@@ -57,6 +58,17 @@ int main(int argc, char** argv) {
         style.karaoke = true;
         DrawCaptions(f, cues, style);
     };
+
+    // DEMO_FX=1 adds a look: glow, a little colour fringing, grade, vignette and grain that moves
+    if (std::getenv("DEMO_FX")) {
+        comp.post = [](const Frame& f, Image& image) {
+            Glow(image, 0.6f, 0.02f, 0.7f);
+            Chromatic(image, 0.003f);
+            Grade(image, 0.f, 1.1f, 1.15f);
+            Vignette(image, 0.6f, 0.5f);
+            Grain(image, 0.03f, static_cast<uint32_t>(f.index));
+        };
+    }
 
     // timeline, frame, strip, render, preview, verify: see `imshell_video_demo help`
     return Cli(comp, argc, argv, "imshell_video_demo");

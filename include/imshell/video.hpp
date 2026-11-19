@@ -50,6 +50,8 @@ namespace imshell::video {
         int frames = 0;
     };
 
+    struct Image;
+
     struct Composition {
         int width = 1920;
         int height = 1080;
@@ -60,6 +62,8 @@ namespace imshell::video {
         std::vector<AudioClip> audio;          // no clips, no audio track
         std::vector<Mark> marks;               // optional: the scenes, for the command line
         bool transparent = false;              // clear to transparent instead of black; Image and the png/ffmpeg output carry straight alpha (h264 and hevc cannot hold it: prores, vp9 or png images)
+        // runs on every finished frame (render, frame, preview, inspect): imshell/video_effects.hpp has the filters. straight rgba, any size change is ignored
+        std::function<void(const Frame&, Image&)> post;
     };
 
     // the clips with `start` on the whole timeline: a clip with a scene counts from that scene's first frame; a name no Mark has leaves it
@@ -83,6 +87,17 @@ namespace imshell::video {
         int height = 0;
         std::vector<unsigned char> rgba;
     };
+
+    // a finished frame through Composition::post (straight rgba in the image)
+    inline void ApplyPost(const Composition& comp, int index, Image& image) {
+        if (!comp.post) {
+            return;
+        }
+        const Frame frame{.index = index, .frames = comp.frames, .fps = comp.fps, .width = comp.width, .height = comp.height, .sequential = true};
+        const size_t size = image.rgba.size();
+        comp.post(frame, image);
+        image.rgba.resize(size); // a filter that changed the size would break the encoder
+    }
 
     // the renderers leave colour premultiplied by alpha (ImGui's blending); images and encoders want it straight
     inline void Unpremultiply(std::vector<unsigned char>& rgba) {

@@ -203,7 +203,7 @@ namespace {
 
         bool ok() const { return samples_ == 1 || scratch_; }
 
-        bool draw(Renderer& renderer, int index, bool sequential, CVPixelBufferRef target) {
+        bool drawOnly(Renderer& renderer, int index, bool sequential, CVPixelBufferRef target) {
             if (samples_ == 1) {
                 return renderer.draw(index, sequential, target);
             }
@@ -238,6 +238,33 @@ namespace {
                 }
             }
             CVPixelBufferUnlockBaseAddress(target, 0);
+            return true;
+        }
+
+        // the exposure, then Composition::post on the pixels in place (straight rgba for the filter, the buffer's own form after)
+        bool draw(Renderer& renderer, int index, bool sequential, CVPixelBufferRef target) {
+            if (!drawOnly(renderer, index, sequential, target)) {
+                return false;
+            }
+            if (comp_.post) {
+                Image image = readImage(target, comp_);
+                ApplyPost(comp_, index, image);
+                CVPixelBufferLockBaseAddress(target, 0);
+                auto* dst = static_cast<unsigned char*>(CVPixelBufferGetBaseAddress(target));
+                const size_t stride = CVPixelBufferGetBytesPerRow(target);
+                for (int y = 0; y < comp_.height; ++y) {
+                    const unsigned char* in = &image.rgba[static_cast<size_t>(y) * comp_.width * 4];
+                    unsigned char* out = dst + y * stride;
+                    for (int x = 0; x < comp_.width; ++x) { // rgba back to bgra, premultiplied again when the frame is transparent
+                        const unsigned a = in[x * 4 + 3], k = comp_.transparent ? a : 255;
+                        out[x * 4 + 0] = static_cast<unsigned char>((in[x * 4 + 2] * k + 127) / 255);
+                        out[x * 4 + 1] = static_cast<unsigned char>((in[x * 4 + 1] * k + 127) / 255);
+                        out[x * 4 + 2] = static_cast<unsigned char>((in[x * 4 + 0] * k + 127) / 255);
+                        out[x * 4 + 3] = static_cast<unsigned char>(a);
+                    }
+                }
+                CVPixelBufferUnlockBaseAddress(target, 0);
+            }
             return true;
         }
 
@@ -599,6 +626,7 @@ bool Verify(const Composition& comp, std::span<const int> frames, std::string* r
         std::map<int, Image> played;
         {
             Renderer renderer(comp);
+            Exposure exposure(comp, MotionBlur{});
             CVPixelBufferRef buffer = makeBuffer(comp);
             if (!renderer.ok() || !buffer) {
                 if (report) {
@@ -607,7 +635,7 @@ bool Verify(const Composition& comp, std::span<const int> frames, std::string* r
                 return false;
             }
             for (int n = 0; !wanted.empty() && n <= *wanted.rbegin(); ++n) {
-                if (!renderer.draw(n, true, buffer)) {
+                if (!exposure.draw(renderer, n, true, buffer)) { // as a render makes it, post included
                     CVPixelBufferRelease(buffer);
                     if (report) {
                         *report = "drawing frame " + std::to_string(n) + " failed";

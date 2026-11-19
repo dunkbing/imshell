@@ -4,6 +4,7 @@
 #include "imshell/video_audio_viz.hpp"
 #include "imshell/video_captions.hpp"
 #include "imshell/video_check.hpp"
+#include "imshell/video_effects.hpp"
 #include "imshell/video_cli.hpp"
 #include "imshell/video_scenes.hpp"
 #include "video_test_util.hpp"
@@ -104,6 +105,21 @@ int main() {
     gDrift = true;
     check(!Verify(comp, probe, &report) && report.find("frame 4") != std::string::npos, "drift is caught");
     gDrift = false;
+
+    // Composition::post: the finished frame (after blur) gets the frame index in green, and verify sees it on both sides
+    {
+        Composition styled = comp;
+        styled.post = [](const Frame& f, Image& image) {
+            for (size_t i = 0; i < image.rgba.size(); i += 4) {
+                image.rgba[i + 1] = static_cast<unsigned char>(f.index);
+            }
+        };
+        check(RenderFrame(styled, 3).rgba[1] == 3 && RenderFrame(styled, 3).rgba[0] == 30, "post sees the frame index and keeps the rest");
+        check(RenderFrame(styled, 3, MotionBlur{2, 0.5f}).rgba[1] == 3 && RenderFrame(styled, 3, MotionBlur{2, 0.5f}).rgba[0] == 80, "post runs once, after the blur is averaged");
+        check(Verify(styled, probe, &report), ("playing and seeking agree with post: " + report).c_str());
+        styled.post = [](const Frame&, Image& image) { image.rgba.resize(4); };
+        check(RenderFrame(styled, 3).rgba.size() == static_cast<size_t>(64) * comp.height * 4, "a filter cannot change the picture's size");
+    }
 
     // the png writer: a file other tools read
     const std::string dir = videotest::tempDir();
@@ -252,6 +268,98 @@ int main() {
         a.waveform(1.0, 0.01, wave);
         check(*std::max_element(wave.begin(), wave.end()) > 0.45f && *std::min_element(wave.begin(), wave.end()) < -0.45f, "the waveform reaches the amplitude");
         check(AudioAnalysis(std::vector<float>{}).level(1.0) == 0.f, "no sound is level 0");
+    }
+
+    // effects: pure filters on an image
+    {
+        auto solid = [](int w, int h, unsigned char r, unsigned char g, unsigned char b) {
+            Image im;
+            im.width = w;
+            im.height = h;
+            im.rgba.resize(static_cast<size_t>(w) * h * 4);
+            for (size_t i = 0; i < im.rgba.size(); i += 4) {
+                im.rgba[i] = r;
+                im.rgba[i + 1] = g;
+                im.rgba[i + 2] = b;
+                im.rgba[i + 3] = 255;
+            }
+            return im;
+        };
+        auto at = [](Image& im, int x, int y) { return &im.rgba[(static_cast<size_t>(y) * im.width + x) * 4]; };
+
+        Image a = solid(100, 100, 120, 80, 200);
+        const Image original = a;
+        Grade(a);
+        check(a.rgba == original.rgba, "Grade with defaults changes nothing");
+        Grade(a, 0.f, 1.f, 0.f);
+        check(at(a, 5, 5)[0] == at(a, 5, 5)[1] && at(a, 5, 5)[1] == at(a, 5, 5)[2], "saturation 0 is grey");
+        Image b = original;
+        Grade(b, 0.2f);
+        check(at(b, 5, 5)[0] > 120 && at(b, 5, 5)[3] == 255, "brightness lifts and leaves alpha");
+
+        Image v = solid(200, 100, 200, 200, 200);
+        Vignette(v, 0.8f, 0.3f);
+        check(at(v, 100, 50)[0] == 200 && at(v, 1, 1)[0] < 120, "a vignette leaves the middle and darkens the corner");
+
+        Image g1 = solid(64, 64, 128, 128, 128), g2 = g1, g3 = g1;
+        Grain(g1, 0.1f, 7);
+        Grain(g2, 0.1f, 7);
+        Grain(g3, 0.1f, 8);
+        long sum = 0;
+        for (size_t i = 0; i < g1.rgba.size(); i += 4) {
+            sum += g1.rgba[i];
+        }
+        check(g1.rgba == g2.rgba && g1.rgba != g3.rgba && g1.rgba != solid(64, 64, 128, 128, 128).rgba, "grain: same seed same noise, another seed another");
+        check(std::labs(sum / (64 * 64) - 128) < 4, "grain is noise around the picture, not a shift");
+
+        Image dot = solid(101, 101, 0, 0, 0);
+        at(dot, 50, 50)[0] = at(dot, 50, 50)[1] = at(dot, 50, 50)[2] = 255;
+        Blur(dot, 0.05f);
+        check(at(dot, 50, 50)[0] < 255 && at(dot, 53, 50)[0] > 0 && at(dot, 0, 0)[0] == 0, "a blur spreads a dot but not across the whole picture");
+        Image still = solid(50, 50, 90, 90, 90);
+        Blur(still, 0.1f);
+        check(at(still, 25, 25)[0] == 90 && at(still, 0, 0)[0] == 90, "a blur leaves a flat picture alone");
+        Image clear = solid(50, 50, 255, 0, 0);
+        for (size_t i = 3; i < clear.rgba.size(); i += 4) {
+            clear.rgba[i] = 0;
+        }
+        Blur(clear, 0.1f);
+        check(at(clear, 25, 25)[3] == 0 && at(clear, 25, 25)[0] == 0, "a fully transparent picture stays so");
+
+        Image halo = solid(101, 101, 0, 0, 0);
+        for (int y = 48; y < 53; ++y) {
+            for (int x = 48; x < 53; ++x) {
+                at(halo, x, y)[0] = at(halo, x, y)[1] = at(halo, x, y)[2] = 255;
+            }
+        }
+        Glow(halo, 0.5f, 0.05f, 1.f);
+        check(at(halo, 56, 50)[0] > 0 && at(halo, 0, 0)[0] == 0 && at(halo, 50, 50)[0] == 255, "glow lights the neighbours of something bright");
+        Image dark = solid(40, 40, 30, 30, 30);
+        Glow(dark, 0.5f, 0.1f, 1.f);
+        check(at(dark, 10, 10)[0] == 30, "nothing below the threshold glows");
+
+        Image edge = solid(100, 100, 0, 0, 0);
+        for (int y = 0; y < 100; ++y) {
+            for (int x = 50; x < 100; ++x) {
+                at(edge, x, y)[0] = at(edge, x, y)[1] = at(edge, x, y)[2] = 255;
+            }
+        }
+        Chromatic(edge, 0.03f);
+        check(at(edge, 48, 50)[0] == 255 && at(edge, 48, 50)[2] == 0 && at(edge, 52, 50)[2] == 0 && at(edge, 54, 50)[2] == 255, "chromatic: red reaches the edge three pixels early, blue three late");
+
+        Image blocks = solid(40, 40, 0, 0, 0);
+        for (int y = 0; y < 40; ++y) {
+            for (int x = 0; x < 40; ++x) {
+                at(blocks, x, y)[0] = static_cast<unsigned char>(x * 6);
+            }
+        }
+        Pixelate(blocks, 0.25f);
+        check(at(blocks, 0, 0)[0] == at(blocks, 9, 9)[0] && at(blocks, 0, 0)[0] != at(blocks, 12, 0)[0], "pixelate: a block is one colour, the next is another");
+        Image tiny = solid(10, 10, 5, 5, 5);
+        Pixelate(tiny, 0.f);
+        Blur(tiny, 0.f);
+        Chromatic(tiny, 0.f);
+        check(at(tiny, 3, 3)[0] == 5, "zero sizes are no-ops");
     }
 
     // a sound bound to a scene moves with it

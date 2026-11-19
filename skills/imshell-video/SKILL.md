@@ -135,6 +135,10 @@ encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
 `imshell/video_footage.hpp`: `Footage clip("shot.mp4", comp.fps, 1280)` before `draw` is assigned (check `clip.ok()` and `clip.error()`), then `clip.Draw(ImGui::GetWindowDrawList(), t, pos, size, Fit::Cover, IM_COL32_WHITE, 12.f)` inside a window or on the foreground/background list, with `t` the seconds into the clip (`f.time() - 3.0` starts it at 3 s; `Interpolate` the time to slow or freeze it). Give the clip's own sound as an `AudioClip` with the same path, `start` where the footage starts. It needs the `ffmpeg` binary on the machine that renders, decodes at most `maxWidth` wide (smaller is faster), and a sequential render is much faster than jumping around, so `frame` on footage takes a moment per time. Check with `frame` at several times, then `verify`.
 
+## Effects
+
+`imshell/video_effects.hpp` and `comp.post = [](const Frame& f, Image& image) { ... }`: `Grade(image, brightness, contrast, saturation, gamma)`, `Vignette(image, strength, radius)`, `Grain(image, amount, f.index)`, `Blur(image, radius)`, `Glow(image, threshold, radius, intensity)`, `Chromatic(image, shift)`, `Pixelate(image, cell)`. Sizes are fractions of the height. Order matters (glow before grade, grain and vignette last). Use them to give a whole video one look, or animate a parameter from `f.progress()` or `Interpolate(f.position(), ...)` (a blur that clears as a scene arrives, a pixelate that resolves). Everything is a function of `f`, so `verify` still holds; the cost is about 50 ms per 720p frame for a five-effect chain, so judge a look on `frame` and `strip` and use `--draft` while iterating.
+
 ## Captions
 
 `imshell/video_captions.hpp`: `ParseCaptions(text)` or `LoadCaptions(path, cues)` read WebVTT or SRT, and `DrawCaptions(f, cues, style)` inside `draw` shows the cue at `f.time()`. Put `<00:01.500>` before a word in a WebVTT cue to time it and set `style.karaoke = true` to light words as they are said. Size, width, position and colours are in `CaptionStyle`; the defaults are white on a dark pill at 5% of the height. Check by `frame` at the cue starts and ends: `inspect` does not look at them.
@@ -150,6 +154,6 @@ encode natively; Linux, and `--ffmpeg` anywhere, need `ffmpeg` on `PATH`.
 
 ## Not available yet
 
-Shaders.
-If a request needs one of these, say so and give the closest result that works instead of
+GPU shader programs: use the CPU effects in `Composition::post` instead.
+If a request needs it, say so and give the closest result that works instead of
 reaching for another tool.
