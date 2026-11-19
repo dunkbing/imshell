@@ -370,7 +370,7 @@ namespace imshell {
         ImGuiStyle& style = ImGui::GetStyle();
 
         style.WindowPadding = ImVec2(16.0f, 16.0f);
-        style.FramePadding = ImVec2(8.0f, 6.0f);
+        style.FramePadding = t.metrics.framePadding;
         style.CellPadding = ImVec2(8.0f, 6.0f);
         style.ItemSpacing = ImVec2(8.0f, 8.0f);
         style.ItemInnerSpacing = ImVec2(6.0f, 6.0f);
@@ -401,8 +401,19 @@ namespace imshell {
         style.SelectableTextAlign = ImVec2(0.0f, 0.5f);
 
         style.Alpha = 1.0f;
-        style.DisabledAlpha = 0.5f;
+        style.DisabledAlpha = t.metrics.disabledAlpha;
         style.WindowMinSize = ImVec2(200.0f, 200.0f);
+
+        // a theme with its own text size sets it; the host's comes back with the next theme that has none
+        static float hostFontSize = 0.0f;
+        if (t.metrics.fontSize > 0.0f) {
+            if (hostFontSize == 0.0f)
+                hostFontSize = style.FontSizeBase;
+            style.FontSizeBase = t.metrics.fontSize;
+        } else if (hostFontSize > 0.0f) {
+            style.FontSizeBase = hostFontSize;
+            hostFontSize = 0.0f;
+        }
 
         const ImVec4 clear(0, 0, 0, 0);
         ImVec4* c = style.Colors;

@@ -11,3 +11,6 @@
 [submodule "external/imgui-node-editor"]
 	path = external/imgui-node-editor
 	url = https://github.com/dunkbing/imgui-node-editor.git
+[submodule "external/imanim"]
+	path = external/imanim
+	url = https://github.com/soufianekhiat/ImAnim.git

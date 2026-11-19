@@ -3,6 +3,7 @@
 #include "imgui_internal.h" // ImTextCharFromUtf8
 #include <cmath>
 
+#include "imshell/animation.hpp"
 #include "imshell/themes.hpp"
 
 using namespace imshell;
@@ -34,6 +35,26 @@ namespace {
 
     void popVariantColors(int pushed) {
         ImGui::PopStyleColor(pushed);
+    }
+
+    // eases the fill between the style's rest, hovered and pressed colors with a spring. the
+    // three style colors are set to one value, so imgui draws whichever state the button is in
+    // with it; the state is last frame's (the button is not drawn yet). pops with PopStyleColor(3)
+    void pushEasedFill(const char* label) {
+        const ImGuiID id = ImGui::GetID(label);
+        ImGuiContext& g = *GImGui;
+        // a finger's hover is not a hover: it would stay lit after a tap
+        const bool hovered = g.HoveredIdPreviousFrame == id && g.IO.MouseSource != ImGuiMouseSource_TouchScreen;
+        const bool pressed = g.ActiveId == id;
+        const ImVec4 rest = ImGui::GetStyleColorVec4(ImGuiCol_Button);
+        const ImVec4 over = ImGui::GetStyleColorVec4(ImGuiCol_ButtonHovered);
+        const ImVec4 down = ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive);
+        // a clear rest fades in from the hovered color, not through black
+        const ImVec4 from = rest.w <= 0.0f ? WithAlpha(over, 0.0f) : rest;
+        const ImVec4 fill = AnimateColor(ImHashStr("imshell.button", 0, id), pressed ? down : hovered ? over : from);
+        ImGui::PushStyleColor(ImGuiCol_Button, fill);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, fill);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, fill);
     }
 
     // an icon button is transparent at rest; primary and destructive tint on hover
@@ -84,7 +105,9 @@ bool imshell::Button(const char* label, ButtonVariant variant, const ImVec2& siz
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, Radius::Md);
     const int pushed = pushVariantColors(variant);
     drawButtonShadow(label, size, ImGui::GetStyle().FramePadding);
+    pushEasedFill(label);
     const bool clicked = ImGui::Button(label, size);
+    ImGui::PopStyleColor(3);
     popVariantColors(pushed);
     ImGui::PopStyleVar(2);
     return clicked;
@@ -95,7 +118,9 @@ bool imshell::SmallButton(const char* label, ButtonVariant variant) {
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, Radius::Md);
     const int pushed = pushVariantColors(variant);
     drawButtonShadow(label, ImVec2(0.0f, 0.0f), ImVec2(ImGui::GetStyle().FramePadding.x, 0.0f));
+    pushEasedFill(label);
     const bool clicked = ImGui::SmallButton(label);
+    ImGui::PopStyleColor(3);
     popVariantColors(pushed);
     ImGui::PopStyleVar(2);
     return clicked;
@@ -118,14 +143,17 @@ bool imshell::IconButton(const char* icon, ButtonVariant variant, const ImVec2& 
         // the label stays the id (lookups by label keep working), drawn clear
         const ImU32 text = ImGui::GetColorU32(ImGuiCol_Text);
         ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 0, 0, 0));
+        pushEasedFill(icon);
         clicked = ImGui::Button(icon, size);
-        ImGui::PopStyleColor();
+        ImGui::PopStyleColor(4);
         const ImVec2 min = ImGui::GetItemRectMin(), max = ImGui::GetItemRectMax();
         const ImVec2 at(std::round((min.x + max.x) * 0.5f - (glyph->X0 + glyph->X1) * 0.5f),
                         std::round((min.y + max.y) * 0.5f - (glyph->Y0 + glyph->Y1) * 0.5f));
         ImGui::GetWindowDrawList()->AddText(ImGui::GetFont(), ImGui::GetFontSize(), at, text, icon);
     } else {
+        pushEasedFill(icon);
         clicked = buttonSize == ButtonSize::Small ? ImGui::SmallButton(icon) : ImGui::Button(icon, size);
+        ImGui::PopStyleColor(3);
     }
     ImGui::PopStyleColor(3);
     ImGui::PopStyleVar(2);
@@ -146,7 +174,9 @@ bool imshell::IconLabelButton(const char* icon, const char* label, ButtonVariant
     ImGui::PushStyleVar(ImGuiStyleVar_ButtonTextAlign, ImVec2(1.0f, 0.5f));
     const int pushed = pushVariantColors(variant);
     drawButtonShadow(label, size, pad);
+    pushEasedFill(label);
     const bool clicked = ImGui::Button(label, size);
+    ImGui::PopStyleColor(3);
     const ImVec2 min = ImGui::GetItemRectMin();
     ImGui::GetWindowDrawList()->AddText(font, iconSize,
                                         ImVec2(min.x + pad.x, min.y + (size.y - iconSize) * 0.5f),
@@ -172,11 +202,12 @@ bool imshell::SegmentedTabs(const char* id, std::initializer_list<const char*> l
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, selected ? t.accent : Hovered(t.muted));
         ImGui::PushStyleColor(ImGuiCol_ButtonActive, Pressed(t.accent));
         ImGui::PushStyleColor(ImGuiCol_Text, selected ? t.foreground : t.mutedForeground);
+        pushEasedFill(label);
         if (ImGui::Button(label) && !selected) {
             *current = i;
             changed = true;
         }
-        ImGui::PopStyleColor(4);
+        ImGui::PopStyleColor(7);
         ++i;
     }
     ImGui::PopStyleVar(2);

@@ -32,6 +32,11 @@ States come from the role: `Hovered(c)` and `Pressed(c)` step a fill toward the 
 Set it with `SetTheme(SystemTheme())`; while it is current the shell rebuilds it when the user switches light or dark or picks another accent, and leaves the window's own appearance unset so AppKit follows the system.
 Elsewhere `SystemThemeAvailable()` is false and `SystemTheme()` returns the first preset, so an app can offer "System" only where it exists.
 
+`Theme::metrics` holds the sizes a theme is built for: the text size, the padding inside a control (its height is the text's plus twice the vertical padding) and how much of a disabled control shows.
+The presets keep imshell's (a host's own text size, 8 x 6 padding, half); `SystemTheme()` measures AppKit's regular controls on macOS (13 pt text, the padding that makes a control as tall as `NSButton`, disabled text as faint as `disabledControlTextColor`), so a button here is as tall as a native one on the version of macOS it runs on.
+`ApplyTheme()` puts them into ImGui's style, and the host's text size comes back with the next theme that sets none.
+Corner radii are not part of it: AppKit does not report them, so they stay `Radius::*`.
+
 `ApplyTheme()` styles ImGui from the current theme; the shells call it, `SetTheme` too once a context exists. `Themes()` lists the presets for a picker. The library does not look themes up by name or save the pick: an app keeps `t.id` and finds it again (`std::string_view(t.id) == saved`). `SetTheme` copies the theme, so an app can start from a preset, change roles and set that.
 
 Sizes: `Radius::Sm` (4, tags and small controls), `Md` (6, controls and popups), `Lg` (8, cards and containers), `Full` (pills). `Spacing::XS` (2), `S` (4), `M` (8), `L` (16), `XL` (20); `Theme::Spacing` and `Theme::Radius` are the same.
@@ -143,6 +148,30 @@ imshell::OpenDialog({.filters = {{"CSV files", "csv,tsv"}, {"All files", "*"}}, 
 | Folder (`directory`) | the system folder picker | `DocumentsDir()`, at once |
 
 On iOS the documents folder shows in the Files app under the app's name. Filters become content types (iOS) or MIME types (Android, from a short table; anything else allows any file). On the desktops, link Native File Dialog Extended (vcpkg `nativefiledialog-extended`); imshell finds it with `find_package(nfd)`.
+
+## Animation engine (`imshell/anim.hpp`)
+
+For more than a spring, link `imshell::anim`: it builds [ImAnim](https://github.com/soufianekhiat/ImAnim) (the `external/imanim` submodule, MIT) with tweens, keyframe clips, paths, noise and OKLAB colour blending, and ties it to the frame loop.
+Call `imshell::anim::BeginFrame()` once per frame after `ImGui::NewFrame()`, then use ImAnim's own API (`iam_tween_float` and the rest; its docs are in the submodule).
+ImAnim does not say when it is idle and an idle imshell app sleeps, so wrap a tween's result in `imshell::anim::Settle(value, target)`: it returns the value and asks for frames until it reaches the target.
+A clip that plays calls `imshell::requestFrames()` itself while it does.
+`IMSHELL_IMANIM_DIR` points at another copy of ImAnim.
+
+## Animation (`imshell/animation.hpp`)
+
+`Animate(id, target)` returns a value that chases its target with a spring, for a hover, a press, a panel opening:
+
+```cpp
+const float lift = imshell::Animate(ImGui::GetItemID(), ImGui::IsItemHovered() ? 1.0f : 0.0f);
+const ImVec4 fill = imshell::AnimateColor(id, hovered ? t.accent : t.secondary);
+```
+
+The state is kept by id, so there is nothing to store; the first call for an id starts at the target, so nothing animates on first sight.
+A `Spring` is a `response` (seconds for one swing, smaller is snappier) and a `damping` (1 settles without overshoot, below 1 bounces); `kSnappy`, `kSmooth` and `kBouncy` are the presets.
+A target that changes mid-way keeps the spring's velocity, so a hover that ends half-way turns back smoothly instead of jumping.
+While a value moves the loop is asked for frames, and once it settles it stops, so an idle app still sleeps; `Animating()` says whether anything moves.
+With the system's reduce motion setting on (macOS and iOS; `IMSHELL_REDUCE_MOTION=1` or `0` overrides it everywhere) values jump to their target.
+`SnapAnimation(id, value)` jumps an id with no motion, for a row that was recycled for another item.
 
 ## Native icons (`imshell/icons.hpp`)
 
