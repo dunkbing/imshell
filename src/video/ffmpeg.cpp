@@ -29,6 +29,16 @@ namespace imshell::video {
 #endif
     }
 
+    // cmd.exe drops the first and last quote of a line that starts with one, which would unquote a
+    // quoted ffmpeg path: wrap the whole line once more
+    static std::string ShellCommand(const std::string& command) {
+#ifdef _WIN32
+        return "\"" + command + "\"";
+#else
+        return command;
+#endif
+    }
+
     bool FfmpegPipe::open(const std::string& ffmpeg, int width, int height, int fps, const std::string& path, const std::string& audioFile,
                           std::string* error) {
         close();
@@ -43,7 +53,7 @@ namespace imshell::video {
             command += " -an";
         }
         command += " -c:v libx264 -pix_fmt yuv420p -movflags +faststart -shortest " + ShellQuote(path);
-        pipe_ = IMSHELL_POPEN(command.c_str(), IMSHELL_WRITE_MODE);
+        pipe_ = IMSHELL_POPEN(ShellCommand(command).c_str(), IMSHELL_WRITE_MODE);
         if (!pipe_) {
             if (error) {
                 *error = "could not start " + ffmpeg;
@@ -68,7 +78,7 @@ namespace imshell::video {
 
     bool DecodeWithFfmpeg(const std::string& ffmpeg, const std::string& path, std::vector<float>& pcm, std::string* error) {
         const std::string command = ShellQuote(ffmpeg) + " -v error -i " + ShellQuote(path) + " -vn -f f32le -ac 2 -ar 48000 -";
-        FILE* pipe = IMSHELL_POPEN(command.c_str(), IMSHELL_READ_MODE);
+        FILE* pipe = IMSHELL_POPEN(ShellCommand(command).c_str(), IMSHELL_READ_MODE);
         if (!pipe) {
             if (error) {
                 *error = "could not start " + ffmpeg;

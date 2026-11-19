@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "imshell/animation.hpp"
 #include "imshell/video.hpp"
+#include "video_test_util.hpp"
 
 #include <array>
 #include <cmath>
@@ -60,16 +61,8 @@ namespace {
     // ffprobe's answer for a stream of the file ("" without ffprobe)
     std::string ffprobe(const std::string& file, const char* stream, const char* entries) {
         const std::string cmd = std::string("ffprobe -v error -select_streams ") + stream + " -show_entries stream=" + entries +
-                                " -of csv=p=0 '" + file + "' 2>/dev/null";
-        std::string out;
-        if (FILE* p = popen(cmd.c_str(), "r")) {
-            char line[256];
-            while (std::fgets(line, sizeof line, p)) {
-                out += line;
-            }
-            pclose(p);
-        }
-        return out;
+                                " -of csv=p=0 " + videotest::quoted(file);
+        return videotest::capture(cmd);
     }
 
     size_t nonBlack(const imshell::video::Image& image) {
@@ -92,8 +85,8 @@ int main() {
     check(a.rgba == again.rgba, "the same frame twice is the same picture");
     check(imshell::video::RenderFrame(comp, 0).rgba != a.rgba, "frames differ");
 
-    const char* dir = std::getenv("TMPDIR");
-    const std::string base = std::string(dir ? dir : "/tmp") + "/imshell_video_test";
+
+    const std::string base = videotest::tempDir() + "/imshell_video_test";
     check(imshell::video::SavePng(a, base + ".png"), "saves a png");
 
     int last = 0;
@@ -130,7 +123,7 @@ int main() {
     options.encoder = imshell::video::Encoder::Ffmpeg;
     options.ffmpeg = "/nonexistent/ffmpeg";
     check(!imshell::video::RenderVideo(comp, base + "_ff.mp4", options, &error) && !error.empty(), "a missing ffmpeg fails with a message");
-    if (std::system("command -v ffmpeg >/dev/null 2>&1") == 0) {
+    if (videotest::hasTool("ffmpeg")) {
         options.ffmpeg = "ffmpeg";
         check(imshell::video::RenderVideo(comp, base + "_ff.mp4", options, &error), ("renders through ffmpeg: " + error).c_str());
         check(stat((base + "_ff.mp4").c_str(), &st) == 0 && st.st_size > 1000, "the ffmpeg file is there");
@@ -147,7 +140,7 @@ int main() {
         const float target = (f.index / 10) % 2 ? 1.f : 0.f;
         seen.push_back(imshell::Animate(ImGui::GetID("fade"), target) - target);
     };
-    setenv("IMSHELL_REDUCE_MOTION", "0", 1); // the system setting may be on; a render must not depend on it
+    videotest::setEnv("IMSHELL_REDUCE_MOTION", "0"); // the system setting may be on; a render must not depend on it
     check(!imshell::ReduceMotion(), "reduce motion is off before a render");
     imshell::video::RenderFrame(easing, 5);
     imshell::video::RenderFrame(easing, 15);
@@ -166,7 +159,7 @@ int main() {
     options = {};
     check(imshell::video::RenderVideo(sound, base + "_sound.mp4", options, &error), ("renders with sound: " + error).c_str());
     check(stat((base + "_sound.mp4").c_str(), &st) == 0 && st.st_size > 1000, "the file with sound is there");
-    const bool haveProbe = std::system("command -v ffprobe >/dev/null 2>&1") == 0;
+    const bool haveProbe = videotest::hasTool("ffprobe");
     if (haveProbe) {
         check(ffprobe(base + "_sound.mp4", "a:0", "codec_name,channels,sample_rate").find("aac,48000,2") == 0, "the track is 48 kHz stereo aac");
         check(ffprobe(base + "_sound.mp4", "v:0", "nb_frames").find("30") == 0, "the picture keeps its frames");
@@ -175,7 +168,7 @@ int main() {
     missing.audio.push_back({.path = base + "_nothing.wav"});
     check(!imshell::video::RenderVideo(missing, base + "_missing.mp4", options, &error) && !error.empty(), "a missing sound file fails the render");
     check(stat((base + "_missing.mp4").c_str(), &st) != 0, "and leaves no file");
-    if (std::system("command -v ffmpeg >/dev/null 2>&1") == 0) {
+    if (videotest::hasTool("ffmpeg")) {
         options.encoder = imshell::video::Encoder::Ffmpeg;
         check(imshell::video::RenderVideo(sound, base + "_sound_ff.mp4", options, &error), ("renders with sound through ffmpeg: " + error).c_str());
         check(stat((base + "_sound_ff.mp4.audio.f32").c_str(), &st) != 0, "the temporary audio file is removed");
@@ -213,7 +206,7 @@ int main() {
     blurOptions.blur = {4, 0.5f};
     check(imshell::video::RenderVideo(mover, base + "_blur.mp4", blurOptions, &error), ("renders blurred: " + error).c_str());
     check(stat((base + "_blur.mp4").c_str(), &st) == 0 && st.st_size > 1000, "the blurred file is there");
-    if (std::system("command -v ffmpeg >/dev/null 2>&1") == 0) {
+    if (videotest::hasTool("ffmpeg")) {
         blurOptions.encoder = imshell::video::Encoder::Ffmpeg;
         check(imshell::video::RenderVideo(mover, base + "_blur_ff.mp4", blurOptions, &error), ("renders blurred through ffmpeg: " + error).c_str());
     }

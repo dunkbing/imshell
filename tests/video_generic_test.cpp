@@ -1,6 +1,7 @@
 // the portable video code (generic.cpp, ffmpeg.cpp, png.cpp) over a fake rasterizer, so it runs
 // anywhere with no gpu: blur averaging, Verify, RenderVideo through ffmpeg with sound, the png writer
 #include "ffmpeg.hpp"
+#include "video_test_util.hpp"
 #include "rasterizer.hpp"
 
 #include <array>
@@ -65,17 +66,6 @@ namespace {
         std::fclose(f);
     }
 
-    std::string run(const std::string& command) {
-        std::string out;
-        if (FILE* p = popen(command.c_str(), "r")) {
-            char line[256];
-            while (std::fgets(line, sizeof line, p)) {
-                out += line;
-            }
-            pclose(p);
-        }
-        return out;
-    }
 }
 
 namespace imshell::video {
@@ -108,13 +98,13 @@ int main() {
     gDrift = false;
 
     // the png writer: a file other tools read
-    const std::string dir = std::getenv("TMPDIR") ? std::getenv("TMPDIR") : "/tmp";
+    const std::string dir = videotest::tempDir();
     const std::string base = dir + "/imshell_video_generic_test";
     check(SavePng(plain, base + ".png"), "saves a png");
-    const bool haveFfmpeg = std::system("command -v ffmpeg >/dev/null 2>&1") == 0;
-    const bool haveProbe = std::system("command -v ffprobe >/dev/null 2>&1") == 0;
+    const bool haveFfmpeg = videotest::hasTool("ffmpeg");
+    const bool haveProbe = videotest::hasTool("ffprobe");
     if (haveProbe) {
-        check(run("ffprobe -v error -show_entries stream=width,height -of csv=p=0 '" + base + ".png'").find("64,36") == 0, "ffprobe reads the png's size");
+        check(videotest::capture("ffprobe -v error -show_entries stream=width,height -of csv=p=0 " + videotest::quoted(base + ".png")).find("64,36") == 0, "ffprobe reads the png's size");
     }
 
     // RenderVideo through ffmpeg, with sound and a cancel
@@ -129,9 +119,9 @@ int main() {
         check(stat((base + ".mp4").c_str(), &st) == 0 && st.st_size > 500, "the file is there");
         check(stat((base + ".mp4.audio.f32").c_str(), &st) != 0, "the temporary audio file is gone");
         if (haveProbe) {
-            check(run("ffprobe -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels -of csv=p=0 '" + base + ".mp4'")
+            check(videotest::capture("ffprobe -v error -select_streams a:0 -show_entries stream=codec_name,sample_rate,channels -of csv=p=0 " + videotest::quoted(base + ".mp4"))
                           .find("aac,48000,2") == 0, "the sound is a 48 kHz stereo aac track");
-            check(run("ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of csv=p=0 '" + base + ".mp4'").find("30") == 0, "all the frames");
+            check(videotest::capture("ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of csv=p=0 " + videotest::quoted(base + ".mp4")).find("30") == 0, "all the frames");
         }
         std::vector<float> pcm;
         check(DecodeWithFfmpeg("ffmpeg", base + ".wav", pcm, &error) && pcm.size() == 48000 * 2, "ffmpeg decodes to 48 kHz stereo");
