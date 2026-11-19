@@ -13,6 +13,7 @@
 #include "imshell/toggle_button.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
+#include "imshell/vibrancy.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -29,6 +30,7 @@ struct Gallery : imshell::Delegate {
     bool chips[5] = {true, false, true, false, false};
     bool loading = true;
     int theme = 0;
+    bool vibrancy = std::getenv("IMSHELL_GALLERY_VIBRANCY") != nullptr;
     imshell::TextEditor editor;
 
     Gallery() {
@@ -151,8 +153,24 @@ struct Gallery : imshell::Delegate {
         imshell::EndTitleBar();
 
         const imshell::Rect content = imshell::ContentRect();
-        ImGui::SetNextWindowPos(content.pos);
-        ImGui::SetNextWindowSize(content.size);
+        // a window-material sidebar where the os has one (IMSHELL_GALLERY_VIBRANCY=1 starts with it)
+        const bool side = vibrancy && imshell::VibrancyAvailable();
+        const float sideWidth = side ? 180.0f : 0.0f;
+        if (side) {
+            imshell::Vibrancy(content.pos, ImVec2(sideWidth, content.size.y));
+            ImGui::SetNextWindowPos(content.pos);
+            ImGui::SetNextWindowSize(ImVec2(sideWidth, content.size.y));
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
+            ImGui::Begin("##sidebar", nullptr, ImGuiWindowFlags_NoDecoration);
+            ImGui::TextDisabled("Sidebar");
+            ImGui::Selectable("Inbox", true);
+            ImGui::Selectable("Drafts");
+            ImGui::Selectable("Sent");
+            ImGui::End();
+            ImGui::PopStyleColor();
+        }
+        ImGui::SetNextWindowPos(ImVec2(content.pos.x + sideWidth, content.pos.y));
+        ImGui::SetNextWindowSize(ImVec2(content.size.x - sideWidth, content.size.y));
         ImGui::Begin("gallery", nullptr, ImGuiWindowFlags_NoDecoration);
         themePicker();
         nativeIcons();
@@ -314,6 +332,10 @@ struct Gallery : imshell::Delegate {
         ImGui::SetNextItemWidth(220);
         if (imshell::Select("##theme", &theme, names.data(), static_cast<int>(names.size()))) {
             imshell::SetTheme(theme < static_cast<int>(imshell::Themes().size()) ? imshell::Themes()[theme] : imshell::SystemTheme());
+        }
+        if (imshell::VibrancyAvailable()) {
+            ImGui::SameLine();
+            ImGui::Checkbox("Sidebar vibrancy", &vibrancy);
         }
         ImGui::Spacing();
     }

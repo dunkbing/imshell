@@ -173,6 +173,23 @@ While a value moves the loop is asked for frames, and once it settles it stops, 
 With the system's reduce motion setting on (macOS and iOS; `IMSHELL_REDUCE_MOTION=1` or `0` overrides it everywhere) values jump to their target.
 `SnapAnimation(id, value)` jumps an id with no motion, for a row that was recycled for another item.
 
+## Vibrancy (`imshell/vibrancy.hpp`)
+
+`Vibrancy(pos, size, material)` puts the system's window material (the blurred, tinted look of a macOS sidebar) behind a region of the imgui content, so the desktop shows through it:
+
+```cpp
+if (imshell::VibrancyAvailable()) {
+    imshell::Vibrancy(content.pos, {180, content.size.y}); // every frame the sidebar shows
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0)); // the area draws nothing of its own
+}
+```
+
+The material is an `NSVisualEffectView` the shell places under the Metal layer, so the sidebar window and every other window over the region must draw a transparent background there.
+One region per window; a frame that does not call it removes it, and while a region shows the window is cleared transparent, with the window's own background colour behind, so windows that cover the whole area should draw their own background.
+Materials: `Sidebar`, `Header`, `Menu`, `Popover`, `Titlebar`, `Window`, `Content`, `Hud`, `Sheet`.
+macOS only for now: elsewhere `VibrancyAvailable()` is false and `Vibrancy` does nothing, so the host keeps its opaque sidebar.
+The gallery has a "Sidebar vibrancy" toggle (`IMSHELL_GALLERY_VIBRANCY=1` starts with it).
+
 ## Native icons (`imshell/icons.hpp`)
 
 `Icon(name, fallback)` returns a glyph for the platform's own icon of that name, for any text, label or button:
