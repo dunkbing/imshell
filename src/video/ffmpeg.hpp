@@ -3,8 +3,14 @@
 // raw rgba frames into an ffmpeg process over a pipe. no link dependency: the binary is found at run time
 #include <cstdio>
 #include <string>
+#include <vector>
 
 namespace imshell::video {
+    // one argument for the shell, quoted
+    std::string ShellQuote(const std::string& s);
+    // a sound file decoded by ffmpeg to interleaved 48 kHz stereo float; false and `error` on failure
+    bool DecodeWithFfmpeg(const std::string& ffmpeg, const std::string& path, std::vector<float>& pcm, std::string* error);
+
     class FfmpegPipe {
     public:
         FfmpegPipe() = default;
