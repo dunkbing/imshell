@@ -100,7 +100,7 @@ namespace imshell::video {
     // a window that plays the composition in real time (frame = elapsed time x fps, dropping frames
     // when the machine is slower) with a play button, a scrubber and the frame number. it shows the
     // same pictures a render writes, drawn through the same path, so what the scrubber lands on is
-    // what the file holds; no sound. blocks until the window closes. macOS for now
+    // what the file holds; no sound. blocks until the window closes
     void Preview(const Composition& comp, const PreviewOptions& options = {});
 
     enum class Ease { Linear, InCubic, OutCubic, InOutCubic, OutBack };
