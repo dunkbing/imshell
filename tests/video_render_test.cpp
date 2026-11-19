@@ -3,6 +3,12 @@
 #include "imgui.h"
 #include "imshell/animation.hpp"
 #include "imshell/video.hpp"
+#include "imshell/video_audio_viz.hpp"
+#include "imshell/video_captions.hpp"
+#include "imshell/video_footage.hpp"
+#include "imshell/video_check.hpp"
+#include "imshell/video_effects.hpp"
+#include "video_test_util.hpp"
 
 #include <array>
 #include <cmath>
@@ -60,16 +66,8 @@ namespace {
     // ffprobe's answer for a stream of the file ("" without ffprobe)
     std::string ffprobe(const std::string& file, const char* stream, const char* entries) {
         const std::string cmd = std::string("ffprobe -v error -select_streams ") + stream + " -show_entries stream=" + entries +
-                                " -of csv=p=0 '" + file + "' 2>/dev/null";
-        std::string out;
-        if (FILE* p = popen(cmd.c_str(), "r")) {
-            char line[256];
-            while (std::fgets(line, sizeof line, p)) {
-                out += line;
-            }
-            pclose(p);
-        }
-        return out;
+                                " -of csv=p=0 " + videotest::quoted(file);
+        return videotest::capture(cmd);
     }
 
     size_t nonBlack(const imshell::video::Image& image) {
@@ -92,8 +90,8 @@ int main() {
     check(a.rgba == again.rgba, "the same frame twice is the same picture");
     check(imshell::video::RenderFrame(comp, 0).rgba != a.rgba, "frames differ");
 
-    const char* dir = std::getenv("TMPDIR");
-    const std::string base = std::string(dir ? dir : "/tmp") + "/imshell_video_test";
+
+    const std::string base = videotest::tempDir() + "/imshell_video_test";
     check(imshell::video::SavePng(a, base + ".png"), "saves a png");
 
     int last = 0;
@@ -130,7 +128,7 @@ int main() {
     options.encoder = imshell::video::Encoder::Ffmpeg;
     options.ffmpeg = "/nonexistent/ffmpeg";
     check(!imshell::video::RenderVideo(comp, base + "_ff.mp4", options, &error) && !error.empty(), "a missing ffmpeg fails with a message");
-    if (std::system("command -v ffmpeg >/dev/null 2>&1") == 0) {
+    if (videotest::hasTool("ffmpeg")) {
         options.ffmpeg = "ffmpeg";
         check(imshell::video::RenderVideo(comp, base + "_ff.mp4", options, &error), ("renders through ffmpeg: " + error).c_str());
         check(stat((base + "_ff.mp4").c_str(), &st) == 0 && st.st_size > 1000, "the ffmpeg file is there");
@@ -147,7 +145,7 @@ int main() {
         const float target = (f.index / 10) % 2 ? 1.f : 0.f;
         seen.push_back(imshell::Animate(ImGui::GetID("fade"), target) - target);
     };
-    setenv("IMSHELL_REDUCE_MOTION", "0", 1); // the system setting may be on; a render must not depend on it
+    videotest::setEnv("IMSHELL_REDUCE_MOTION", "0"); // the system setting may be on; a render must not depend on it
     check(!imshell::ReduceMotion(), "reduce motion is off before a render");
     imshell::video::RenderFrame(easing, 5);
     imshell::video::RenderFrame(easing, 15);
@@ -166,7 +164,7 @@ int main() {
     options = {};
     check(imshell::video::RenderVideo(sound, base + "_sound.mp4", options, &error), ("renders with sound: " + error).c_str());
     check(stat((base + "_sound.mp4").c_str(), &st) == 0 && st.st_size > 1000, "the file with sound is there");
-    const bool haveProbe = std::system("command -v ffprobe >/dev/null 2>&1") == 0;
+    const bool haveProbe = videotest::hasTool("ffprobe");
     if (haveProbe) {
         check(ffprobe(base + "_sound.mp4", "a:0", "codec_name,channels,sample_rate").find("aac,48000,2") == 0, "the track is 48 kHz stereo aac");
         check(ffprobe(base + "_sound.mp4", "v:0", "nb_frames").find("30") == 0, "the picture keeps its frames");
@@ -175,7 +173,7 @@ int main() {
     missing.audio.push_back({.path = base + "_nothing.wav"});
     check(!imshell::video::RenderVideo(missing, base + "_missing.mp4", options, &error) && !error.empty(), "a missing sound file fails the render");
     check(stat((base + "_missing.mp4").c_str(), &st) != 0, "and leaves no file");
-    if (std::system("command -v ffmpeg >/dev/null 2>&1") == 0) {
+    if (videotest::hasTool("ffmpeg")) {
         options.encoder = imshell::video::Encoder::Ffmpeg;
         check(imshell::video::RenderVideo(sound, base + "_sound_ff.mp4", options, &error), ("renders with sound through ffmpeg: " + error).c_str());
         check(stat((base + "_sound_ff.mp4.audio.f32").c_str(), &st) != 0, "the temporary audio file is removed");
@@ -213,9 +211,283 @@ int main() {
     blurOptions.blur = {4, 0.5f};
     check(imshell::video::RenderVideo(mover, base + "_blur.mp4", blurOptions, &error), ("renders blurred: " + error).c_str());
     check(stat((base + "_blur.mp4").c_str(), &st) == 0 && st.st_size > 1000, "the blurred file is there");
-    if (std::system("command -v ffmpeg >/dev/null 2>&1") == 0) {
+    if (videotest::hasTool("ffmpeg")) {
         blurOptions.encoder = imshell::video::Encoder::Ffmpeg;
         check(imshell::video::RenderVideo(mover, base + "_blur_ff.mp4", blurOptions, &error), ("renders blurred through ffmpeg: " + error).c_str());
+    }
+
+    // inspect: windows cut off by the canvas, a blank start, a pop, and a cut that is not one
+    {
+        using namespace imshell::video;
+        auto card = [](float x) {
+            ImGui::SetNextWindowPos(ImVec2(x, 100.f));
+            ImGui::SetNextWindowSize(ImVec2(240.f, 220.f)); // above the theme's minimum window size
+            ImGui::Begin("card", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
+            ImGui::Text("hello");
+            ImGui::End();
+        };
+        auto find = [](const std::vector<Finding>& all, const char* kind) -> const Finding* {
+            for (const Finding& f : all) {
+                if (f.kind == kind) {
+                    return &f;
+                }
+            }
+            return nullptr;
+        };
+        Composition c;
+        c.width = 800;
+        c.height = 500;
+        c.fps = 30;
+        c.frames = 30;
+        c.draw = [&](const Frame& f) { card(f.index >= 10 && f.index <= 20 ? -100.f : 150.f); };
+        std::string problem;
+        std::vector<Finding> found = Inspect(c, {}, &problem);
+        const Finding* clipped = find(found, "clipped");
+        check(clipped && clipped->severity == "error" && clipped->from == 10 && clipped->to == 20 && clipped->what == "card" && clipped->detail.find("left") != std::string::npos,
+              ("a window cut off in the middle is an error: " + problem + " [" + std::to_string(found.size()) + " findings; first: " + (found.empty() ? std::string("none") : found[0].kind + " " + found[0].what + " " + std::to_string(found[0].from) + ".." + std::to_string(found[0].to) + " " + found[0].detail) + "]").c_str());
+
+        c.draw = [&](const Frame& f) { card(f.index < 6 ? -100.f : 150.f); };
+        found = Inspect(c, {}, &problem);
+        clipped = find(found, "clipped");
+        check(clipped && clipped->severity == "warning" && clipped->from == 0 && clipped->to == 5, "cut off at the start is an entrance, a warning");
+
+        c.draw = [&](const Frame& f) {
+            if (f.index >= 5) {
+                card(150.f);
+            }
+        };
+        found = Inspect(c, {}, &problem);
+        const Finding* blank = find(found, "blank");
+        check(blank && blank->from == 0 && blank->to == 4 && blank->severity == "info", "frames with nothing drawn are noted");
+
+        c.draw = [&](const Frame& f) {
+            if (f.index >= 15) {
+                card(150.f);
+            }
+        };
+        found = Inspect(c, {}, &problem);
+        const Finding* pop = find(found, "pop");
+        check(pop && pop->severity == "error" && pop->from == 15, "an element that appears in one frame is a pop");
+        c.marks = {{"a", 0, 15}, {"b", 15, 15}};
+        found = Inspect(c, {}, &problem);
+        check(!find(found, "pop"), "a cut at a scene boundary is not a pop");
+        InspectOptions noPops;
+        noPops.pops = false;
+        c.marks.clear();
+        check(!find(Inspect(c, noPops, &problem), "pop"), "pops can be left out");
+    }
+
+    // codec options go through ffmpeg: the codec in the file is the one asked for
+    if (videotest::hasTool("ffmpeg") && videotest::hasTool("ffprobe")) {
+        for (const char* codec : {"hevc", "vp9", "prores"}) {
+            imshell::video::Options o;
+            o.codec = codec;
+            o.crf = std::string(codec) == "prores" ? -1 : 35;
+            const std::string file = base + "_codec_" + codec + (std::string(codec) == "vp9" ? ".webm" : std::string(codec) == "prores" ? ".mov" : ".mp4");
+            check(imshell::video::RenderVideo(mover, file, o, &error), (std::string("renders ") + codec + ": " + error).c_str());
+            check(ffprobe(file, "v:0", "codec_name").find(codec) == 0, (std::string("the file holds ") + codec).c_str());
+        }
+    }
+
+    // transparency: nothing drawn is transparent, a window keeps straight (not premultiplied) colour, and it survives png and prores/vp9
+    {
+        imshell::video::Composition t;
+        t.width = 400;
+        t.height = 300;
+        t.fps = 30;
+        t.frames = 6;
+        t.transparent = true;
+        t.draw = [](const imshell::video::Frame&) {
+            ImGui::SetNextWindowPos(ImVec2(100.f, 100.f));
+            ImGui::SetNextWindowSize(ImVec2(240.f, 200.f));
+            ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.5f);
+            ImGui::Begin("half", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
+            ImGui::End();
+            ImGui::PopStyleVar();
+        };
+        const imshell::video::Image image = imshell::video::RenderFrame(t, 3, &error);
+        check(image.width == 400, ("renders a transparent frame: " + error).c_str());
+        if (image.width == 400) {
+            const unsigned char* corner = &image.rgba[0];
+            const unsigned char* inside = &image.rgba[(static_cast<size_t>(200) * 400 + 200) * 4];
+            check(corner[3] == 0, "the empty canvas is transparent");
+            check(inside[3] > 90 && inside[3] < 170, "a half transparent window is half opaque");
+            imshell::video::Composition opaque = t;
+            opaque.transparent = false;
+            const imshell::video::Image solid = imshell::video::RenderFrame(opaque, 3, &error);
+            const unsigned char* flat = &solid.rgba[(static_cast<size_t>(200) * 400 + 200) * 4];
+            // straight alpha: over black it would be colour * alpha; the stored colour is the window's own, so it is brighter than the blended one
+            check(solid.width == 400 && inside[0] >= flat[0] && inside[0] <= 255, "colour is straight, not premultiplied");
+        }
+        imshell::video::Options o;
+        check(!imshell::video::RenderVideo(t, base + "_alpha.mp4", o, &error) && error.find("transparen") != std::string::npos, "h264 refuses transparency with a message");
+        if (videotest::hasTool("ffmpeg") && videotest::hasTool("ffprobe")) {
+            o.codec = "prores";
+            check(imshell::video::RenderVideo(t, base + "_alpha.mov", o, &error), ("renders prores 4444: " + error).c_str());
+            check(ffprobe(base + "_alpha.mov", "v:0", "pix_fmt").find("yuva444p") == 0, "the prores file has an alpha plane");
+            o.codec = "vp9";
+            check(imshell::video::RenderVideo(t, base + "_alpha.webm", o, &error), ("renders vp9 with alpha: " + error).c_str());
+            check(ffprobe(base + "_alpha.webm", "v:0", "codec_name:stream_tags=alpha_mode").find("vp9,1") == 0, "the webm is marked as having alpha");
+        }
+    }
+
+    // captions draw over the bottom of the frame at the right times
+    {
+        using namespace imshell::video;
+        Composition c;
+        c.width = 800;
+        c.height = 450;
+        c.fps = 30;
+        c.frames = 90;
+        const std::vector<Cue> cues = ParseCaptions("WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nA caption that is long enough to need a second line when it is drawn at this size\n");
+        c.draw = [&](const Frame& f) { DrawCaptions(f, cues); };
+        const Image before = RenderFrame(c, 5, &error), during = RenderFrame(c, 45, &error);
+        auto lit = [](const Image& im, int y0, int y1) {
+            int n = 0;
+            for (int y = y0; y < y1; ++y) {
+                for (int x = 0; x < im.width; ++x) {
+                    n += im.rgba[(static_cast<size_t>(y) * im.width + x) * 4] > 200 ? 1 : 0;
+                }
+            }
+            return n;
+        };
+        check(before.width == 800 && lit(before, 0, 450) == 0, "nothing is drawn before the cue");
+        check(during.width == 800 && lit(during, 330, 440) > 200 && lit(during, 0, 250) == 0, "the cue is drawn near the bottom");
+    }
+
+    // visualizer draw helpers: bars follow the sound (a tone for the first second, then silence)
+    {
+        using namespace imshell::video;
+        std::vector<float> pcm(48000 * 2 * 2, 0.f);
+        for (size_t n = 0; n < 48000; ++n) {
+            pcm[n * 2] = pcm[n * 2 + 1] = 0.5f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 1000.0 * n / 48000.0));
+        }
+        const AudioAnalysis analysis(pcm);
+        Composition c;
+        c.width = 640;
+        c.height = 360;
+        c.fps = 30;
+        c.frames = 60;
+        c.draw = [&](const Frame& f) {
+            float bands[24];
+            analysis.bands(f.time(), bands);
+            float wave[64];
+            analysis.waveform(f.time(), 0.01, wave);
+            ImDrawList* dl = ImGui::GetForegroundDrawList();
+            DrawBars(dl, ImVec2(20.f, 20.f), ImVec2(600.f, 200.f), bands, IM_COL32(255, 255, 255, 255));
+            DrawWave(dl, ImVec2(20.f, 240.f), ImVec2(600.f, 100.f), wave, IM_COL32(255, 255, 255, 255));
+        };
+        auto lit = [](const Image& im, int y0, int y1) {
+            int n = 0;
+            for (int y = y0; y < y1; ++y) {
+                for (int x = 0; x < im.width; ++x) {
+                    n += im.rgba[(static_cast<size_t>(y) * im.width + x) * 4] > 200 ? 1 : 0;
+                }
+            }
+            return n;
+        };
+        const Image tone = RenderFrame(c, 15, &error), quiet = RenderFrame(c, 50, &error);
+        check(tone.width == 640 && lit(tone, 20, 220) > 2000, "bars are tall while the tone plays");
+        check(quiet.width == 640 && lit(quiet, 20, 215) == 0 && lit(quiet, 215, 222) > 0, "in silence the bars are a thin line at the base");
+        check(lit(tone, 240, 340) > 100, "the wave is drawn");
+    }
+
+    // footage: a clip made with ffmpeg's test pattern, read in order, by seeking and past its end
+    if (videotest::hasTool("ffmpeg")) {
+        using namespace imshell::video;
+        const std::string clip = base + "_footage.mp4";
+        std::remove(clip.c_str());
+        videotest::capture("ffmpeg -v error -y -f lavfi -i testsrc=size=160x90:rate=30:duration=2 -pix_fmt yuv420p " + videotest::quoted(clip) + " 2>&1");
+        Footage missing("/no/such/clip.mp4", 30);
+        check(!missing.ok() && !missing.error().empty() && missing.pixels(0.0) == nullptr, "a missing file is not ok and has an error");
+        Footage footage(clip, 30);
+        check(footage.ok() && footage.width() == 160 && footage.height() == 90 && std::fabs(footage.seconds() - 2.0) < 0.1,
+              ("the clip's size and length are read: " + footage.error()).c_str());
+        if (footage.ok()) {
+            const size_t bytes = static_cast<size_t>(footage.width()) * footage.height() * 4;
+            std::vector<std::vector<unsigned char>> played;
+            for (int n = 0; n < 12; ++n) { // in order
+                const unsigned char* p = footage.pixels(n / 30.0);
+                check(p != nullptr, "a frame is read");
+                played.emplace_back(p, p + bytes);
+            }
+            check(played[0] != played[5] && played[5] != played[11], "the pattern moves between frames");
+            const unsigned char* seek = footage.pixels(7 / 30.0); // back, by seeking
+            check(std::vector<unsigned char>(seek, seek + bytes) == played[7], "seeking back gives the frame that was played");
+            const unsigned char* far = footage.pixels(45 / 30.0); // and forward past the skip window
+            const std::vector<unsigned char> forty5(far, far + bytes);
+            Footage fresh(clip, 30);
+            const unsigned char* again = fresh.pixels(45 / 30.0); // a new decoder jumping straight there
+            check(std::vector<unsigned char>(again, again + bytes) == forty5, "jumping straight to a frame equals playing to it");
+            for (int n = 0; n < 12; ++n) { // each frame by a fresh decoder jumping to it
+                Footage jump(clip, 30);
+                const unsigned char* j = jump.pixels(n / 30.0);
+                check(j && std::vector<unsigned char>(j, j + bytes) == played[static_cast<size_t>(n)], ("a fresh seek to frame " + std::to_string(n) + " equals playing to it").c_str());
+            }
+            const unsigned char* before = footage.pixels(-1.0);
+            check(std::vector<unsigned char>(before, before + bytes) == played[0], "before the start is the first frame");
+            const unsigned char* last = footage.pixels(2.0);
+            const std::vector<unsigned char> lastFrame(last, last + bytes);
+            const unsigned char* held = footage.pixels(9.0);
+            check(std::vector<unsigned char>(held, held + bytes) == lastFrame, "after the end the last frame is held");
+        }
+
+        // drawn in a composition: playing in order and seeking give the same pictures
+        Footage drawn(clip, 30);
+        Composition c;
+        c.width = 320;
+        c.height = 180;
+        c.fps = 30;
+        c.frames = 40;
+        c.draw = [&](const Frame& f) { drawn.Draw(ImGui::GetForegroundDrawList(), f.time(), ImVec2(0.f, 0.f), ImVec2(320.f, 180.f), Fit::Cover); };
+        const Image first = RenderFrame(c, 2, &error), later = RenderFrame(c, 20, &error);
+        check(first.width == 320 && first.rgba != later.rgba, "footage is drawn, and changes with time");
+        auto colourOf = [](const Image& im) { // a test pattern has colour, not black
+            long sum = 0;
+            for (size_t i = 0; i < im.rgba.size(); i += 4) {
+                sum += im.rgba[i] + im.rgba[i + 1] + im.rgba[i + 2];
+            }
+            return sum;
+        };
+        check(colourOf(first) > 320L * 180 * 100 && colourOf(later) > 320L * 180 * 100, "the footage's picture reaches every frame, each from its own render (a new imgui context each)");
+        std::string report;
+        const int checkFrames[] = {0, 5, 20, 33};
+        check(Verify(c, checkFrames, &report), ("playing and seeking footage agree: " + report).c_str());
+        std::remove(clip.c_str());
+    }
+
+    // Composition::post runs on every finished frame: what a render, a single frame and verify all see
+    {
+        using namespace imshell::video;
+        Composition c;
+        c.width = 320;
+        c.height = 180;
+        c.fps = 30;
+        c.frames = 12;
+        c.draw = [](const Frame& f) {
+            ImDrawList* dl = ImGui::GetForegroundDrawList();
+            dl->AddRectFilled(ImVec2(0.f, 0.f), ImVec2(320.f, 180.f), IM_COL32(200, 200, 200, 255));
+            dl->AddRectFilled(ImVec2(20.f + 10.f * static_cast<float>(f.index), 40.f), ImVec2(80.f + 10.f * static_cast<float>(f.index), 100.f), IM_COL32(40, 120, 255, 255));
+        };
+        const Image plain = RenderFrame(c, 4, &error);
+        c.post = [](const Frame& f, Image& image) {
+            Vignette(image, 0.9f, 0.2f);
+            Grain(image, 0.03f, static_cast<uint32_t>(f.index));
+        };
+        const Image styled = RenderFrame(c, 4, &error);
+        check(plain.width == 320 && styled.width == 320 && plain.rgba != styled.rgba, "post changes the frame");
+        const size_t corner = 0, middle = (static_cast<size_t>(90) * 320 + 160) * 4;
+        check(styled.rgba[corner] < plain.rgba[corner] && std::abs(styled.rgba[middle] - plain.rgba[middle]) < 12, "the vignette darkens the corner and leaves the middle");
+        const int checkFrames[] = {0, 3, 7, 11};
+        std::string report;
+        check(Verify(c, checkFrames, &report), ("playing and seeking agree with post (grain by frame): " + report).c_str());
+        const Image later = RenderFrame(c, 5, &error);
+        check(later.rgba != styled.rgba, "post sees the frame index (the grain moves)");
+        Composition t = c;
+        t.transparent = true;
+        t.post = [](const Frame&, Image& image) { Grade(image, 0.f, 1.f, 0.f); };
+        const Image grey = RenderFrame(t, 4, &error);
+        check(grey.width == 320 && grey.rgba[middle] == grey.rgba[middle + 1] && grey.rgba[middle + 1] == grey.rgba[middle + 2] && grey.rgba[middle + 3] == 255, "post runs on transparent frames too (straight rgba)");
     }
 
     if (failures == 0) {

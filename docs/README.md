@@ -13,6 +13,7 @@
 - [Markdown](markdown.md): optional markdown (`imshell::markdown`) through imgui_rich_md, with code blocks in the editor.
 - [Node editor](node-editor.md): optional node graphs (`imshell::node_editor`) through imgui-node-editor, themed.
 - [Video](video.md): design for rendering ImGui frames to a video file, offscreen and deterministic (`imshell::video`).
+- [Accessibility](accessibility.md): design for screen reader support (VoiceOver, UI Automation, AT-SPI, TalkBack); not built yet.
 - [Platforms](platforms.md): what each platform supports and how they differ.
 - [Roadmap](roadmap.md): what comes next, with the issues.
 

@@ -44,8 +44,19 @@ Per backend the ImGui renderer backend is initialised on that context without a 
 | Windows | an `ID3D11Texture2D` render target | a staging texture and `Map`, then the encoder |
 | Linux, Android | a framebuffer object on a surfaceless EGL context (no window, no `GtkGLArea`) | `glReadPixels` into a pixel buffer |
 
-The first version covers macOS; the readback path is shared, so Windows and Linux add a backend file each, not a design.
-Rendering is double buffered: the GPU draws frame N+1 while the encoder takes frame N.
+macOS, Linux and Windows are built.
+The portable part (`generic.cpp`: `RenderFrame`, `RenderVideo` through ffmpeg, `Verify`, blur averaging, the sound mix, a small PNG writer) sits on a `Rasterizer` (`rasterizer.hpp`) that a backend implements as imgui into an offscreen target read back as rgba, so each platform adds one backend file, not a design.
+Its tests run over a fake rasterizer, so they need no GPU and run anywhere.
+On Linux (`egl.cpp`) the target is a framebuffer object on a pbuffer EGL context with desktop OpenGL 3.3, using mesa's surfaceless platform when it is there; with `libegl1`, `libgl1` and `libgl1-mesa-dri` it renders on a machine with no GPU and no display (llvmpipe), which is how the Linux tests ran.
+The sound is decoded by ffmpeg there, the PNG writer is uncompressed (a 1080p frame is about 8 MB), `Encoder::Default` is ffmpeg, and `Preview` is a window over the same rasterizer (below).
+The caller's current GL context is not restored after a render on Linux, so a host that draws with GL itself makes its context current again afterwards.
+On Windows (`d3d11.cpp`) the target is an offscreen RGBA texture read back through a staging copy, on the GPU or on WARP, Direct3D's software renderer, when there is none (the build host has none and ran the tests that way).
+`Encoder::Default` there is Media Foundation (`mf.cpp`): the system's h.264 encoder (software, so no GPU is needed) and aac encoder into an mp4, and its source reader decodes the sound clips, so a render needs no ffmpeg; `Encoder::Ffmpeg` still works.
+The sound is written in step with the frames, as on Apple. Checked on the build host with no ffmpeg on `PATH`: h.264 baseline, 30 frames, aac 48 kHz stereo, audible.
+
+Preview on Linux and Windows (`preview.cpp`) shows each frame the rasterizer draws through a texture imgui keeps up to date itself (`ImTextureData`, so no platform texture code), with the rasterizer on its own thread so its GL context does not replace the window's.
+Run on Linux under xvfb, where frames advance and the picture shows; on Windows it builds, but the build host's SSM session has no desktop, so the window was not run there.
+A frame is drawn and waited for before the next, so the GPU and the encoder do not overlap yet; double buffering is a later speed-up.
 
 ## Determinism
 
@@ -77,7 +88,7 @@ The `Encoder` is a small interface (`begin(width, height, fps, audio)`, `frame(p
 | `ffmpeg` (`Encoder::Ffmpeg`, `Options::ffmpeg` is the binary) | everywhere | raw rgba frames over a pipe, `libx264`, yuv420p; the Linux default, and the fallback for any platform; no link dependency, so a host started from the Dock may need the full path |
 
 Linux has no system encoder that is always there, and GStreamer would be a link dependency on every host, so Linux shells out to `ffmpeg` and says so clearly when it is missing.
-Android's `MediaCodec` comes after the desktops.
+The tool is for desktops (macOS, Linux, Windows), where an agent drives it from a shell; there are no phone encoders or footage decoders, and none are planned.
 Nothing is linked for the video target unless the host links `imshell::video`; the Apple encoder needs `AVFoundation`, `CoreVideo` and `CoreMedia`, which the system provides.
 
 ## Sound
@@ -109,6 +120,47 @@ It plays no sound yet, and the reduce-motion override a render sets stays on whi
 `PreviewOptions::closeAfter` closes the window by itself, for a smoke test; `examples/video` previews or renders a small composition.
 The preview target links `imshell::imshell`; `RenderVideo` alone does not need a window system.
 
+## Scenes
+`imshell/video_scenes.hpp`: a composition of ideas that follow each other.
+A `Scene` has a name, its `frames` (its share of the timeline), an `overlap` and a draw function whose `Frame::index` counts from the scene's own first frame (`Frame::scene` is its number, for window names that must differ between scenes: `ImGui::Begin("card##a")` and `"card##b"`, since two windows with one name are one window).
+An overlap fades the scene in over the end of the previous one, which stays fully visible underneath so the picture never dips; the scene starts drawing, and its entrance animation starts, at the first overlap frame, and the overlap is not added to the total length.
+`SceneLayers(position, scenes)` is pure: which scenes are on screen at a frame, their local frame, length and alpha (and the blur fraction), bottom first; past the end the last scene holds its last frame.
+`DrawScenes` draws them with `ImGuiStyleVar_Alpha` pushed while a scene fades, so text and widgets fade with it; `MakeComposition(w, h, fps, scenes)` returns a `Composition` whose `marks` name the scenes, so `timeline` lists them and the command line takes `outro`, `outro@1.2s`, `outro@end`, `#2` and a scene name as a range (`strip outro`).
+`SpringIn(frame, fps, from, to, start, frames)` is a spring that rests after `frames` frames: the unit spring's settle time is stretched to that length, so the bounce stays and the timing is the planned one.
+
+## Command line
+A video's `main` can be one line, `return imshell::video::Cli(comp, argc, argv, "name");` (`imshell/video_cli.hpp`, `cli.cpp`, over the public API only), and then the video is worked on from a shell, by a person or by an agent that cannot watch it.
+`timeline` prints the size, rate, length and the sound clips; `frame TIMES` writes full-size PNGs, with `--crop x,y,w,h` shown zoomed for small details; `strip` writes a contact sheet of evenly spread frames (or chosen times) with each cell labelled by its frame number; `render [RANGE]` encodes, with `--draft` at half size and `--scale F` at any size; `preview [TIME]` opens the window at a time; `verify` runs `Verify` over a spread of frames (exit 2 when playing and seeking differ).
+Times are a frame (`120`), `3.2s`, `500ms`, `1:05.5`, `50%`, `start` or `end`; ranges are `a..b` (b excluded), `a..`, `..b` or `all`.
+`--json` prints one JSON object on stdout, progress goes to stderr.
+A draft or a scale changes `Composition::width/height`, so a draw function has to lay out from `Frame::width/height`.
+`Options::codec` (`h264`, `hevc`, `vp9`, `prores`), `bitrate` (kbit/s) and `crf` (constant quality) choose how `RenderVideo` encodes; any of them, or `Encoder::Ffmpeg`, goes through the ffmpeg binary (`NeedsFfmpeg`), since the platform encoders only do h.264 at their own bitrate.
+The file's extension picks the container (`.mp4`, `.webm`, `.mov`); vp9 gets opus sound and the others aac, and prores is 10 bit 4:2:2 with no bitrate or crf.
+The command line has `--codec`, `--bitrate`, `--crf`, and `render --images -o dir` writes `frame_000000.png` and so on through `Frames`.
+`Composition::transparent` (`--transparent`) clears to transparent instead of black: the renderers leave colour premultiplied (ImGui's blending), `Unpremultiply` makes it straight before it reaches an `Image`, a png or ffmpeg, and averaging motion blur happens before that.
+The outputs that hold it are `--images` (png), prores (`yuva444p`, 4444) and vp9 (`yuva420p`, `.webm`); h264 and hevc refuse with a message, since libx265 has no alpha and the platform encoders are not asked for it.
+
+`inspect [RANGE]` (`video_check.hpp`, `check.cpp`) plays the frames in order and reports what a viewer would notice: a window whose vertices leave the canvas (a warning at the first or last frames of its scene, where it is probably an entrance or an exit, an error anywhere else, with the overhang in pixels and the command to look at it), frames with nothing drawn (a note), and pops, a part of the picture that changes in one frame between frames that hardly move, with its region (a hard cut at a scene boundary is not one).
+It reads two things: the draw data after imgui laid the frame out, through `drawProbe()` (a process-wide callback each renderer calls once per frame), and the pixels, in 4x4 cells.
+The window checks skip the background and foreground draw lists, which are meant to be bigger than the canvas; windows are checked by name, so two windows with one name are one.
+`--fail-on warning` makes warnings fail too; the exit code is 2 on a failure.
+`AudioClip::scene` names a mark: that clip's `start` counts from the scene's first frame (`PlacedAudio(comp)` gives the clips with absolute starts, which every mixer and `timeline` use), so changing a scene's length moves its sounds; an unknown name leaves the start as written and `timeline` says so.
+Captions (`video_captions.hpp`, header only): `ParseCaptions` reads WebVTT or SRT into `Cue`s with per-word times (WebVTT inline `<00:01.500>` stamps, otherwise the words are spread evenly over the cue; untimed words after a timed one ride with it); `DrawCaptions(f, cues, style)` wraps the cue showing at `f.time()` over the bottom of the frame on the foreground draw list, optionally lighting spoken words (`CaptionStyle::karaoke`), and takes the alpha of the style stack so a fading scene fades its captions.
+It draws no window, so `inspect` does not see it; check it with `frame` at a few cue times.
+Audio visualizers (`video_audio_viz.hpp`, header only): `AudioAnalysis(comp)` mixes the composition's sound once (`RenderAudio`, from frame 0) and answers for any time: `level(t)` (rms, 0..1 over -60 to 0 dBFS), `bands(t, out, release)` (log-spaced 40 Hz to 16 kHz from a 2048 sample Hann FFT, the loudest bin per band; `release` is a decay over the last six 20 ms windows, which keeps it a pure function of `t`) and `waveform(t, span, out)`; `DrawBars` and `DrawWave` draw them.
+Build it from the composition before its `draw` is assigned, and ask it with `f.time()`; with `--draft`/`--scale` it still holds, as it does not depend on the size.
+Footage (`video_footage.hpp`, `footage.cpp`): `Footage clip(path, comp.fps, maxWidth)` reads a video through the `ffmpeg` binary (`ProbeVideo` takes its size, rate and length from `ffmpeg -i`, so no ffprobe; a clip rotated by metadata is read upright) and `clip.Draw(drawList, t, pos, size, Fit, tint, rounding)` draws the picture `t` seconds into the clip (`Fit::Cover`, `Contain` or `Stretch`); `clip.pixels(t)` gives the rgba.
+The picture is a pure function of `t`: frame `n = floor(t * fps)` is read on from the running decoder when it is next (or up to 30 ahead), and a seek restarts ffmpeg at `n / fps` (`-ss` before `-i`, decoded and trimmed to the frame), which the tests show gives the same pixels as playing to it; before 0 is the first frame and past the end the last is held.
+One texture per ImGui context is kept (each renderer has its own), as an `ImTextureData` the backend uploads from its `Updates` list (not `UpdateRect`: the three backends read `Updates`); a context created at a freed one's address is detected by asking it for the texture.
+The footage must outlive every render that draws it, a decoder runs on whichever thread asks (under a lock), and it needs the ffmpeg binary on the rendering machine. The clip's sound is an `AudioClip` with the same path (`ffmpeg` and the platform decoders both read the audio of a video file).
+Effects (`video_effects.hpp`, header only): `Composition::post` is `void(const Frame&, Image&)`, run on every finished frame after the blur is averaged and the colour made straight (render, `frame`, `strip`, `inspect`, `verify`, `Frames` and Preview all see it; a filter that changes the size is ignored). The filters are `Grade` (brightness, contrast, saturation, gamma), `Vignette`, `Grain` (hash noise from a seed: pass `f.index` for grain that moves), `Blur`, `Glow`, `Chromatic` and `Pixelate`; sizes are fractions of the height, so `--draft` looks like the full render.
+They run on the CPU on purpose: the same maths on every renderer and machine keeps a frame a pure function of its number, which `verify` relies on, and there is no shader dialect to keep in step across Metal, GLSL and HLSL. The price is time: the chain in the demo (glow, fringing, grade, vignette, grain) costs about 50 ms per 720p frame, so a long 1080p render with effects takes minutes longer.
+GPU fragment shaders are not offered. `Verify` on Apple now plays through the same exposure path a render uses, so a transparent frame or a post filter is compared in the form that is encoded.
+`audio analyze [RANGE]` mixes the sound as a render would (`RenderAudio`) and prints the integrated loudness (ITU-R BS.1770: K-weighting, 400 ms blocks every 100 ms, the -70 LUFS gate and the -10 LU relative gate), the true peak (4x oversampled), sample peak, rms, clipped samples (exit 2) and silences of 0.3 s or more under -60 dBFS; `audio at TIMES` says what plays at a moment, from where in its file and how loud; `audio render` writes the mix as a 32 bit float wav.
+`Frames(comp, options, fn)` plays a range in order and hands each frame to `fn`: the building block of the checks, and of anything that wants the pixels (image sequences, thumbnails).
+The contact sheet labels are digits only (a 3x5 bitmap font): the frame number is the only text it needs.
+`skills/imshell-video/SKILL.md` is the working method for an agent (plan first, no template leftovers, the loop above, motion and sound rules).
+
 ## Order of work
 
 1. `video.hpp`, the composition, `Frame` and the closed-form helpers, with tests that need no GPU (easing, spring, sequence).
@@ -117,7 +169,7 @@ The preview target links `imshell::imshell`; `RenderVideo` alone does not need a
 4. Sound mixer.
 5. `Preview`.
 6. Motion blur.
-7. Windows D3D11 and Media Foundation; iOS (the Metal path already works), Android after.
+7. Windows D3D11 and Media Foundation (done); phones are out of scope.
 8. Web is last and may stay out.
 
 ## What it leaves out

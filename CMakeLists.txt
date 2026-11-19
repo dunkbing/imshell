@@ -33,6 +33,7 @@ add_library(imshell STATIC
     src/select.cpp
     src/resizable.cpp
     src/spinner.cpp
+    src/text.cpp
     src/themes.cpp
     src/toggle_button.cpp
 )
@@ -71,12 +72,18 @@ else()
     target_sources(imshell PRIVATE src/emoji_none.cpp)
 endif()
 
-# native icons as glyphs (imshell/icons.hpp): SF Symbols on apple, Segoe Fluent Icons on windows;
+# native icons as glyphs (imshell/icons.hpp): SF Symbols on apple, the icon theme on linux, a bundled Material Symbols font on android, Segoe Fluent Icons on windows;
 # elsewhere none yet, and Icon() returns the host's fallback
 if(APPLE)
     target_sources(imshell PRIVATE src/apple/icons.mm src/apple/motion.mm)
     set(IMSHELL_MOTION_SOURCES src/animation.cpp src/apple/motion.mm)
     set_source_files_properties(src/apple/icons.mm src/apple/motion.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+elseif(ANDROID AND FREETYPE_FOUND) # a bundled icon font through freetype (the system has none)
+    target_sources(imshell PRIVATE src/android/icons.cpp src/motion_none.cpp)
+    set(IMSHELL_MOTION_SOURCES src/animation.cpp src/motion_none.cpp)
+elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN)
+    target_sources(imshell PRIVATE src/linux/icons.cpp src/motion_none.cpp)
+    set(IMSHELL_MOTION_SOURCES src/animation.cpp src/motion_none.cpp)
 else()
     if(WIN32)
         target_sources(imshell PRIVATE src/windows/icons.cpp)
@@ -87,17 +94,20 @@ else()
     set(IMSHELL_MOTION_SOURCES src/animation.cpp src/motion_none.cpp)
 endif()
 
-# native controls (imshell/native_controls.hpp): the os's switch and segmented control through
-# NativeView on apple; imshell's own widgets elsewhere until a platform has a backend
+# native controls (imshell/native_controls.hpp): the os's switch, segmented control and pop-up through
+# NativeView on apple and linux (gtk); imshell's own widgets elsewhere until a platform has a backend
 target_sources(imshell PRIVATE src/native_controls.cpp)
 if(APPLE)
     target_sources(imshell PRIVATE src/apple/native_controls.mm)
     set_source_files_properties(src/apple/native_controls.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN)
+    target_sources(imshell PRIVATE src/linux/native_controls.cpp)
 else()
     target_sources(imshell PRIVATE src/native_controls_none.cpp)
 endif()
 
-# native context menus (imshell/native_menu.hpp): an NSMenu on macos; elsewhere imshell's own menu
+# native context menus (imshell/native_menu.hpp): an NSMenu on macos, a UIMenu on ios, TrackPopupMenu on
+# windows, a GtkPopoverMenu on linux; elsewhere imshell's own menu
 target_sources(imshell PRIVATE src/native_menu.cpp)
 if(APPLE AND NOT IOS)
     target_sources(imshell PRIVATE src/macos/native_menu.mm)
@@ -107,8 +117,19 @@ elseif(IOS)
     set_source_files_properties(src/ios/native_menu.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
 elseif(WIN32)
     target_sources(imshell PRIVATE src/windows/native_menu.cpp)
+elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN)
+    target_sources(imshell PRIVATE src/linux/native_menu.cpp)
 else()
     target_sources(imshell PRIVATE src/native_menu_none.cpp)
+endif()
+
+# vibrancy (imshell/vibrancy.hpp): an NSVisualEffectView region behind the imgui layer on macos; elsewhere
+# the host keeps its opaque sidebar
+if(APPLE AND NOT IOS)
+    target_sources(imshell PRIVATE src/macos/vibrancy.mm)
+    set_source_files_properties(src/macos/vibrancy.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
+else()
+    target_sources(imshell PRIVATE src/vibrancy_none.cpp)
 endif()
 
 # optional components (imshell/components.hpp): a host links imshell::components to use them
@@ -151,13 +172,25 @@ if(TARGET imgui_rich_md)
 endif()
 
 # optional video (imshell/video.hpp): imgui to an mp4 with no window. the frame helpers are header
-# only; the renderer is metal for now
+# only; the renderer is metal on apple, an EGL one on linux, direct3d 11 on windows
 if(APPLE)
     add_library(imshell_video STATIC src/video/metal.mm src/video/ffmpeg.cpp src/video/audio.cpp)
     add_library(imshell::video ALIAS imshell_video)
     set_source_files_properties(src/video/metal.mm PROPERTIES COMPILE_OPTIONS -fobjc-arc)
     target_link_libraries(imshell_video PUBLIC imshell "-framework AVFoundation" "-framework CoreMedia"
         "-framework CoreVideo" "-framework Metal" "-framework ImageIO" "-framework CoreGraphics" "-framework Foundation")
+elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN AND NOT IOS) # linux: desktop GL on an EGL pbuffer (mesa llvmpipe works with no gpu), ffmpeg encodes
+    add_library(imshell_video STATIC src/video/generic.cpp src/video/egl.cpp src/video/png.cpp src/video/ffmpeg.cpp src/video/audio.cpp src/video/preview.cpp)
+    add_library(imshell::video ALIAS imshell_video)
+    target_link_libraries(imshell_video PUBLIC imshell PkgConfig::IMSHELL_EPOXY)
+elseif(WIN32) # direct3d 11 offscreen (warp with no gpu), ffmpeg encodes
+    add_library(imshell_video STATIC src/video/generic.cpp src/video/d3d11.cpp src/video/png.cpp src/video/ffmpeg.cpp src/video/audio.cpp src/video/mf.cpp src/video/preview.cpp)
+    add_library(imshell::video ALIAS imshell_video)
+    target_compile_definitions(imshell_video PRIVATE NOMINMAX)
+    target_link_libraries(imshell_video PUBLIC imshell d3d11 dxgi mfplat mfreadwrite mfuuid ole32)
+endif()
+if(TARGET imshell_video)
+    target_sources(imshell_video PRIVATE src/video/cli.cpp src/video/check.cpp src/video/footage.cpp) # the command line and the checks, over the public api only
 endif()
 
 # optional node editor (imshell/node_editor.hpp): imgui-node-editor, themed
@@ -392,6 +425,16 @@ if(IMSHELL_BUILD_TESTS)
     target_include_directories(imshell_video_test PRIVATE include src/video)
     target_compile_features(imshell_video_test PRIVATE cxx_std_20)
     add_test(NAME imshell_video_test COMMAND imshell_video_test)
+    # the portable layer over a fake rasterizer: runs on any machine with no gpu
+    add_executable(imshell_video_generic_test tests/video_generic_test.cpp src/video/generic.cpp src/video/png.cpp
+                   src/video/ffmpeg.cpp src/video/audio.cpp src/video/cli.cpp src/video/check.cpp ${IMSHELL_TEST_IMGUI})
+    target_include_directories(imshell_video_generic_test PRIVATE include src/video ${IMSHELL_IMGUI_DIR})
+    target_compile_features(imshell_video_generic_test PRIVATE cxx_std_20)
+    if(WIN32)
+        target_sources(imshell_video_generic_test PRIVATE src/video/mf.cpp)
+        target_link_libraries(imshell_video_generic_test PRIVATE mfplat mfreadwrite mfuuid ole32)
+    endif()
+    add_test(NAME imshell_video_generic_test COMMAND imshell_video_generic_test)
     if(TARGET imshell_video)
         add_executable(imshell_video_render_test tests/video_render_test.cpp ${IMSHELL_TEST_IMGUI})
         target_include_directories(imshell_video_render_test PRIVATE include ${IMSHELL_IMGUI_DIR})
@@ -472,6 +515,9 @@ if(IMSHELL_BUILD_TESTS)
             list(APPEND IMSHELL_EMOJI_SOURCES ${f})
         endif()
     endforeach()
+    if(UNIX AND NOT APPLE AND NOT ANDROID AND NOT EMSCRIPTEN) # the other tests skip the gtk icon loader
+        list(APPEND IMSHELL_EMOJI_SOURCES src/icons_none.cpp)
+    endif()
     add_executable(imshell_emoji_test tests/emoji_test.cpp ${IMSHELL_EMOJI_SOURCES} ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_emoji_test PRIVATE include src ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_emoji_test PRIVATE cxx_std_20)
@@ -483,15 +529,23 @@ if(IMSHELL_BUILD_TESTS)
         target_link_libraries(imshell_emoji_test PRIVATE Freetype::Freetype)
     endif()
     add_test(NAME imshell_emoji_test COMMAND imshell_emoji_test)
-    add_executable(imshell_icons_test tests/icons_test.cpp ${IMSHELL_EMOJI_SOURCES} ${IMSHELL_TEST_IMGUI})
+    set(IMSHELL_ICONS_SOURCES ${IMSHELL_EMOJI_SOURCES})
+    if(UNIX AND NOT APPLE AND NOT ANDROID AND NOT EMSCRIPTEN)
+        list(REMOVE_ITEM IMSHELL_ICONS_SOURCES src/icons_none.cpp)
+        list(APPEND IMSHELL_ICONS_SOURCES src/linux/icons.cpp)
+    endif()
+    add_executable(imshell_icons_test tests/icons_test.cpp ${IMSHELL_ICONS_SOURCES} ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_icons_test PRIVATE include src ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_icons_test PRIVATE cxx_std_20)
     if(APPLE)
         target_link_libraries(imshell_icons_test PRIVATE "-framework CoreText" "-framework CoreFoundation" "-framework CoreGraphics" "-framework AppKit")
     elseif(WIN32)
         target_link_libraries(imshell_icons_test PRIVATE dwrite d2d1)
-    elseif(FREETYPE_FOUND)
-        target_link_libraries(imshell_icons_test PRIVATE Freetype::Freetype)
+    elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN)
+        target_link_libraries(imshell_icons_test PRIVATE PkgConfig::IMSHELL_GTK4)
+        if(FREETYPE_FOUND)
+            target_link_libraries(imshell_icons_test PRIVATE Freetype::Freetype)
+        endif()
     endif()
     add_test(NAME imshell_icons_test COMMAND imshell_icons_test)
     add_executable(imshell_native_menu_test tests/native_menu_test.cpp src/native_menu.cpp ${IMSHELL_EMOJI_SOURCES} ${IMSHELL_TEST_IMGUI})
@@ -501,6 +555,9 @@ if(IMSHELL_BUILD_TESTS)
     elseif(WIN32)
         target_sources(imshell_native_menu_test PRIVATE src/windows/native_menu.cpp)
         target_link_libraries(imshell_native_menu_test PRIVATE user32)
+    elseif(UNIX AND NOT ANDROID AND NOT EMSCRIPTEN)
+        target_sources(imshell_native_menu_test PRIVATE src/linux/native_menu.cpp)
+        target_link_libraries(imshell_native_menu_test PRIVATE PkgConfig::IMSHELL_GTK4)
     else()
         target_sources(imshell_native_menu_test PRIVATE src/native_menu_none.cpp)
     endif()
@@ -543,6 +600,10 @@ if(IMSHELL_BUILD_TESTS)
     target_compile_features(imshell_resizable_test PRIVATE cxx_std_20)
     target_compile_definitions(imshell_resizable_test PRIVATE IMGUI_ENABLE_TEST_ENGINE)
     add_test(NAME imshell_resizable_test COMMAND imshell_resizable_test)
+    add_executable(imshell_text_test tests/text_test.cpp src/text.cpp ${IMSHELL_TEST_IMGUI})
+    target_include_directories(imshell_text_test PRIVATE include ${IMSHELL_IMGUI_DIR})
+    target_compile_features(imshell_text_test PRIVATE cxx_std_20)
+    add_test(NAME imshell_text_test COMMAND imshell_text_test)
     add_executable(imshell_editor_test tests/editor_test.cpp src/editor.cpp src/button.cpp ${IMSHELL_MOTION_SOURCES} src/themes.cpp ${IMSHELL_TEST_IMGUI})
     target_include_directories(imshell_editor_test PRIVATE include ${IMSHELL_IMGUI_DIR})
     target_compile_features(imshell_editor_test PRIVATE cxx_std_20)

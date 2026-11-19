@@ -94,7 +94,7 @@ namespace {
             MTLRenderPassDescriptor* pass = [MTLRenderPassDescriptor renderPassDescriptor];
             pass.colorAttachments[0].texture = texture;
             pass.colorAttachments[0].loadAction = MTLLoadActionClear;
-            pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1);
+            pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, comp_.transparent ? 0 : 1);
             pass.colorAttachments[0].storeAction = MTLStoreActionStore;
 
             const Frame frame{.index = index, .frames = comp_.frames, .fps = comp_.fps,
@@ -111,6 +111,9 @@ namespace {
                     ImGui::EndFrame();
                 } else {
                     ImGui::Render();
+                    if (drawProbe()) {
+                        drawProbe()(index, ImGui::GetDrawData());
+                    }
                 }
             }
 
@@ -148,7 +151,8 @@ namespace {
     }
 
     // the buffer's pixels as rgba
-    Image readImage(CVPixelBufferRef buffer, int width, int height) {
+    Image readImage(CVPixelBufferRef buffer, const Composition& comp) {
+        const int width = comp.width, height = comp.height;
         Image image;
         CVPixelBufferLockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
         const auto* src = static_cast<const unsigned char*>(CVPixelBufferGetBaseAddress(buffer));
@@ -167,6 +171,9 @@ namespace {
             }
         }
         CVPixelBufferUnlockBaseAddress(buffer, kCVPixelBufferLock_ReadOnly);
+        if (comp.transparent) {
+            Unpremultiply(image.rgba);
+        }
         return image;
     }
 
@@ -196,7 +203,7 @@ namespace {
 
         bool ok() const { return samples_ == 1 || scratch_; }
 
-        bool draw(Renderer& renderer, int index, bool sequential, CVPixelBufferRef target) {
+        bool drawOnly(Renderer& renderer, int index, bool sequential, CVPixelBufferRef target) {
             if (samples_ == 1) {
                 return renderer.draw(index, sequential, target);
             }
@@ -231,6 +238,33 @@ namespace {
                 }
             }
             CVPixelBufferUnlockBaseAddress(target, 0);
+            return true;
+        }
+
+        // the exposure, then Composition::post on the pixels in place (straight rgba for the filter, the buffer's own form after)
+        bool draw(Renderer& renderer, int index, bool sequential, CVPixelBufferRef target) {
+            if (!drawOnly(renderer, index, sequential, target)) {
+                return false;
+            }
+            if (comp_.post) {
+                Image image = readImage(target, comp_);
+                ApplyPost(comp_, index, image);
+                CVPixelBufferLockBaseAddress(target, 0);
+                auto* dst = static_cast<unsigned char*>(CVPixelBufferGetBaseAddress(target));
+                const size_t stride = CVPixelBufferGetBytesPerRow(target);
+                for (int y = 0; y < comp_.height; ++y) {
+                    const unsigned char* in = &image.rgba[static_cast<size_t>(y) * comp_.width * 4];
+                    unsigned char* out = dst + y * stride;
+                    for (int x = 0; x < comp_.width; ++x) { // rgba back to bgra, premultiplied again when the frame is transparent
+                        const unsigned a = in[x * 4 + 3], k = comp_.transparent ? a : 255;
+                        out[x * 4 + 0] = static_cast<unsigned char>((in[x * 4 + 2] * k + 127) / 255);
+                        out[x * 4 + 1] = static_cast<unsigned char>((in[x * 4 + 1] * k + 127) / 255);
+                        out[x * 4 + 2] = static_cast<unsigned char>((in[x * 4 + 0] * k + 127) / 255);
+                        out[x * 4 + 3] = static_cast<unsigned char>(a);
+                    }
+                }
+                CVPixelBufferUnlockBaseAddress(target, 0);
+            }
             return true;
         }
 
@@ -303,7 +337,7 @@ namespace {
         }
         const double windowStart = static_cast<double>(from) / comp.fps;
         mix.assign(WindowFrames(static_cast<double>(to - from) / comp.fps) * 2, 0.f);
-        for (const AudioClip& clip : comp.audio) {
+        for (const AudioClip& clip : PlacedAudio(comp)) {
             Pcm pcm;
             if (!decodeClip(clip.path, pcm, error)) {
                 return false;
@@ -383,10 +417,10 @@ namespace {
             }
         }
         FfmpegPipe pipe;
-        bool ok = pipe.open(options.ffmpeg, comp.width, comp.height, comp.fps, path, audioFile, error);
+        bool ok = pipe.open(options, comp.width, comp.height, comp.fps, path, audioFile, comp.transparent, error);
         bool cancelled = false;
         for (int n = from; ok && n < to; ++n) {
-            const Image image = exposure.draw(renderer, n, true, buffer) ? readImage(buffer, comp.width, comp.height) : Image{};
+            const Image image = exposure.draw(renderer, n, true, buffer) ? readImage(buffer, comp) : Image{};
             ok = image.width > 0 && pipe.write(image.rgba.data(), image.rgba.size());
             if (!ok) {
                 fail(error, "ffmpeg stopped taking frames (is it installed, and does it have libx264?)");
@@ -419,7 +453,7 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
         if (comp.width % 2 || comp.height % 2) {
             return fail(error, "h.264 needs an even width and height");
         }
-        if (options.encoder == Encoder::Ffmpeg) {
+        if (NeedsFfmpeg(comp, options)) {
             return renderWithFfmpeg(comp, path, options, error);
         }
         int from = 0, to = 0;
@@ -566,7 +600,7 @@ Image RenderFrame(const Composition& comp, int index, const MotionBlur& blur, st
         }
         Image image;
         if (exposure.draw(renderer, std::clamp(index, 0, comp.frames - 1), false, buffer)) {
-            image = readImage(buffer, comp.width, comp.height);
+            image = readImage(buffer, comp);
         } else {
             fail(error, "drawing the frame failed");
         }
@@ -592,6 +626,7 @@ bool Verify(const Composition& comp, std::span<const int> frames, std::string* r
         std::map<int, Image> played;
         {
             Renderer renderer(comp);
+            Exposure exposure(comp, MotionBlur{});
             CVPixelBufferRef buffer = makeBuffer(comp);
             if (!renderer.ok() || !buffer) {
                 if (report) {
@@ -600,7 +635,7 @@ bool Verify(const Composition& comp, std::span<const int> frames, std::string* r
                 return false;
             }
             for (int n = 0; !wanted.empty() && n <= *wanted.rbegin(); ++n) {
-                if (!renderer.draw(n, true, buffer)) {
+                if (!exposure.draw(renderer, n, true, buffer)) { // as a render makes it, post included
                     CVPixelBufferRelease(buffer);
                     if (report) {
                         *report = "drawing frame " + std::to_string(n) + " failed";
@@ -608,7 +643,7 @@ bool Verify(const Composition& comp, std::span<const int> frames, std::string* r
                     return false;
                 }
                 if (wanted.count(n)) {
-                    played[n] = readImage(buffer, comp.width, comp.height);
+                    played[n] = readImage(buffer, comp);
                 }
             }
             CVPixelBufferRelease(buffer);
@@ -630,6 +665,47 @@ bool Verify(const Composition& comp, std::span<const int> frames, std::string* r
             *report = text;
         }
         return same;
+    }
+}
+
+bool Frames(const Composition& comp, const Options& options, const std::function<bool(int, const Image&)>& fn, std::string* error) {
+    @autoreleasepool {
+        if (!validSize(comp, error)) {
+            return false;
+        }
+        int from = 0, to = 0;
+        frameRange(comp, options, from, to);
+        Renderer renderer(comp);
+        Exposure exposure(comp, options.blur);
+        CVPixelBufferRef buffer = makeBuffer(comp);
+        if (!renderer.ok() || !exposure.ok() || !buffer) {
+            if (buffer) {
+                CVPixelBufferRelease(buffer);
+            }
+            return fail(error, "no metal device");
+        }
+        bool ok = true;
+        for (int n = from; ok && n < to; ++n) {
+            if (!exposure.draw(renderer, n, true, buffer)) {
+                ok = fail(error, ("drawing frame " + std::to_string(n) + " failed").c_str());
+            } else if (!fn(n, readImage(buffer, comp)) || (options.progress && !options.progress(n - from + 1, to - from))) {
+                break;
+            }
+        }
+        CVPixelBufferRelease(buffer);
+        return ok;
+    }
+}
+
+bool RenderAudio(const Composition& comp, std::vector<float>& pcm, const Options& options, std::string* error) {
+    @autoreleasepool {
+        if (!validSize(comp, error)) {
+            return false;
+        }
+        int from = 0, to = 0;
+        frameRange(comp, options, from, to);
+        pcm.clear();
+        return mixAudio(comp, from, to, pcm, error);
     }
 }
 

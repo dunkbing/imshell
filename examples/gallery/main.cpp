@@ -2,6 +2,7 @@
 // website's demo)
 #include "imshell/resizable.hpp"
 #include "imshell/app.hpp"
+#include "imshell/animation.hpp"
 #include "imshell/button.hpp"
 #include "imshell/components.hpp"
 #include "imshell/editor.hpp"
@@ -13,6 +14,7 @@
 #include "imshell/toggle_button.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
+#include "imshell/vibrancy.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -29,6 +31,10 @@ struct Gallery : imshell::Delegate {
     bool chips[5] = {true, false, true, false, false};
     bool loading = true;
     int theme = 0;
+    bool sidebar = std::getenv("IMSHELL_GALLERY_VIBRANCY") != nullptr;
+    bool sideOpen = true;
+    float sideBase = 200.0f;
+    int sideRow = 0;
     imshell::TextEditor editor;
 
     Gallery() {
@@ -141,18 +147,95 @@ struct Gallery : imshell::Delegate {
         imshell::Select("##ownPopUp", &ownSize, sizes, 3);
     }
 
+    // a sidebar row in the system's style: a rounded highlight, an icon, then the label
+    bool sidebarRow(const char* id, const char* symbol, const char* label, bool selected) {
+        const imshell::Theme& t = imshell::CurrentTheme();
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const float height = 28.0f;
+        const bool clicked = ImGui::InvisibleButton(id, ImVec2(ImGui::GetContentRegionAvail().x, height));
+        const float alpha = selected ? 0.14f : ImGui::IsItemHovered() ? 0.07f : 0.0f;
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        if (alpha > 0)
+            draw->AddRectFilled(pos, ImVec2(pos.x + ImGui::GetItemRectSize().x, pos.y + height),
+                                ImGui::GetColorU32(ImVec4(t.foreground.x, t.foreground.y, t.foreground.z, alpha)), 6.0f);
+        const float textY = pos.y + (height - ImGui::GetTextLineHeight()) * 0.5f;
+        float x = pos.x + 10;
+        if (const char* glyph = imshell::Icon(symbol)) {
+            draw->AddText(ImVec2(x, textY), ImGui::GetColorU32(selected ? t.primary : t.mutedForeground), glyph);
+            x += 26;
+        }
+        draw->AddText(ImVec2(x, textY), ImGui::GetColorU32(t.foreground), label);
+        return clicked;
+    }
+
     void frame() override {
+        // a sidebar (IMSHELL_GALLERY_VIBRANCY=1 starts with it): the full window height, under the
+        // title bar (whose own background is then transparent), in the window material where
+        // the os has one. the title bar's button folds it, its right edge resizes it
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        const ImGuiID widthId = ImGui::GetID("sideWidth");
+        const float sideWidth = sidebar ? imshell::Animate(widthId, sideOpen ? sideBase : 0.0f, imshell::kSmooth) : 0.0f;
+        if (sidebar)
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
         const auto bar = imshell::BeginTitleBar();
+        if (sidebar) // the bar is transparent over the sidebar only; the rest keeps the theme's background
+            ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(bar.pos.x + sideWidth, bar.pos.y), ImVec2(bar.pos.x + bar.size.x, bar.pos.y + bar.size.y), ImGui::GetColorU32(imshell::CurrentTheme().background));
+        if (sidebar) {
+            // the fold button next to the traffic lights, as in the system's apps
+            if (imshell::IconButton(imshell::Icon("sidebar.left", "="), imshell::ButtonVariant::Ghost))
+                sideOpen = !sideOpen;
+        }
         const char* title = "imshell components";
+        const float left = std::max(sideWidth, bar.leftInset + 40);
         ImGui::SetCursorScreenPos(
-            ImVec2(bar.pos.x + (bar.size.x - ImGui::CalcTextSize(title).x) / 2,
+            ImVec2(bar.pos.x + left + (bar.size.x - left - ImGui::CalcTextSize(title).x) / 2,
                    bar.pos.y + (bar.size.y - ImGui::GetTextLineHeight()) / 2));
         ImGui::TextDisabled("%s", title);
         imshell::EndTitleBar();
+        if (sidebar)
+            ImGui::PopStyleColor();
 
         const imshell::Rect content = imshell::ContentRect();
-        ImGui::SetNextWindowPos(content.pos);
-        ImGui::SetNextWindowSize(content.size);
+        if (sidebar && sideWidth > 1) {
+            const bool material = imshell::VibrancyAvailable();
+            if (material)
+                imshell::Vibrancy(viewport->Pos, ImVec2(sideWidth, viewport->Size.y), imshell::VibrancyMaterial::Sidebar);
+            ImGui::SetNextWindowPos(viewport->Pos);
+            ImGui::SetNextWindowSize(ImVec2(sideWidth, viewport->Size.y));
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, material ? ImVec4(0, 0, 0, 0) : ImGui::GetStyleColorVec4(ImGuiCol_ChildBg));
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 2));
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+            ImGui::Begin("##sidebar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+            ImGui::SetCursorPosY(imshell::TitleBarHeight() + 8); // below the traffic lights
+            ImGui::PushStyleColor(ImGuiCol_Text, imshell::CurrentTheme().mutedForeground);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
+            ImGui::TextUnformatted("Mailboxes");
+            ImGui::PopStyleColor();
+            static const struct { const char* symbol; const char* label; } rows[] = {
+                {"tray", "Inbox"}, {"doc", "Drafts"}, {"paperplane", "Sent"}, {"trash", "Trash"}};
+            for (int i = 0; i < 4; ++i)
+                if (sidebarRow(rows[i].label, rows[i].symbol, rows[i].label, sideRow == i))
+                    sideRow = i;
+            // a hairline on the right edge
+            ImGui::GetWindowDrawList()->AddLine(ImVec2(viewport->Pos.x + sideWidth - 0.5f, viewport->Pos.y),
+                                                ImVec2(viewport->Pos.x + sideWidth - 0.5f, viewport->Pos.y + viewport->Size.y),
+                                                ImGui::GetColorU32(imshell::CurrentTheme().border));
+            // the grip: a strip on the right edge, inside the sidebar so nothing sits over it
+            ImGui::SetCursorScreenPos(ImVec2(viewport->Pos.x + sideWidth - 6, viewport->Pos.y + imshell::TitleBarHeight()));
+            ImGui::InvisibleButton("##grip", ImVec2(6, viewport->Size.y - imshell::TitleBarHeight()));
+            if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            if (ImGui::IsItemActive()) {
+                sideBase = std::clamp(ImGui::GetIO().MousePos.x - viewport->Pos.x, 140.0f, 360.0f);
+                imshell::SnapAnimation(widthId, sideBase); // follows the pointer, no easing
+            }
+            ImGui::End();
+            ImGui::PopStyleVar(3);
+            ImGui::PopStyleColor();
+        }
+        ImGui::SetNextWindowPos(ImVec2(content.pos.x + sideWidth, content.pos.y));
+        ImGui::SetNextWindowSize(ImVec2(content.size.x - sideWidth, content.size.y));
         ImGui::Begin("gallery", nullptr, ImGuiWindowFlags_NoDecoration);
         themePicker();
         nativeIcons();
@@ -315,6 +398,8 @@ struct Gallery : imshell::Delegate {
         if (imshell::Select("##theme", &theme, names.data(), static_cast<int>(names.size()))) {
             imshell::SetTheme(theme < static_cast<int>(imshell::Themes().size()) ? imshell::Themes()[theme] : imshell::SystemTheme());
         }
+        ImGui::SameLine();
+        ImGui::Checkbox("Sidebar", &sidebar);
         ImGui::Spacing();
     }
 };

@@ -94,6 +94,13 @@ if (imshell::BeginResizable("main")) {
 - **Options**: `axis` (`Horizontal`, `Vertical`), `size` of the group (as `BeginChild`), `disabled`, `hitSize` (the band around a handle that takes the mouse, 8 by default), and the handle's colours `line` and `lit` (`ImGuiCol_Separator` and `ImGuiCol_SeparatorActive` by default). The handle is one screen pixel at rest and two while hovered or dragged.
 - Each panel is a child window: `childFlags` and `windowFlags` go to it. Groups nest: begin one inside a panel.
 
+## Text that fits (`imshell/text.hpp`)
+
+`TextEllipsis(text, maxWidth)` draws one line cut to the width with an ellipsis, for list rows and labels; a cut line shows the whole text in a tooltip while hovered, and it returns true when it cut.
+`maxWidth` 0 means the rest of the line.
+`Ellipsize(text, maxWidth)` returns the cut string for code that draws it another way.
+The cut is on whole characters (never inside a UTF-8 sequence) and keeps the longest prefix that fits; the mark is U+2026 where the font has it, else three dots.
+
 ## Menus and dialogs (`imshell/menu.hpp`)
 
 Open menus through these so every menu gets the same padding (`kMenuPadding`):
@@ -173,6 +180,25 @@ While a value moves the loop is asked for frames, and once it settles it stops, 
 With the system's reduce motion setting on (macOS and iOS; `IMSHELL_REDUCE_MOTION=1` or `0` overrides it everywhere) values jump to their target.
 `SnapAnimation(id, value)` jumps an id with no motion, for a row that was recycled for another item.
 
+## Vibrancy (`imshell/vibrancy.hpp`)
+
+`Vibrancy(pos, size, material)` puts the system's window material (the blurred, tinted look of a macOS sidebar) behind a region of the imgui content, so the desktop shows through it:
+
+```cpp
+if (imshell::VibrancyAvailable()) {
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    imshell::Vibrancy(vp->Pos, {200, vp->Size.y}); // every frame the sidebar shows: the full height, under the title bar
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0)); // the area draws nothing of its own
+}
+```
+
+For a sidebar that runs under the title bar (as in Finder), start the region at the top of the window and push a transparent `WindowBg` around `BeginTitleBar()` so the bar does not cover it; start the sidebar's items below `TitleBarHeight()` so the traffic lights have room.
+The material is an `NSVisualEffectView` the shell places under the Metal layer, so the sidebar window and every other window over the region must draw a transparent background there.
+One region per window; a frame that does not call it removes it, and while a region shows the window is cleared transparent, with the window's own background colour behind, so windows that cover the whole area should draw their own background.
+Materials: `Sidebar`, `Header`, `Menu`, `Popover`, `Titlebar`, `Window`, `Content`, `Hud`, `Sheet`.
+macOS only for now: elsewhere `VibrancyAvailable()` is false and `Vibrancy` does nothing, so the host keeps its opaque sidebar.
+The gallery has a "Sidebar" toggle (`IMSHELL_GALLERY_VIBRANCY=1` starts with it), a fold button in the title bar and a draggable right edge.
+
 ## Native icons (`imshell/icons.hpp`)
 
 `Icon(name, fallback)` returns a glyph for the platform's own icon of that name, for any text, label or button:
@@ -184,8 +210,10 @@ ImGui::Text("%s Settings", imshell::Icon("gearshape"));
 
 Names are SF Symbol names, the one vocabulary every platform maps from.
 On macOS and iOS the glyph is the SF Symbol, drawn by the system at the font's size and weight, so it scales with the font, sits on the text's baseline and is tinted by the text colour.
+On Linux the glyph is the icon theme's symbolic icon (Adwaita and most themes), drawn by GTK.
+The system has no icon font on Android, so imshell compiles in a cut-down Material Symbols Outlined (Apache-2.0, about 9 KB, the icons of `src/android/icons.cpp`) and draws it through FreeType; like the emoji, this needs FreeType in the build (vcpkg `freetype`), and without it there are no icons.
 On Windows the glyph comes from Segoe Fluent Icons (Windows 11) or Segoe MDL2 Assets (Windows 10), through a table of about 80 common SF Symbol names to its codepoints (`src/windows/icons.cpp`); a name outside the table has no icon.
-Where the platform has no loader yet (Linux, Android, the web), or the icon font is not installed (a Windows Server edition), `Icon` returns `fallback`, the host's own icon font glyph, or null; an unknown name does the same.
+Where the platform has no loader yet (the web), or the icon font is not installed (a Windows Server edition), `Icon` returns `fallback`, the host's own icon font glyph, or null; an unknown name does the same.
 So an app passes its icon font glyph as the fallback and gets the native icon where there is one.
 `AddFont` merges the source into its font; a font made another way calls `MergeIcons`.
 The glyphs live in the supplementary private use area (U+F0000 and up), which cannot collide with an icon font in the ordinary one; it needs `IMGUI_USE_WCHAR32`, which imshell's build sets.

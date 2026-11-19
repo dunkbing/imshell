@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+struct ImDrawData;
+
 namespace imshell::video {
     // what a composition's draw function gets
     struct Frame {
@@ -20,6 +22,7 @@ namespace imshell::video {
         int height = 0;
         bool sequential = false; // frames are drawn in order (a render), not jumped to
         float offset = 0.f;      // motion blur: this draw is a sample that far (in frames) from `index`
+        int scene = 0;           // inside a scene (video_scenes.hpp): its number, for window names that must differ between scenes
 
         // seconds, with the blur offset; pass position() to the helpers so a blurred frame moves
         double time() const { return (static_cast<double>(index) + offset) / fps; }
@@ -31,13 +34,23 @@ namespace imshell::video {
     // a sound placed on the timeline; the mixer sums every clip into one 48 kHz stereo track
     struct AudioClip {
         std::string path;      // any file the platform decodes (mp3, wav, m4a, ...)
-        double start = 0.0;    // seconds on the video's timeline; negative starts the clip part way in
+        double start = 0.0;    // seconds on the video's timeline (or after the first frame of `scene`); negative starts the clip part way in
         double offset = 0.0;   // seconds skipped at the start of the file
         double duration = -1.0; // seconds played; -1 = to the end of the file
         float volume = 1.f;
         double fadeIn = 0.0;   // seconds, linear
         double fadeOut = 0.0;
+        std::string scene;     // a Mark's name: the clip moves with that scene when its length or place changes
     };
+
+    // a named stretch of the timeline, shown by `timeline` and addressed as `Name`, `Name@1.2s` or `Name@end`
+    struct Mark {
+        std::string name;
+        int start = 0;
+        int frames = 0;
+    };
+
+    struct Image;
 
     struct Composition {
         int width = 1920;
@@ -47,7 +60,26 @@ namespace imshell::video {
         std::function<void()> setup;           // once, on the video's own ImGui context: fonts, theme
         std::function<void(const Frame&)> draw;
         std::vector<AudioClip> audio;          // no clips, no audio track
+        std::vector<Mark> marks;               // optional: the scenes, for the command line
+        bool transparent = false;              // clear to transparent instead of black; Image and the png/ffmpeg output carry straight alpha (h264 and hevc cannot hold it: prores, vp9 or png images)
+        // runs on every finished frame (render, frame, preview, inspect): imshell/video_effects.hpp has the filters. straight rgba, any size change is ignored
+        std::function<void(const Frame&, Image&)> post;
     };
+
+    // the clips with `start` on the whole timeline: a clip with a scene counts from that scene's first frame; a name no Mark has leaves it
+    // as written (Cli's timeline says so)
+    inline std::vector<AudioClip> PlacedAudio(const Composition& comp) {
+        std::vector<AudioClip> clips = comp.audio;
+        for (AudioClip& c : clips) {
+            for (const Mark& m : comp.marks) {
+                if (!c.scene.empty() && m.name == c.scene) {
+                    c.start += static_cast<double>(m.start) / comp.fps;
+                    break;
+                }
+            }
+        }
+        return clips;
+    }
 
     // one frame as 8 bit rgba, rows top to bottom
     struct Image {
@@ -56,8 +88,31 @@ namespace imshell::video {
         std::vector<unsigned char> rgba;
     };
 
+    // a finished frame through Composition::post (straight rgba in the image)
+    inline void ApplyPost(const Composition& comp, int index, Image& image) {
+        if (!comp.post) {
+            return;
+        }
+        const Frame frame{.index = index, .frames = comp.frames, .fps = comp.fps, .width = comp.width, .height = comp.height, .sequential = true};
+        const size_t size = image.rgba.size();
+        comp.post(frame, image);
+        image.rgba.resize(size); // a filter that changed the size would break the encoder
+    }
+
+    // the renderers leave colour premultiplied by alpha (ImGui's blending); images and encoders want it straight
+    inline void Unpremultiply(std::vector<unsigned char>& rgba) {
+        for (size_t i = 0; i + 3 < rgba.size(); i += 4) {
+            const unsigned a = rgba[i + 3];
+            if (a > 0 && a < 255) {
+                for (size_t c = 0; c < 3; ++c) {
+                    rgba[i + c] = static_cast<unsigned char>(std::min(255u, (rgba[i + c] * 255u + a / 2) / a));
+                }
+            }
+        }
+    }
+
     enum class Encoder {
-        Default, // the platform's own (AVAssetWriter, hardware, on Apple)
+        Default, // the platform's own: AVAssetWriter on Apple (hardware), Media Foundation on Windows (no ffmpeg needed, sound decoded there too); Linux uses ffmpeg
         Ffmpeg,  // an `ffmpeg` binary, raw frames over a pipe (libx264); the fallback anywhere
     };
 
@@ -75,8 +130,15 @@ namespace imshell::video {
         std::function<bool(int done, int total)> progress; // return false to cancel
         Encoder encoder = Encoder::Default;
         std::string ffmpeg = "ffmpeg";                 // the binary for Encoder::Ffmpeg: a name on PATH or a path
+        // anything but the default needs the ffmpeg binary (the platform encoders are h.264 at their own bitrate)
+        std::string codec = "h264";                    // "h264", "hevc", "vp9" or "prores" (the file's extension picks the container: .mp4, .webm, .mov)
+        int bitrate = 0;                               // kbit/s; 0 = the encoder's default
+        int crf = -1;                                  // constant quality, lower is better (h264 18 to 28, hevc 20 to 30, vp9 25 to 40); -1 = the default
         MotionBlur blur;
     };
+
+    // true when the options ask for something only the ffmpeg binary encodes
+    inline bool NeedsFfmpeg(const Composition& c, const Options& o) { return c.transparent || o.encoder == Encoder::Ffmpeg || o.codec != "h264" || o.bitrate > 0 || o.crf >= 0; }
 
     // render the frames to an mp4 (h.264). false and `error` on failure.
     // macOS and iOS for now (imshell::video links the Metal renderer there)
@@ -90,6 +152,21 @@ namespace imshell::video {
     // state between frames, which a scrubber or a range render would show as a different picture
     bool Verify(const Composition& comp, std::span<const int> frames, std::string* report = nullptr);
 
+    // plays frames [options.from, options.to) in order, as a render does (with options.blur), and
+    // hands each as rgba; fn returns false to stop. the building block for checks and image sequences
+    bool Frames(const Composition& comp, const Options& options, const std::function<bool(int index, const Image&)>& fn, std::string* error = nullptr);
+    // the sound as a render mixes it for [options.from, options.to): interleaved 48 kHz stereo float,
+    // empty when the composition has no sound
+    bool RenderAudio(const Composition& comp, std::vector<float>& pcm, const Options& options = {}, std::string* error = nullptr);
+
+    // called with every frame's draw data once imgui has laid it out and before it is drawn: what a
+    // check looks at (where each window ended up). process wide, set around a Frames call; null = none
+    using DrawProbe = std::function<void(int frame, const ImDrawData*)>;
+    inline DrawProbe& drawProbe() {
+        static DrawProbe probe;
+        return probe;
+    }
+
     struct PreviewOptions {
         bool play = true;       // start playing
         bool loop = true;
@@ -100,7 +177,7 @@ namespace imshell::video {
     // a window that plays the composition in real time (frame = elapsed time x fps, dropping frames
     // when the machine is slower) with a play button, a scrubber and the frame number. it shows the
     // same pictures a render writes, drawn through the same path, so what the scrubber lands on is
-    // what the file holds; no sound. blocks until the window closes. macOS for now
+    // what the file holds; no sound. blocks until the window closes
     void Preview(const Composition& comp, const PreviewOptions& options = {});
 
     enum class Ease { Linear, InCubic, OutCubic, InOutCubic, OutBack };
@@ -158,6 +235,22 @@ namespace imshell::video {
             y = 1.0 - std::exp(-z * w0 * t) * (std::cosh(s * t) + z * w0 / s * std::sinh(s * t));
         }
         return from + (to - from) * static_cast<float>(y);
+    }
+
+    // a spring that comes to rest in `frames` frames from `start` (within 0.1% of `to`): the unit
+    // spring's settle time stretches to that length, so the feel (bounce, overshoot) stays and the
+    // timing is the one the plan asks for
+    inline float SpringIn(double frame, int fps, float from, float to, int start, int frames, SpringConfig c = {}) {
+        constexpr double step = 1.0 / 240.0;
+        double settle = step; // the last moment the unit spring is more than 0.1% off its target
+        for (double t = step; t < 10.0; t += step) {
+            const float y = Spring(t * fps, fps, 0.f, 1.f, 0, c);
+            if (std::fabs(y - 1.f) > 0.001f) {
+                settle = t;
+            }
+        }
+        const double scale = settle * fps / std::max(frames, 1); // unit-spring frames per frame of ours
+        return Spring(start + (frame - start) * scale, fps, from, to, start, c);
     }
 
     // which scene a frame falls in, and the frame within it; past the end it stays on the last

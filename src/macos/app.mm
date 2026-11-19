@@ -7,6 +7,7 @@
 #include "metal_backend.hpp"
 #include "../native_menu.hpp"
 #include "../native_view.hpp"
+#include "../vibrancy.hpp"
 #include "imshell/themes.hpp"
 #include "imshell/title_bar.hpp"
 
@@ -116,11 +117,13 @@ namespace imshell {
             }
             const Theme& theme = imshell::CurrentTheme();
             const ImVec4 c = theme.background;
-            const std::string seen = std::string(theme.id) + std::to_string(c.x + c.y * 3 + c.z * 7) + (theme.dark ? "d" : "l");
+            const bool see = detail::vibrancyActive(); // the desktop must show through the window
+            const std::string seen = (see ? "v" : "o") + std::string(theme.id) + std::to_string(c.x + c.y * 3 + c.z * 7) + (theme.dark ? "d" : "l");
             if (seen == gTheme)
                 return;
             gTheme = seen;
-            gWindow.backgroundColor = [NSColor colorWithRed:c.x green:c.y blue:c.z alpha:c.w];
+            gWindow.opaque = !see;
+            gWindow.backgroundColor = see ? NSColor.clearColor : [NSColor colorWithRed:c.x green:c.y blue:c.z alpha:c.w];
             gWindow.appearance = system ? nil : [NSAppearance appearanceNamed:theme.dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
         }
 
@@ -347,14 +350,18 @@ namespace imshell {
         auto& d = *impl_;
         followTheme();
         @autoreleasepool {
-            d.backend->beginFrame(CurrentTheme().background);
+            // a vibrancy region needs the layer cleared transparent: the os draws under it
+            ImVec4 clear = CurrentTheme().background;
+            if (detail::vibrancyActive())
+                clear = ImVec4(0, 0, 0, 0);
+            d.backend->beginFrame(clear);
             releaseStuckKeys();
             ImGui::NewFrame();
             d.delegate->frame();
             detail::textInputFrame();
             ImGui::Render();
             detail::frameSkipped() =
-                detail::sameAsLastFrame(ImGui::GetDrawData(), CurrentTheme().background);
+                detail::sameAsLastFrame(ImGui::GetDrawData(), clear);
             if (detail::frameSkipped()) {
                 d.backend->dropFrame();
             } else {
@@ -363,6 +370,7 @@ namespace imshell {
             }
             detail::placeNativeViews();
             detail::runNativeMenus(); // after the frame: the os tracks the menu in its own loop
+            detail::applyVibrancy();
         }
         runBarAction();
     }
