@@ -179,11 +179,13 @@ With the system's reduce motion setting on (macOS and iOS; `IMSHELL_REDUCE_MOTIO
 
 ```cpp
 if (imshell::VibrancyAvailable()) {
-    imshell::Vibrancy(content.pos, {180, content.size.y}); // every frame the sidebar shows
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    imshell::Vibrancy(vp->Pos, {200, vp->Size.y}); // every frame the sidebar shows: the full height, under the title bar
     ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0)); // the area draws nothing of its own
 }
 ```
 
+For a sidebar that runs under the title bar (as in Finder), start the region at the top of the window and push a transparent `WindowBg` around `BeginTitleBar()` so the bar does not cover it; start the sidebar's items below `TitleBarHeight()` so the traffic lights have room.
 The material is an `NSVisualEffectView` the shell places under the Metal layer, so the sidebar window and every other window over the region must draw a transparent background there.
 One region per window; a frame that does not call it removes it, and while a region shows the window is cleared transparent, with the window's own background colour behind, so windows that cover the whole area should draw their own background.
 Materials: `Sidebar`, `Header`, `Menu`, `Popover`, `Titlebar`, `Window`, `Content`, `Hud`, `Sheet`.

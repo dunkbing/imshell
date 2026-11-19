@@ -31,6 +31,7 @@ struct Gallery : imshell::Delegate {
     bool loading = true;
     int theme = 0;
     bool vibrancy = std::getenv("IMSHELL_GALLERY_VIBRANCY") != nullptr;
+    int sideRow = 0;
     imshell::TextEditor editor;
 
     Gallery() {
@@ -143,30 +144,68 @@ struct Gallery : imshell::Delegate {
         imshell::Select("##ownPopUp", &ownSize, sizes, 3);
     }
 
+    // a sidebar row in the system's style: a rounded highlight, an icon, then the label
+    bool sidebarRow(const char* id, const char* symbol, const char* label, bool selected) {
+        const imshell::Theme& t = imshell::CurrentTheme();
+        const ImVec2 pos = ImGui::GetCursorScreenPos();
+        const float height = 28.0f;
+        const bool clicked = ImGui::InvisibleButton(id, ImVec2(ImGui::GetContentRegionAvail().x, height));
+        const float alpha = selected ? 0.14f : ImGui::IsItemHovered() ? 0.07f : 0.0f;
+        ImDrawList* draw = ImGui::GetWindowDrawList();
+        if (alpha > 0)
+            draw->AddRectFilled(pos, ImVec2(pos.x + ImGui::GetItemRectSize().x, pos.y + height),
+                                ImGui::GetColorU32(ImVec4(t.foreground.x, t.foreground.y, t.foreground.z, alpha)), 6.0f);
+        const float textY = pos.y + (height - ImGui::GetTextLineHeight()) * 0.5f;
+        float x = pos.x + 10;
+        if (const char* glyph = imshell::Icon(symbol)) {
+            draw->AddText(ImVec2(x, textY), ImGui::GetColorU32(selected ? t.primary : t.mutedForeground), glyph);
+            x += 26;
+        }
+        draw->AddText(ImVec2(x, textY), ImGui::GetColorU32(t.foreground), label);
+        return clicked;
+    }
+
     void frame() override {
+        // a window-material sidebar where the os has one (IMSHELL_GALLERY_VIBRANCY=1 starts with it):
+        // the full window height, under the title bar, whose own background is then transparent
+        const bool side = vibrancy && imshell::VibrancyAvailable();
+        const float sideWidth = side ? 200.0f : 0.0f;
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
+        if (side)
+            ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
         const auto bar = imshell::BeginTitleBar();
         const char* title = "imshell components";
         ImGui::SetCursorScreenPos(
-            ImVec2(bar.pos.x + (bar.size.x - ImGui::CalcTextSize(title).x) / 2,
+            ImVec2(bar.pos.x + sideWidth + (bar.size.x - sideWidth - ImGui::CalcTextSize(title).x) / 2,
                    bar.pos.y + (bar.size.y - ImGui::GetTextLineHeight()) / 2));
         ImGui::TextDisabled("%s", title);
         imshell::EndTitleBar();
+        if (side)
+            ImGui::PopStyleColor();
 
         const imshell::Rect content = imshell::ContentRect();
-        // a window-material sidebar where the os has one (IMSHELL_GALLERY_VIBRANCY=1 starts with it)
-        const bool side = vibrancy && imshell::VibrancyAvailable();
-        const float sideWidth = side ? 180.0f : 0.0f;
         if (side) {
-            imshell::Vibrancy(content.pos, ImVec2(sideWidth, content.size.y));
-            ImGui::SetNextWindowPos(content.pos);
-            ImGui::SetNextWindowSize(ImVec2(sideWidth, content.size.y));
+            imshell::Vibrancy(viewport->Pos, ImVec2(sideWidth, viewport->Size.y));
+            ImGui::SetNextWindowPos(viewport->Pos);
+            ImGui::SetNextWindowSize(ImVec2(sideWidth, viewport->Size.y));
             ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0, 0, 0, 0));
-            ImGui::Begin("##sidebar", nullptr, ImGuiWindowFlags_NoDecoration);
-            ImGui::TextDisabled("Sidebar");
-            ImGui::Selectable("Inbox", true);
-            ImGui::Selectable("Drafts");
-            ImGui::Selectable("Sent");
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 8));
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 2));
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+            ImGui::Begin("##sidebar", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+            ImGui::SetCursorPosY(imshell::TitleBarHeight() + 8); // below the traffic lights
+            ImGui::AlignTextToFramePadding();
+            ImGui::PushStyleColor(ImGuiCol_Text, imshell::CurrentTheme().mutedForeground);
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
+            ImGui::TextUnformatted("Mailboxes");
+            ImGui::PopStyleColor();
+            static const struct { const char* symbol; const char* label; } rows[] = {
+                {"tray", "Inbox"}, {"doc", "Drafts"}, {"paperplane", "Sent"}, {"trash", "Trash"}};
+            for (int i = 0; i < 4; ++i)
+                if (sidebarRow(rows[i].label, rows[i].symbol, rows[i].label, sideRow == i))
+                    sideRow = i;
             ImGui::End();
+            ImGui::PopStyleVar(3);
             ImGui::PopStyleColor();
         }
         ImGui::SetNextWindowPos(ImVec2(content.pos.x + sideWidth, content.pos.y));
