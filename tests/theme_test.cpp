@@ -2,6 +2,8 @@
 // keys still resolve. prints the pairs that fall short. built with -DIMSHELL_BUILD_TESTS=ON
 #include "imshell/themes.hpp"
 
+#include "imgui.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -62,6 +64,26 @@ int main() {
     check(imshell::CurrentTheme().primary.x == 1 && imshell::CurrentTheme().primary.y == 0, "SetTheme keeps a copy");
     imshell::SetTheme(imshell::Themes()[2]);
     check(imshell::CurrentTheme().id == imshell::Themes()[2].id, "SetTheme");
+
+    // a theme's sizes reach imgui's style, and the host's text size comes back with the next preset
+    ImGui::CreateContext();
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.FontSizeBase = 16.0f;
+    imshell::SetTheme(imshell::Themes()[0]);
+    check(style.FontSizeBase == 16.0f && style.FramePadding.y == 6.0f, "a preset keeps the host's sizes");
+    if (imshell::SystemThemeAvailable()) {
+        const imshell::Theme system = imshell::SystemTheme();
+        imshell::SetTheme(system);
+        const float height = style.FontSizeBase + style.FramePadding.y * 2.0f;
+        check(style.FontSizeBase == system.metrics.fontSize && system.metrics.fontSize > 8.0f, "the system theme sets the text size");
+        check(height >= 18.0f && height <= 32.0f, "a control is about as tall as a native one");
+        check(style.DisabledAlpha >= 0.35f && style.DisabledAlpha <= 0.6f, "disabled alpha stays legible");
+        imshell::SetTheme(imshell::Themes()[0]);
+        check(style.FontSizeBase == 16.0f && style.FramePadding.y == 6.0f, "the host's sizes come back");
+        std::printf("system metrics: text %.0f, padding %.1f x %.1f, control %.1f, disabled %.2f\n", system.metrics.fontSize,
+                    system.metrics.framePadding.x, system.metrics.framePadding.y, height, system.metrics.disabledAlpha);
+    }
+    ImGui::DestroyContext();
 
     std::printf("%s\n", failures ? "theme: FAILED" : "theme: ok");
     return failures ? 1 : 0;
