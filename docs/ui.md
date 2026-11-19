@@ -144,6 +144,22 @@ imshell::OpenDialog({.filters = {{"CSV files", "csv,tsv"}, {"All files", "*"}}, 
 
 On iOS the documents folder shows in the Files app under the app's name. Filters become content types (iOS) or MIME types (Android, from a short table; anything else allows any file). On the desktops, link Native File Dialog Extended (vcpkg `nativefiledialog-extended`); imshell finds it with `find_package(nfd)`.
 
+## Animation (`imshell/animation.hpp`)
+
+`Animate(id, target)` returns a value that chases its target with a spring, for a hover, a press, a panel opening:
+
+```cpp
+const float lift = imshell::Animate(ImGui::GetItemID(), ImGui::IsItemHovered() ? 1.0f : 0.0f);
+const ImVec4 fill = imshell::AnimateColor(id, hovered ? t.accent : t.secondary);
+```
+
+The state is kept by id, so there is nothing to store; the first call for an id starts at the target, so nothing animates on first sight.
+A `Spring` is a `response` (seconds for one swing, smaller is snappier) and a `damping` (1 settles without overshoot, below 1 bounces); `kSnappy`, `kSmooth` and `kBouncy` are the presets.
+A target that changes mid-way keeps the spring's velocity, so a hover that ends half-way turns back smoothly instead of jumping.
+While a value moves the loop is asked for frames, and once it settles it stops, so an idle app still sleeps; `Animating()` says whether anything moves.
+With the system's reduce motion setting on (macOS and iOS; `IMSHELL_REDUCE_MOTION=1` or `0` overrides it everywhere) values jump to their target.
+`SnapAnimation(id, value)` jumps an id with no motion, for a row that was recycled for another item.
+
 ## Native icons (`imshell/icons.hpp`)
 
 `Icon(name, fallback)` returns a glyph for the platform's own icon of that name, for any text, label or button:
