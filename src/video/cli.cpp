@@ -1,5 +1,7 @@
 #include "imshell/video_cli.hpp"
 
+#include "imshell/video_check.hpp"
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -112,7 +114,7 @@ namespace imshell::video {
         };
 
         Args parse(int argc, char** argv, int from) {
-            static const char* const booleans[] = {"--json", "--draft", "--ffmpeg", "--paused", "--help"};
+            static const char* const booleans[] = {"--json", "--draft", "--ffmpeg", "--paused", "--help", "--no-pops"};
             Args args;
             for (int i = from; i < argc; ++i) {
                 const std::string a = argv[i];
@@ -274,6 +276,11 @@ namespace imshell::video {
                          "                                    encode (--draft: half size, --ffmpeg: use the ffmpeg binary)\n"
                          "  preview [TIME] [--paused]         the real-time window\n"
                          "  verify [RANGE]                    playing in order and seeking must give the same pictures\n"
+                         "  inspect [RANGE] [--no-pops] [--fail-on warning]\n"
+                         "                                    windows cut off by the canvas, blank frames, pops between frames (exit 2 on errors)\n"
+                         "  audio analyze [RANGE]             loudness, peaks, clipping and silence of the mix (exit 2 on clipping)\n"
+                         "  audio at TIMES                    which sounds play at a moment, from where in the file, how loud\n"
+                         "  audio render [RANGE] [-o a.wav]   the mix as a 32 bit float wav\n"
                          "times: 120 (a frame), 3.2s, 500ms, 1:05.5, 50%%, start, end, a scene (outro, outro@1.2s, outro@end, #2). ranges: a..b (b excluded), a.., ..b, all, a scene\n"
                          "--json prints one json object on stdout; sizes with --draft/--scale need a draw function that lays out from Frame::width/height\n",
                          name);
@@ -478,6 +485,159 @@ namespace imshell::video {
             }
             return same ? 0 : 2;
         }
+
+        int inspectCommand(const Composition& comp, const Args& args) {
+            InspectOptions options;
+            int from = 0, to = comp.frames;
+            if (args.positional.size() >= 2 && !parseRange(comp, args.positional[1], from, to)) {
+                std::fprintf(stderr, "not a range: %s\n", args.positional[1].c_str());
+                return 1;
+            }
+            options.from = from;
+            options.to = to;
+            options.pops = !args.has("--no-pops");
+            std::string error;
+            const std::vector<Finding> findings = Inspect(comp, options, &error);
+            if (!error.empty()) {
+                std::fprintf(stderr, "inspect failed: %s\n", error.c_str());
+                return 1;
+            }
+            int errors = 0, warnings = 0;
+            for (const Finding& f : findings) {
+                errors += f.severity == "error";
+                warnings += f.severity == "warning";
+            }
+            if (args.has("--json")) {
+                std::printf("{\"errors\":%d,\"warnings\":%d,\"findings\":[", errors, warnings);
+                for (size_t i = 0; i < findings.size(); ++i) {
+                    const Finding& f = findings[i];
+                    std::printf("%s{\"severity\":%s,\"kind\":%s,\"what\":%s,\"scene\":%s,\"from\":%d,\"to\":%d,\"detail\":%s,\"look\":%s}", i ? "," : "", quote(f.severity).c_str(),
+                                quote(f.kind).c_str(), quote(f.what).c_str(), quote(f.scene).c_str(), f.from, f.to, quote(f.detail).c_str(), quote(f.look).c_str());
+                }
+                std::printf("]}\n");
+            } else {
+                for (const Finding& f : findings) {
+                    std::printf("%-7s %-7s %s%s frames %d..%d%s: %s\n        look: %s\n", f.severity.c_str(), f.kind.c_str(), f.what.c_str(), f.what.empty() ? "" : "", f.from, f.to,
+                                f.scene.empty() ? "" : (" (" + f.scene + ")").c_str(), f.detail.c_str(), f.look.c_str());
+                }
+                std::printf("%d errors, %d warnings, %d notes\n", errors, warnings, static_cast<int>(findings.size()) - errors - warnings);
+            }
+            const bool failOnWarning = args.get("--fail-on") == "warning";
+            return errors > 0 || (failOnWarning && warnings > 0) ? 2 : 0;
+        }
+
+        // shortcut: 32 bit float wav, the one format that needs no conversion; an editor that wants 16 bit converts
+        bool writeWav(const std::string& path, const std::vector<float>& pcm) {
+            std::FILE* file = std::fopen(path.c_str(), "wb");
+            if (!file) {
+                return false;
+            }
+            auto u32 = [&](unsigned v) { std::fwrite(&v, 4, 1, file); };
+            auto u16 = [&](unsigned short v) { std::fwrite(&v, 2, 1, file); };
+            const unsigned bytes = static_cast<unsigned>(pcm.size() * 4);
+            std::fwrite("RIFF", 1, 4, file);
+            u32(36 + bytes);
+            std::fwrite("WAVEfmt ", 1, 8, file);
+            u32(16);
+            u16(3); // ieee float
+            u16(2);
+            u32(48000);
+            u32(48000 * 8);
+            u16(8);
+            u16(32);
+            std::fwrite("data", 1, 4, file);
+            u32(bytes);
+            const bool ok = std::fwrite(pcm.data(), 4, pcm.size(), file) == pcm.size();
+            std::fclose(file);
+            return ok;
+        }
+
+        // the gain a clip has at `t` seconds of the timeline from its volume and fades
+        double clipGain(const AudioClip& c, double t) {
+            double gain = c.volume;
+            if (c.fadeIn > 0.0) {
+                gain *= std::clamp((t - c.start) / c.fadeIn, 0.0, 1.0);
+            }
+            if (c.fadeOut > 0.0 && c.duration >= 0.0) {
+                gain *= std::clamp((c.start + c.duration - t) / c.fadeOut, 0.0, 1.0);
+            }
+            return gain;
+        }
+
+        int audioCommand(const Composition& comp, const Args& args) {
+            const std::string sub = args.positional.size() >= 2 ? args.positional[1] : "";
+            if (sub == "at") {
+                std::vector<int> frames;
+                if (args.positional.size() < 3 || !timesOf(comp, args.positional[2], frames)) {
+                    return usage(programName(), true);
+                }
+                for (int f : frames) {
+                    const double t = static_cast<double>(f) / comp.fps;
+                    std::printf("%s s (frame %d):\n", seconds(comp, f).c_str(), f);
+                    bool any = false;
+                    for (const AudioClip& c : comp.audio) {
+                        const bool playing = t >= c.start && (c.duration < 0.0 || t < c.start + c.duration);
+                        if (!playing) {
+                            continue;
+                        }
+                        any = true;
+                        const double gain = clipGain(c, t);
+                        std::printf("  %s at %.3f s into the file, gain %.2f (%.1f dB)\n", c.path.c_str(), c.offset + (t - c.start), gain, gain > 1e-6 ? 20.0 * std::log10(gain) : -120.0);
+                    }
+                    if (!any) {
+                        std::printf("  nothing plays\n");
+                    }
+                }
+                return 0;
+            }
+            if (sub != "analyze" && sub != "render") {
+                return usage(programName(), true);
+            }
+            Options options;
+            int from = 0, to = comp.frames;
+            if (args.positional.size() >= 3 && !parseRange(comp, args.positional[2], from, to)) {
+                std::fprintf(stderr, "not a range: %s\n", args.positional[2].c_str());
+                return 1;
+            }
+            options.from = from;
+            options.to = to;
+            std::vector<float> pcm;
+            std::string error;
+            if (!RenderAudio(comp, pcm, options, &error)) {
+                std::fprintf(stderr, "failed: %s\n", error.c_str());
+                return 1;
+            }
+            if (sub == "render") {
+                const std::string path = args.get("-o", "audio.wav");
+                if (pcm.empty() || !writeWav(path, pcm)) {
+                    std::fprintf(stderr, pcm.empty() ? "the composition has no sound\n" : "could not write %s\n", path.c_str());
+                    return 1;
+                }
+                std::printf("%s: %.3f s\n", path.c_str(), static_cast<double>(pcm.size() / 2) / 48000.0);
+                return 0;
+            }
+            if (pcm.empty()) {
+                std::printf(args.has("--json") ? "{\"sound\":false}\n" : "no sound\n");
+                return 0;
+            }
+            const AudioReport r = AnalyzeAudio(pcm);
+            if (args.has("--json")) {
+                std::printf("{\"sound\":true,\"seconds\":%.3f,\"lufs\":%.2f,\"truePeakDb\":%.2f,\"samplePeakDb\":%.2f,\"rmsDb\":%.2f,\"clippedSamples\":%d,\"silent\":[", r.seconds, r.lufs,
+                            r.truePeakDb, r.samplePeakDb, r.rmsDb, r.clippedSamples);
+                for (size_t i = 0; i < r.silent.size(); ++i) {
+                    std::printf("%s[%.3f,%.3f]", i ? "," : "", r.silent[i].first, r.silent[i].second);
+                }
+                std::printf("]}\n");
+            } else {
+                std::printf("%.3f s\nloudness %.1f LUFS (about -14 for web video)\ntrue peak %.1f dBTP (keep below -1)\nsample peak %.1f dBFS, rms %.1f dBFS\n", r.seconds, r.lufs, r.truePeakDb,
+                            r.samplePeakDb, r.rmsDb);
+                std::printf(r.clippedSamples ? "CLIPPING: %d samples at full scale\n" : "no clipping (%d samples at full scale)\n", r.clippedSamples);
+                for (const auto& s : r.silent) {
+                    std::printf("silence %.3f s .. %.3f s\n", s.first, s.second);
+                }
+            }
+            return r.clippedSamples > 0 ? 2 : 0;
+        }
     } // namespace
 
     namespace {
@@ -552,6 +712,12 @@ namespace imshell::video {
         }
         if (command == "preview") {
             return previewCommand(sized, args);
+        }
+        if (command == "inspect") {
+            return inspectCommand(sized, args);
+        }
+        if (command == "audio") {
+            return audioCommand(sized, args);
         }
         if (command == "verify") {
             return verify(sized, args);

@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "imshell/animation.hpp"
 #include "imshell/video.hpp"
+#include "imshell/video_check.hpp"
 #include "video_test_util.hpp"
 
 #include <array>
@@ -209,6 +210,67 @@ int main() {
     if (videotest::hasTool("ffmpeg")) {
         blurOptions.encoder = imshell::video::Encoder::Ffmpeg;
         check(imshell::video::RenderVideo(mover, base + "_blur_ff.mp4", blurOptions, &error), ("renders blurred through ffmpeg: " + error).c_str());
+    }
+
+    // inspect: windows cut off by the canvas, a blank start, a pop, and a cut that is not one
+    {
+        using namespace imshell::video;
+        auto card = [](float x) {
+            ImGui::SetNextWindowPos(ImVec2(x, 100.f));
+            ImGui::SetNextWindowSize(ImVec2(240.f, 220.f)); // above the theme's minimum window size
+            ImGui::Begin("card", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings);
+            ImGui::Text("hello");
+            ImGui::End();
+        };
+        auto find = [](const std::vector<Finding>& all, const char* kind) -> const Finding* {
+            for (const Finding& f : all) {
+                if (f.kind == kind) {
+                    return &f;
+                }
+            }
+            return nullptr;
+        };
+        Composition c;
+        c.width = 800;
+        c.height = 500;
+        c.fps = 30;
+        c.frames = 30;
+        c.draw = [&](const Frame& f) { card(f.index >= 10 && f.index <= 20 ? -100.f : 150.f); };
+        std::string problem;
+        std::vector<Finding> found = Inspect(c, {}, &problem);
+        const Finding* clipped = find(found, "clipped");
+        check(clipped && clipped->severity == "error" && clipped->from == 10 && clipped->to == 20 && clipped->what == "card" && clipped->detail.find("left") != std::string::npos,
+              ("a window cut off in the middle is an error: " + problem + " [" + std::to_string(found.size()) + " findings; first: " + (found.empty() ? std::string("none") : found[0].kind + " " + found[0].what + " " + std::to_string(found[0].from) + ".." + std::to_string(found[0].to) + " " + found[0].detail) + "]").c_str());
+
+        c.draw = [&](const Frame& f) { card(f.index < 6 ? -100.f : 150.f); };
+        found = Inspect(c, {}, &problem);
+        clipped = find(found, "clipped");
+        check(clipped && clipped->severity == "warning" && clipped->from == 0 && clipped->to == 5, "cut off at the start is an entrance, a warning");
+
+        c.draw = [&](const Frame& f) {
+            if (f.index >= 5) {
+                card(150.f);
+            }
+        };
+        found = Inspect(c, {}, &problem);
+        const Finding* blank = find(found, "blank");
+        check(blank && blank->from == 0 && blank->to == 4 && blank->severity == "info", "frames with nothing drawn are noted");
+
+        c.draw = [&](const Frame& f) {
+            if (f.index >= 15) {
+                card(150.f);
+            }
+        };
+        found = Inspect(c, {}, &problem);
+        const Finding* pop = find(found, "pop");
+        check(pop && pop->severity == "error" && pop->from == 15, "an element that appears in one frame is a pop");
+        c.marks = {{"a", 0, 15}, {"b", 15, 15}};
+        found = Inspect(c, {}, &problem);
+        check(!find(found, "pop"), "a cut at a scene boundary is not a pop");
+        InspectOptions noPops;
+        noPops.pops = false;
+        c.marks.clear();
+        check(!find(Inspect(c, noPops, &problem), "pop"), "pops can be left out");
     }
 
     if (failures == 0) {

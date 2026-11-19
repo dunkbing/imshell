@@ -260,6 +260,40 @@ namespace imshell::video {
         return same;
     }
 
+    bool Frames(const Composition& comp, const Options& options, const std::function<bool(int, const Image&)>& fn, std::string* error) {
+        if (!validSize(comp, error)) {
+            return false;
+        }
+        const int from = std::clamp(options.from, 0, comp.frames - 1);
+        const int to = options.to < 0 ? comp.frames : std::clamp(options.to, from + 1, comp.frames);
+        const auto rasterizer = MakeRasterizer(comp, error);
+        if (!rasterizer) {
+            return false;
+        }
+        Image image;
+        image.width = comp.width;
+        image.height = comp.height;
+        for (int n = from; n < to; ++n) {
+            if (!exposure(*rasterizer, comp, n, true, options.blur, image.rgba)) {
+                return fail(error, "drawing frame " + std::to_string(n) + " failed");
+            }
+            if (!fn(n, image) || (options.progress && !options.progress(n - from + 1, to - from))) {
+                break;
+            }
+        }
+        return true;
+    }
+
+    bool RenderAudio(const Composition& comp, std::vector<float>& pcm, const Options& options, std::string* error) {
+        if (!validSize(comp, error)) {
+            return false;
+        }
+        const int from = std::clamp(options.from, 0, comp.frames - 1);
+        const int to = options.to < 0 ? comp.frames : std::clamp(options.to, from + 1, comp.frames);
+        pcm.clear();
+        return mixAudio(comp, options, from, to, pcm, error);
+    }
+
     bool SavePng(const Image& image, const std::string& path) {
         if (image.width <= 0 || image.rgba.size() < static_cast<size_t>(image.width) * image.height * 4) {
             return false;

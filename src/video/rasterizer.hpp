@@ -41,6 +41,9 @@ namespace imshell::video {
                 ImGui::EndFrame();
             } else {
                 ImGui::Render();
+                if (drawProbe()) {
+                    drawProbe()(index, ImGui::GetDrawData());
+                }
             }
         }
     }

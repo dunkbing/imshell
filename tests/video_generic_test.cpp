@@ -1,6 +1,7 @@
 // the portable video code (generic.cpp, ffmpeg.cpp, png.cpp) over a fake rasterizer, so it runs
 // anywhere with no gpu: blur averaging, Verify, RenderVideo through ffmpeg with sound, the png writer
 #include "ffmpeg.hpp"
+#include "imshell/video_check.hpp"
 #include "imshell/video_cli.hpp"
 #include "imshell/video_scenes.hpp"
 #include "video_test_util.hpp"
@@ -133,6 +134,30 @@ int main() {
         check(DecodeWithFfmpeg("ffmpeg", base + ".wav", pcm, &error) && pcm.size() == 48000 * 2, "ffmpeg decodes to 48 kHz stereo");
         check(!DecodeWithFfmpeg("ffmpeg", base + "_nothing.wav", pcm, &error) && !error.empty(), "a missing sound file is an error");
 
+        // Frames plays in order and stops when asked; RenderAudio is the mix a render makes
+        {
+            std::vector<int> seen;
+            Options range;
+            range.from = 5;
+            range.to = 12;
+            check(Frames(comp, range, [&](int n, const Image& image) { seen.push_back(n); return image.width == 64; }, &error) && seen.size() == 7 && seen.front() == 5 && seen.back() == 11, "Frames plays a range in order");
+            seen.clear();
+            check(Frames(comp, Options{}, [&](int n, const Image&) { seen.push_back(n); return n < 3; }, &error) && seen.size() == 4, "Frames stops when asked");
+            Composition withSound = comp;
+            withSound.audio.push_back({.path = base + ".wav", .volume = 0.5f});
+            std::vector<float> mixed;
+            check(RenderAudio(withSound, mixed, Options{}, &error) && mixed.size() == 48000 * 2 && AnalyzeAudio(mixed).samplePeakDb > -20.0 && AnalyzeAudio(mixed).samplePeakDb < -12.0, "RenderAudio mixes the clip at its volume (a mono file upmixed, halved: -15 to -18 dB)");
+            check(RenderAudio(comp, mixed, Options{}, &error) && mixed.empty(), "no clips, no sound");
+            const std::string wavOut = base + "_mix.wav";
+            const char* analyze[] = {"video", "audio", "analyze"};
+            const char* at[] = {"video", "audio", "at", "0.5s"};
+            const char* render[] = {"video", "audio", "render", "-o", wavOut.c_str()};
+            check(Cli(withSound, 3, const_cast<char**>(analyze)) == 0, "audio analyze runs");
+            check(Cli(withSound, 4, const_cast<char**>(at)) == 0, "audio at runs");
+            check(Cli(withSound, 5, const_cast<char**>(render)) == 0 && stat(wavOut.c_str(), &st) == 0 && st.st_size == 44 + 48000 * 2 * 4, "audio render writes a float wav of the mix");
+            std::remove(wavOut.c_str());
+        }
+
         options.progress = [](int done, int) { return done < 3; };
         check(!RenderVideo(comp, base + "_cancel.mp4", options, &error), "cancel fails the render");
         check(stat((base + "_cancel.mp4").c_str(), &st) != 0, "cancel removes the file");
@@ -155,7 +180,7 @@ int main() {
         check(layers.size() == 1 && layers[0].scene == 0 && layers[0].local == 5 && layers[0].alpha == 1.f, "a frame in the first scene");
         layers = SceneLayers(25, scenes); // main fades in over the last 10 frames of intro: it starts at 20
         check(layers.size() == 2 && layers[0].scene == 0 && layers[1].scene == 1 && layers[1].local == 5 && std::fabs(layers[1].alpha - 0.5f) < 1e-6f, "the overlap shows both, the new one half in");
-        check(layers[0].alpha == 1.f, "the one underneath stays fully visible");
+        check(std::fabs(layers[0].alpha - 0.5f) < 1e-6f, "the one leaving fades as the new one comes (a dissolve)");
         layers = SceneLayers(30, scenes);
         check(layers.size() == 1 && layers[0].scene == 1 && layers[0].local == 10 && layers[0].length == 50 && layers[0].alpha == 1.f, "after the overlap only the new scene");
         layers = SceneLayers(70, scenes);
@@ -177,6 +202,25 @@ int main() {
         check(std::fabs(SpringIn(0, 30, 0.f, 1.f, 0, 30) - 0.f) < 1e-6f, "a settling spring starts at its start");
         check(std::fabs(SpringIn(30, 30, 0.f, 1.f, 0, 30) - 1.f) < 0.002f, "and is at rest after the frames it was given");
         check(std::fabs(SpringIn(100, 30, 0.f, 1.f, 0, 30) - 1.f) < 0.002f, "and stays there");
+    }
+
+    // the sound analysis: a 1 kHz tone at -20 dBFS is -20 LUFS (the K-weighting's offset is made for it)
+    {
+        std::vector<float> tone(48000 * 3 * 2, 0.f);
+        for (size_t n = 0; n < 48000 * 3; ++n) {
+            const float s = 0.1f * static_cast<float>(std::sin(2.0 * 3.14159265358979 * 1000.0 * n / 48000.0)); // 0.1 = -20 dBFS
+            tone[n * 2] = tone[n * 2 + 1] = n >= 48000 && n < 96000 ? 0.f : s; // a second of silence in the middle
+        }
+        const AudioReport r = AnalyzeAudio(tone);
+        check(std::fabs(r.seconds - 3.0) < 1e-9, "the length");
+        check(std::fabs(r.samplePeakDb - -20.0) < 0.1, "the sample peak");
+        check(std::fabs(r.truePeakDb - -20.0) < 0.3, "the true peak of a sine is its peak");
+        check(r.lufs < -19.5 && r.lufs > -22.0, "the loudness of a quiet tone");
+        check(r.clippedSamples == 0, "no clipping");
+        check(r.silent.size() == 1 && std::fabs(r.silent[0].first - 1.0) < 0.06 && std::fabs(r.silent[0].second - 2.0) < 0.06, "the silent second is found");
+        std::vector<float> hot(48000 * 2, 1.f);
+        check(AnalyzeAudio(hot).clippedSamples == 48000 * 2, "full scale samples are counted");
+        check(AnalyzeAudio({}).lufs == -120.0, "nothing is nothing");
     }
 
     // the command line: time words, and the commands writing files
