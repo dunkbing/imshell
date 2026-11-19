@@ -77,6 +77,19 @@ namespace imshell::video {
     // state between frames, which a scrubber or a range render would show as a different picture
     bool Verify(const Composition& comp, std::span<const int> frames, std::string* report = nullptr);
 
+    struct PreviewOptions {
+        bool play = true;       // start playing
+        bool loop = true;
+        int startFrame = 0;
+        double closeAfter = 0.0; // seconds, then the window closes by itself (tests); 0 = until closed
+    };
+
+    // a window that plays the composition in real time (frame = elapsed time x fps, dropping frames
+    // when the machine is slower) with a play button, a scrubber and the frame number. it shows the
+    // same pictures a render writes, drawn through the same path, so what the scrubber lands on is
+    // what the file holds; no sound. blocks until the window closes. macOS for now
+    void Preview(const Composition& comp, const PreviewOptions& options = {});
+
     enum class Ease { Linear, InCubic, OutCubic, InOutCubic, OutBack };
 
     // t in 0..1 to the eased 0..1 (OutBack overshoots)

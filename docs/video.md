@@ -99,9 +99,12 @@ It is off by default.
 
 ## Preview
 
-`Preview(comp)` opens an `imshell::App` window that draws the composition at the window's scale with a toolbar: play and pause, a scrubber, the frame and time, loop.
-It runs in real time: the frame shown is `floor(elapsed * fps)` of a clock, dropping frames if the machine is slower, never stretching time.
-It draws straight into the window on the window's own ImGui context, not through the offscreen path, so it needs no readback; the file render is the reference for how it looks.
+`Preview(comp, options)` opens an `imshell::App` window that plays the composition with a toolbar: play and pause (space too), loop, the frame and time, and a scrubber.
+It runs in real time: the frame shown is the start frame plus `elapsed * fps` of a clock, dropping frames if the machine is slower, never stretching time.
+Each frame is drawn by the same renderer a file render uses, on its own ImGui context, and copied into one texture that the window shows scaled to fit, so the preview is the file's picture and the scrubber seeks through the pure path (`Frame::sequential` is false).
+The cost is a readback of every shown frame, fine for a preview.
+It plays no sound yet, and the reduce-motion override a render sets stays on while the window is open, so the toolbar does not ease either.
+`PreviewOptions::closeAfter` closes the window by itself, for a smoke test; `examples/video` previews or renders a small composition.
 The preview target links `imshell::imshell`; `RenderVideo` alone does not need a window system.
 
 ## Order of work
