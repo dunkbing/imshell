@@ -79,7 +79,7 @@ namespace imshell::video {
                 return true;
             }
             mix.assign(WindowFrames(static_cast<double>(to - from) / comp.fps) * 2, 0.f);
-            for (const AudioClip& clip : comp.audio) {
+            for (const AudioClip& clip : PlacedAudio(comp)) {
                 Pcm pcm;
                 if (!decode(options, clip.path, pcm, error)) {
                     return false;

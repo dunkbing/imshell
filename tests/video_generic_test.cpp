@@ -204,6 +204,28 @@ int main() {
         check(std::fabs(SpringIn(100, 30, 0.f, 1.f, 0, 30) - 1.f) < 0.002f, "and stays there");
     }
 
+    // a sound bound to a scene moves with it
+    {
+        Composition scenes = comp;
+        scenes.fps = 30;
+        scenes.marks = {{"intro", 0, 30}, {"main", 30, 60}};
+        AudioClip bound;
+        bound.path = "x.wav";
+        bound.start = 0.5;
+        bound.scene = "main";
+        AudioClip stray = bound;
+        stray.scene = "nope";
+        AudioClip plain;
+        plain.path = "y.wav";
+        plain.start = 2.0;
+        scenes.audio = {bound, stray, plain};
+        const std::vector<AudioClip> placed = PlacedAudio(scenes);
+        check(placed.size() == 3 && std::fabs(placed[0].start - 1.5) < 1e-9, "a scene sound starts after its scene's first frame");
+        check(std::fabs(placed[1].start - 0.5) < 1e-9 && std::fabs(placed[2].start - 2.0) < 1e-9, "unbound sounds and unknown scenes keep their time");
+        scenes.marks[1].start = 60; // the intro grew by a second: the sound follows
+        check(std::fabs(PlacedAudio(scenes)[0].start - 2.5) < 1e-9, "it follows the scene when the scene moves");
+    }
+
     // the sound analysis: a 1 kHz tone at -20 dBFS is -20 LUFS (the K-weighting's offset is made for it)
     {
         std::vector<float> tone(48000 * 3 * 2, 0.f);

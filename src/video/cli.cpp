@@ -296,8 +296,9 @@ namespace imshell::video {
             const double length = static_cast<double>(comp.frames) / comp.fps;
             if (args.has("--json")) {
                 std::printf("{\"width\":%d,\"height\":%d,\"fps\":%d,\"frames\":%d,\"seconds\":%.3f,\"audio\":[", comp.width, comp.height, comp.fps, comp.frames, length);
-                for (size_t i = 0; i < comp.audio.size(); ++i) {
-                    const AudioClip& c = comp.audio[i];
+                const std::vector<AudioClip> placed = PlacedAudio(comp);
+                for (size_t i = 0; i < placed.size(); ++i) {
+                    const AudioClip& c = placed[i];
                     std::printf("%s{\"path\":%s,\"start\":%.3f,\"offset\":%.3f,\"duration\":%.3f,\"volume\":%.3f,\"fadeIn\":%.3f,\"fadeOut\":%.3f}", i ? "," : "",
                                 quote(c.path).c_str(), c.start, c.offset, c.duration, c.volume, c.fadeIn, c.fadeOut);
                 }
@@ -316,9 +317,15 @@ namespace imshell::video {
             if (comp.audio.empty()) {
                 std::printf("no sound\n");
             }
-            for (const AudioClip& c : comp.audio) {
+            for (const AudioClip& c : PlacedAudio(comp)) {
                 std::printf("sound %s: from %.3f s, file offset %.3f s, %s, volume %.2f, fade in %.2f s, fade out %.2f s\n", c.path.c_str(), c.start, c.offset,
                             c.duration < 0 ? "to the end of the file" : (std::to_string(c.duration) + " s").c_str(), c.volume, c.fadeIn, c.fadeOut);
+            }
+            for (const AudioClip& c : comp.audio) {
+                const bool known = std::any_of(comp.marks.begin(), comp.marks.end(), [&](const Mark& m) { return m.name == c.scene; });
+                if (!c.scene.empty() && !known) {
+                    std::printf("note: sound %s names the scene \"%s\", which the composition does not have (its start is on the whole timeline)\n", c.path.c_str(), c.scene.c_str());
+                }
             }
             return 0;
         }
@@ -609,7 +616,7 @@ namespace imshell::video {
                     const double t = static_cast<double>(f) / comp.fps;
                     std::printf("%s s (frame %d):\n", seconds(comp, f).c_str(), f);
                     bool any = false;
-                    for (const AudioClip& c : comp.audio) {
+                    for (const AudioClip& c : PlacedAudio(comp)) {
                         const bool playing = t >= c.start && (c.duration < 0.0 || t < c.start + c.duration);
                         if (!playing) {
                             continue;
