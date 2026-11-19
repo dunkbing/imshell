@@ -15,9 +15,12 @@ namespace imshell::detail {
 
     // shared by the loaders: an rgba picture with premultiplied alpha, w x h pixels, its left
     // edge `left` and its bottom `bottom` pixels from the pen on the baseline (y up), into
-    // the atlas as the glyph `out`. pixels is changed (alpha is divided out)
+    // the atlas as the glyph `out`. pixels is changed (alpha is divided out). colored = false is
+    // for a one-colour symbol: pixels are straight white with the coverage in alpha, tinted by
+    // the text color (the icon loaders)
     bool PutEmojiGlyph(ImFontAtlas* atlas, ImFontConfig* src, ImFontBaked* baked, ImFontGlyph* out,
-                       unsigned char* pixels, int w, int h, int left, int bottom, float density);
+                       unsigned char* pixels, int w, int h, int left, int bottom, float density,
+                       bool colored = true);
 
     // skin tones (U+1F3FB to U+1F3FF) colour the emoji before them; imgui does not join the
     // two, so the tone's square is not drawn
