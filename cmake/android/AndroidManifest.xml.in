@@ -5,7 +5,7 @@
     package="@APK_PACKAGE@" android:versionCode="@APK_VERSION_CODE@" android:versionName="@APK_VERSION@">
     <uses-sdk android:minSdkVersion="@APK_MIN_SDK@" android:targetSdkVersion="36" />
 @APK_PERMISSIONS_XML@
-    <application android:label="@APK_LABEL@" android:hasCode="true" android:extractNativeLibs="true"
+    <application android:label="@APK_LABEL@" @APK_ICON_ATTR@ android:hasCode="true" android:extractNativeLibs="true"
         android:theme="@android:style/Theme.Material.NoActionBar"
         android:enableOnBackInvokedCallback="false">
         <activity android:name="@APK_ACTIVITY@" android:exported="true"
