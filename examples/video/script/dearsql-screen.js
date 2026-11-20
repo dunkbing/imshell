@@ -1,7 +1,7 @@
 // DearSQL, screen-studio style: a real recording of the app (ui_tests, DEARSQL_RECORD + DEARSQL_RECORD_TRACK) inside a rounded,
 // shadowed window on a gradient; the camera zooms on clicks and follows the mouse, a drawn cursor with click ripples.
 //   cat track.js dearsql-screen.js > run.js && imshell-video run.js render --ffmpeg -o out.mp4 --set footage=showcase.mp4 --set music=music.wav
-const W = 1920, H = 1080, FPS = 30, N = 666, OUTRO = 80;
+const W = 1920, H = 1080, FPS = 30, N = TRACK.length, OUTRO = 80;
 const FOOT = args.footage || 'showcase.mp4';
 const DISP = [1600, 1000];
 const CARD = { x: 240, y: 112, w: 1440, h: 900 };
@@ -52,8 +52,6 @@ function arrow(x, y, s, color, grow) {
       line(x, y, x + px * s, y + py * s, color, 2.4 + grow);
     }
   }
-  const last = ARROW[ARROW.length - 1];
-  for (let u = 0; u <= 1; u += 0.1) line(x, y, x + last[0] * s * (1 - u), y + last[1] * s * (1 - u) * 0 + 0, color, 2.4 + grow);
 }
 
 const CAPTIONS = [
