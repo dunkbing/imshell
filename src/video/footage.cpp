@@ -2,10 +2,14 @@
 
 #include "ffmpeg.hpp"
 #include "imgui_internal.h" // RegisterUserTexture
+#include "imshell/image.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <mutex>
 #include <vector>
@@ -68,11 +72,43 @@ namespace imshell::video {
         }
     };
 
+    namespace {
+        bool isStill(const std::string& path) {
+            const size_t dot = path.find_last_of('.');
+            if (dot == std::string::npos) {
+                return false;
+            }
+            std::string ext = path.substr(dot + 1);
+            std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            return ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "bmp" || ext == "tga";
+        }
+    } // namespace
+
     Footage::Footage(std::string path, int fps, int maxWidth, std::string ffmpeg) : impl_(std::make_unique<Impl>()) {
         Impl& d = *impl_;
         d.path = std::move(path);
         d.ffmpeg = std::move(ffmpeg);
         d.fps = std::max(fps, 1);
+        if (isStill(d.path)) { // a picture: decoded here once, no ffmpeg
+            std::ifstream file(d.path, std::ios::binary);
+            const std::vector<unsigned char> bytes((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+            const ImTextureID decoded = LoadTexture(
+                bytes.data(), bytes.size(),
+                [&d](const uint8_t* rgba, int w, int h) {
+                    d.width = w;
+                    d.height = h;
+                    d.pixels.assign(rgba, rgba + static_cast<size_t>(w) * static_cast<size_t>(h) * 4);
+                    return ImTextureID{1};
+                });
+            if (decoded == ImTextureID{}) {
+                d.error = "could not read a picture from " + d.path;
+                return;
+            }
+            d.count = 1;
+            d.shown = 0; // load() has nothing to do
+            d.ok = true;
+            return;
+        }
         const VideoInfo info = ProbeVideo(d.ffmpeg, d.path);
         if (!info.ok) {
             d.error = "could not read a video from " + d.path + " (is ffmpeg installed, and is it a video?)";
@@ -107,7 +143,7 @@ namespace imshell::video {
         return d.load(n) ? d.pixels.data() : nullptr;
     }
 
-    void Footage::Draw(ImDrawList* dl, double t, ImVec2 pos, ImVec2 size, Fit fit, ImU32 tint, float rounding) {
+    void Footage::Draw(ImDrawList* dl, double t, ImVec2 pos, ImVec2 size, Fit fit, ImU32 tint, float rounding, ImVec4 crop) {
         Impl& d = *impl_;
         const unsigned char* rgba = pixels(t);
         if (!rgba || size.x <= 0.f || size.y <= 0.f) {
@@ -137,8 +173,16 @@ namespace imshell::video {
             entry.frame = d.shown;
         }
 
-        ImVec2 a = pos, b(pos.x + size.x, pos.y + size.y), uv0(0.f, 0.f), uv1(1.f, 1.f);
-        const float boxAspect = size.x / size.y, picAspect = static_cast<float>(d.width) / static_cast<float>(d.height);
+        crop.x = std::clamp(crop.x, 0.f, 1.f);
+        crop.y = std::clamp(crop.y, 0.f, 1.f);
+        crop.z = std::clamp(crop.z, crop.x, 1.f);
+        crop.w = std::clamp(crop.w, crop.y, 1.f);
+        if (crop.z - crop.x <= 0.f || crop.w - crop.y <= 0.f) {
+            return;
+        }
+        ImVec2 a = pos, b(pos.x + size.x, pos.y + size.y), uv0(0.f, 0.f), uv1(1.f, 1.f); // within the crop, then mapped into it
+        const float boxAspect = size.x / size.y;
+        const float picAspect = static_cast<float>(d.width) * (crop.z - crop.x) / (static_cast<float>(d.height) * (crop.w - crop.y));
         if (fit == Fit::Contain) {
             const float w = boxAspect > picAspect ? size.y * picAspect : size.x, h = boxAspect > picAspect ? size.y : size.x / picAspect;
             a = ImVec2(pos.x + (size.x - w) * 0.5f, pos.y + (size.y - h) * 0.5f);
@@ -154,8 +198,10 @@ namespace imshell::video {
                 uv1.x = uv0.x + keep;
             }
         }
+        const ImVec2 cropped0(crop.x + uv0.x * (crop.z - crop.x), crop.y + uv0.y * (crop.w - crop.y));
+        const ImVec2 cropped1(crop.x + uv1.x * (crop.z - crop.x), crop.y + uv1.y * (crop.w - crop.y));
         ImColor col(tint);
         col.Value.w *= ImGui::GetStyle().Alpha;
-        dl->AddImageRounded(entry.texture->GetTexRef(), a, b, uv0, uv1, static_cast<ImU32>(col), rounding);
+        dl->AddImageRounded(entry.texture->GetTexRef(), a, b, cropped0, cropped1, static_cast<ImU32>(col), rounding);
     }
 } // namespace imshell::video
