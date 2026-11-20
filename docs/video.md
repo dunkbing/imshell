@@ -183,6 +183,30 @@ GPU fragment shaders are not offered. `Verify` on Apple now plays through the sa
 The contact sheet labels are digits only (a 3x5 bitmap font): the frame number is the only text it needs.
 `skills/imshell-video/SKILL.md` is the working method for an agent (plan first, no template leftovers, the loop above, motion and sound rules).
 
+## Scripts (no compiler)
+
+`imshell-video scene.js <command>` runs a scene written in JavaScript through the same command line as a C++ composition (`timeline`, `frame`, `strip`, `inspect`, `verify`, `render`, `preview`).
+It is one binary with an embedded JavaScript engine (quickjs-ng) and a font (JetBrains Mono), so a video needs no compiler, CMake or package manager.
+Build it with `-DIMSHELL_VIDEO_JS=ON` (default off; quickjs-ng is fetched at a pinned tag); `imshell-video api` prints everything a scene can call, and `examples/video/script/scene.js` is the starter.
+
+```js
+video({
+  width: 1280, height: 720, fps: 30, frames: 120,
+  draw(f) {
+    layer('back');
+    rect(0, 0, f.width, f.height, '#0e1220');
+    text('Hello', 100, 100 + springIn(f.position, f.fps, 40, 0, 6, 30), 96, rgba(255, 255, 255, interpolate(f.position, [6, 20], [0, 1], 'out')));
+  },
+});
+```
+
+It has the drawing calls, motion helpers, ImGui windows with real widgets, scenes with dissolves, audio and post effects (as data: the filters run natively, never per pixel in the script).
+A thrown error prints its message and `file:line:col` stack and exits 1; a frame never renders blank because a script failed.
+A frame must depend only on its number: `Math.random` is reseeded from the frame and `Date.now()` is 0, and a global that changes between frames is the script version of a `static`, which `verify` catches.
+Rendering runs at the same speed as the C++ path (the same 120-frame 720p scene renders in 0.38 s either way on an M4), because drawing and encoding are native; what a script removes is the toolchain.
+Not in the script front end: custom ImGui calls beyond the widgets above, and a prebuilt download (releases and an install script are a later step).
+`verify` reports a few pixels differing at one frame when foreground text overlaps a window during a dissolve; the cause is not found yet.
+
 ## Order of work
 
 1. `video.hpp`, the composition, `Frame` and the closed-form helpers, with tests that need no GPU (easing, spring, sequence).
