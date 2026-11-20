@@ -521,7 +521,8 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
             }
         };
         for (int n = from; n < to && ok; ++n) {
-            const size_t frameEnd = static_cast<size_t>(n - from + 1) * kAudioRate / comp.fps;
+            // a second ahead of the picture: the writer holds a picture until sound past it is in, so sound only up to the picture can leave both inputs waiting
+            const size_t frameEnd = static_cast<size_t>(n - from + 1) * kAudioRate / comp.fps + kAudioRate;
             while (ok && !input.readyForMoreMediaData) {
                 feedAudio(frameEnd);
                 usleep(1000);
