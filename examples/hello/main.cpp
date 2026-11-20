@@ -24,6 +24,9 @@
 void* makeTextField();
 void* makeDatePicker();
 void describeNativeView(void* view, char* out, int size);
+#ifdef _WIN32
+float nativeViewScale(); // the window's dpi over 96
+#endif
 bool closeLikeUser(); // false where the platform cannot
 
 struct Hello : imshell::Delegate {
@@ -124,13 +127,14 @@ struct Hello : imshell::Delegate {
         ImGui::TextUnformatted("Native views, placed by the imgui layout:");
         const ImVec2 fieldsAt = ImGui::GetCursorScreenPos();
 #ifdef _WIN32
-        constexpr float kNativeHeight = 32; // WinUI's text box and date picker are this tall
-        constexpr float kNativeDateWidth = 300; // and the picker needs this much for month, day and year
+        const float scale = nativeViewScale(); // the sizes below are for 100%; imgui's are pixels
+        const float kNativeHeight = 32 * scale; // WinUI's text box and date picker are this tall
+        const float kNativeDateWidth = 300 * scale; // and the picker needs this much for month, day and year
+        const float kNativeFieldWidth = 240 * scale;
 #else
-        constexpr float kNativeHeight = 22;
-        constexpr float kNativeDateWidth = 160;
+        const float kNativeHeight = 22, kNativeDateWidth = 160, kNativeFieldWidth = 240;
 #endif
-        field = imshell::NativeView("##field", ImVec2(240, kNativeHeight), makeTextField);
+        field = imshell::NativeView("##field", ImVec2(kNativeFieldWidth, kNativeHeight), makeTextField);
         imshell::NativeView("##date", ImVec2(kNativeDateWidth, kNativeHeight), makeDatePicker);
         if (imshell::Button("Open files..."))
             imshell::OpenDialog({.filters = {{"Text", "txt,md"}, {"All files", "*"}}, .multiple = true},

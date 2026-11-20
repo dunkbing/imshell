@@ -61,6 +61,12 @@ void describeNativeView(void* view, char* out, int size) {
                   IsWindowVisible(clip) ? "shown" : "hidden");
 }
 
+// imgui's coordinates are pixels: the native views' sizes for 100% scale with the window's dpi
+float nativeViewScale() {
+    const UINT dpi = GetDpiForWindow(static_cast<HWND>(ImGui::GetMainViewport()->PlatformHandleRaw));
+    return dpi ? static_cast<float>(dpi) / 96.0f : 1.0f;
+}
+
 // what the caption's close button and alt-f4 send
 bool closeLikeUser() {
     PostMessageW(static_cast<HWND>(ImGui::GetMainViewport()->PlatformHandleRaw), WM_CLOSE, 0, 0);

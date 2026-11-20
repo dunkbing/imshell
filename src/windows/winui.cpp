@@ -59,6 +59,11 @@ namespace {
                 if (auto bridge = island->source.SiteBridge())
                     bridge.MoveAndResize({0, 0, w, h});
             }
+        } else if (msg == WM_DESTROY) {
+            if (island && island->source) { // the docs want the source closed before its window goes
+                island->source.Close();
+                island->source = nullptr;
+            }
         } else if (msg == WM_NCDESTROY) {
             delete island;
             RemovePropW(hwnd, kProp);
@@ -70,6 +75,11 @@ namespace {
 namespace imshell {
     bool WinUIAvailable() {
         static const bool ready = [] {
+            // the bootstrap dll is delay loaded: without it beside the executable there is no WinUI,
+            // and a call into it would raise an exception
+            if (!LoadLibraryExW(L"Microsoft.WindowsAppRuntime.Bootstrap.dll", nullptr,
+                                LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32))
+                return false;
             if (FAILED(MddBootstrapInitialize2(WINDOWSAPPSDK_RELEASE_MAJORMINOR, WINDOWSAPPSDK_RELEASE_VERSION_SHORTTAG_W, {},
                                                MddBootstrapInitializeOptions_None)))
                 return false;

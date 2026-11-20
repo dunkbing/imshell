@@ -1,9 +1,10 @@
-// native switch, segmented control and pop-up on windows: a WinUI ToggleSwitch, SelectorBar and
-// ComboBox, each in a grid that NativeView places at the imgui frame's size, so the control keeps
+// native switch, segmented control and pop-up on windows: a WinUI ToggleSwitch, a row of
+// ToggleButtons (WinUI has no segmented control) and a ComboBox, each in a grid that NativeView places at the imgui frame's size, so the control keeps
 // its own size and sits at the left, in the middle vertically. when WinUI is not available (the
 // Windows App Runtime is not installed) the three fall back to imshell's own widgets, as on a
 // platform with no backend
 #include "../native_controls.hpp"
+#include "../native_view.hpp"
 #include "imgui_internal.h"
 #include "imshell/frames.hpp"
 #include "imshell/native_view.hpp"
@@ -41,7 +42,7 @@ namespace imshell::detail {
             std::shared_ptr<State> state = std::make_shared<State>();
             mux::FrameworkElement root{nullptr};    // the grid in the island
             mux::Controls::Control control{nullptr}; // the control in it
-            ImVec2 size{0, 0};                      // its actual size, once it exists
+            ImVec2 size{0, 0};                      // its actual size in pixels, once it exists
             bool dark = false;
             bool widthFixed = false; // a combo box: its width is pinned once measured
         };
@@ -67,6 +68,27 @@ namespace imshell::detail {
 
         bool disabled() {
             return (GImGui->CurrentItemFlags & ImGuiItemFlags_Disabled) != 0;
+        }
+
+        // imgui's coordinates are pixels here and WinUI's sizes are DIPs (96 per inch): at 150% a control
+        // that is 32 DIPs high is 48 px, and the island scales what it draws by itself
+        float dpiScale() {
+            const UINT dpi = GetDpiForWindow(static_cast<HWND>(nativeHost()));
+            return dpi ? static_cast<float>(dpi) / 96.0f : 1.0f;
+        }
+
+        // drop the entries whose window NativeView destroyed (it frees a view not drawn for a while):
+        // they hold the XAML objects, which would stay alive. every few hundred frames is enough
+        void sweep() {
+            static int counter = 0;
+            if (++counter % 300 != 0)
+                return;
+            for (auto it = controls().begin(); it != controls().end();) {
+                if (it->second.view && !IsWindow(static_cast<HWND>(it->second.view)))
+                    it = controls().erase(it);
+                else
+                    ++it;
+            }
         }
 
         // the controls are taller than imgui's frame (WinUI's are 30 to 32 high), so a row of them
@@ -107,10 +129,12 @@ namespace imshell::detail {
         // dropped the window after the control was not drawn for a while). nullptr without WinUI
         template <class Make>
         Control* controlFor(const char* id, ImVec2 guess, Make make) {
+            sweep();
             const ImGuiID key = ImGui::GetID(id);
             Control& c = controls()[key];
             const bool dark = CurrentTheme().dark;
-            const ImVec2 frame = c.size.x > 0 ? frameOf(c.size) : guess;
+            const float scale = dpiScale();
+            const ImVec2 frame = c.size.x > 0 ? frameOf(c.size) : ImVec2(guess.x * scale, guess.y * scale);
             centreOnLine(frame.y);
             void* view = NativeView(id, frame, [&]() -> void* {
                 c = Control();
@@ -124,7 +148,7 @@ namespace imshell::detail {
             c.view = view;
             const auto actual = c.control.ActualSize(); // known once the island laid it out: a guess before
             if (actual.x > 0 && actual.y > 0)
-                c.size = ImVec2(actual.x, actual.y);
+                c.size = ImVec2(actual.x * scale, actual.y * scale);
             if (c.dark != dark) { // the app's theme changed
                 c.dark = dark;
                 c.root.RequestedTheme(dark ? mux::ElementTheme::Dark : mux::ElementTheme::Light);
@@ -252,7 +276,7 @@ namespace imshell::detail {
             // a ComboBox sizes itself to its items, and measures narrower once its drop down has been
             // open (102 px before, 70 px after for Small / Medium / Large): pin the first width
             c->widthFixed = true;
-            box.Width(c->size.x);
+            box.Width(box.ActualWidth()); // in DIPs, as WinUI measures
         }
         State& state = *c->state;
         bool changed = false;
