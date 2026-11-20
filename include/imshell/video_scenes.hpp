@@ -22,6 +22,10 @@ namespace imshell::video {
         // these frames: its entrance animation begins with the fade. 0 = a cut; the first scene has none
         int overlap = 0;
         std::function<void(const Frame&)> draw; // Frame::index counts from the scene's own first frame
+        // after draw, so {name, frames, overlap, draw} still initialises. the scene leaving stays fully opaque while this one fades in
+        // over it: a true crossfade, right when the scenes paint an opaque background. false fades both, which dips through dark at
+        // the middle but cannot pop a scene with no background of its own
+        bool crossfade = false;
     };
 
     // one scene on screen at a frame
@@ -64,7 +68,7 @@ namespace imshell::video {
                 layer.local = std::clamp(static_cast<int>(std::floor(local)), 0, layer.length - 1);
                 layer.offset = local - layer.local;
                 layer.alpha = overlap > 0 ? static_cast<float>(std::clamp(local / overlap, 0.0, 1.0)) : 1.f;
-                if (layer.alpha < 1.f && !layers.empty() && layers.back().scene == layer.scene - 1) {
+                if (layer.alpha < 1.f && !scenes[i].crossfade && !layers.empty() && layers.back().scene == layer.scene - 1) {
                     layers.back().alpha = 1.f - layer.alpha; // a dissolve: the one leaving fades as this one comes
                 }
                 layers.push_back(layer);

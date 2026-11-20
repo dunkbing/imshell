@@ -230,7 +230,11 @@ A thrown error prints its message and `file:line:col` stack and exits 1; a frame
 A frame must depend only on its number: `Math.random` is reseeded from the frame and `Date.now()` is 0, and a global that changes between frames is the script version of a `static`, which `verify` catches.
 Rendering runs at the same speed as the C++ path (the same 120-frame 720p scene renders in 0.38 s either way on an M4), because drawing and encoding are native; what a script removes is the toolchain.
 Not in the script front end: custom ImGui calls beyond the widgets above.
-`verify` reports a few pixels differing at one frame when foreground text overlaps a window during a dissolve; the cause is not found yet.
+Colours are `rgba(r, g, b, a)`, `'#rrggbb'` (also `#rgb`, `#rrggbbaa`) or CSS-style `'rgba(255, 255, 255, 0.3)'`; any other string is an error naming it.
+Scenes crossfade (the one leaving stays opaque while the next fades in over it); `crossfade: false` on a scene fades both, which dips dark at the middle.
+`silentAudio: true` (or `render --silent-audio`) writes a silent stereo AAC track when a scene has no sound: an App Store preview is refused without one.
+`verify` ignores a one level (1/255) difference per channel, which is the GPU rounding a few edge pixels between a long-running context and a fresh one, and reports the largest difference of any pixels beyond that.
+Known: on a 768-frame portrait scene the last frame differed by up to 28/255 in about 26 pixels between playing and seeking; smaller scenes do not reproduce it and the cause is not found.
 
 ## Order of work
 

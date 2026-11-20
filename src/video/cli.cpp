@@ -122,7 +122,7 @@ namespace imshell::video {
         };
 
         Args parse(int argc, char** argv, int from) {
-            static const char* const booleans[] = {"--json", "--draft", "--ffmpeg", "--paused", "--help", "--no-pops", "--images", "--transparent"};
+            static const char* const booleans[] = {"--json", "--draft", "--ffmpeg", "--paused", "--help", "--no-pops", "--images", "--transparent", "--silent-audio"};
             Args args;
             for (int i = from; i < argc; ++i) {
                 const std::string a = argv[i];
@@ -140,6 +140,7 @@ namespace imshell::video {
         Composition scaled(const Composition& comp, const Args& args) {
             Composition out = comp;
             out.transparent = out.transparent || args.has("--transparent");
+            out.silentAudio = out.silentAudio || args.has("--silent-audio");
             const double factor = args.has("--draft") ? 0.5 : args.num("--scale", 1.0);
             if (factor > 0.0 && factor != 1.0) {
                 out.width = std::max(2, static_cast<int>(std::lround(comp.width * factor / 2.0)) * 2);
@@ -281,10 +282,11 @@ namespace imshell::video {
                          "                                    full size pngs (frame_<n>.png); a crop is shown zoomed\n"
                          "  strip [RANGE | TIMES] [-n 12] [--columns 4] [--width 480] [-o strip.png]\n"
                          "                                    a contact sheet, each cell labelled with its frame\n"
-                         "  render [RANGE] [-o out.mp4] [--draft] [--scale F] [--ffmpeg] [--codec h264|hevc|vp9|prores] [--bitrate KBPS] [--crf N] [--images] [--transparent]\n"
+                         "  render [RANGE] [-o out.mp4] [--draft] [--scale F] [--ffmpeg] [--codec h264|hevc|vp9|prores] [--bitrate KBPS] [--crf N] [--images] [--transparent] [--silent-audio]\n"
                          "                                    encode (--draft: half size; a codec, bitrate or crf other than the default, or --ffmpeg, uses the ffmpeg binary;\n"
                          "                                    the extension picks the container: .mp4, .webm, .mov; --images: -o is a folder of frame_000000.png;\n"
-                         "                                    --transparent: clear to transparent, for prores .mov, vp9 .webm or --images)\n"
+                         "                                    --transparent: clear to transparent, for prores .mov, vp9 .webm or --images; --silent-audio: a silent stereo aac track\n"
+                         "                                    when the scene has no sound, which an App Store preview needs)\n"
                          "  preview [TIME] [--paused]         the real-time window\n"
                          "  verify [RANGE]                    playing in order and seeking must give the same pictures\n"
                          "  bench [RANGE] [--runs 3]          frames per second of drawing alone and of a render to mp4, best of the runs, and peak memory\n"

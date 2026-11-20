@@ -66,22 +66,59 @@ namespace imshell::video {
             return i < argc && !JS_IsUndefined(argv[i]) ? str(c, argv[i]) : fallback;
         }
 
-        // a colour is rgba(...)'s number or "#rrggbb" / "#rrggbbaa"; the current ImGui alpha scales it, so a scene's dissolve fades it
-        ImU32 colour(JSContext* c, int argc, JSValueConst* argv, int i) {
-            uint32_t value = 0xffffffffu;
-            if (i < argc && JS_IsString(argv[i])) {
-                std::string s = str(c, argv[i]);
-                if (s.size() == 4 || s.size() == 5) { // #rgb, #rgba: each digit doubled
-                    std::string wide = "#";
-                    for (size_t k = 1; k < s.size(); ++k) {
-                        wide += s[k];
-                        wide += s[k];
+        // "#rgb", "#rgba", "#rrggbb", "#rrggbbaa", "rgb(r, g, b)" and "rgba(r, g, b, a)" (a 0..1); false for anything else
+        bool parseColour(std::string s, uint32_t& out) {
+            if (!s.empty() && s[0] == '#') {
+                s.erase(0, 1);
+                if (s.size() == 3 || s.size() == 4) { // each digit doubled
+                    std::string wide;
+                    for (char ch : s) {
+                        wide += ch;
+                        wide += ch;
                     }
                     s = wide;
                 }
-                if (!s.empty() && s[0] == '#') {
-                    const uint32_t rgb = static_cast<uint32_t>(std::strtoul(s.c_str() + 1, nullptr, 16));
-                    value = s.size() == 9 ? IM_COL32((rgb >> 24) & 255, (rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255) : IM_COL32((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255, 255);
+                if ((s.size() != 6 && s.size() != 8) || s.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) {
+                    return false;
+                }
+                const uint32_t v = static_cast<uint32_t>(std::strtoul(s.c_str(), nullptr, 16));
+                out = s.size() == 8 ? IM_COL32((v >> 24) & 255, (v >> 16) & 255, (v >> 8) & 255, v & 255) : IM_COL32((v >> 16) & 255, (v >> 8) & 255, v & 255, 255);
+                return true;
+            }
+            if (s.rfind("rgb", 0) == 0) {
+                const size_t open = s.find('('), close = s.find(')');
+                if (open == std::string::npos || close == std::string::npos || close < open) {
+                    return false;
+                }
+                std::stringstream parts(s.substr(open + 1, close - open - 1));
+                double v[4] = {0, 0, 0, 1};
+                int n = 0;
+                std::string piece;
+                while (n < 4 && std::getline(parts, piece, ',')) {
+                    char* end = nullptr;
+                    v[n++] = std::strtod(piece.c_str(), &end);
+                    if (end == piece.c_str()) {
+                        return false;
+                    }
+                }
+                if (n < 3) {
+                    return false;
+                }
+                out = IM_COL32(static_cast<int>(std::clamp(v[0], 0.0, 255.0)), static_cast<int>(std::clamp(v[1], 0.0, 255.0)), static_cast<int>(std::clamp(v[2], 0.0, 255.0)),
+                               static_cast<int>(std::clamp(v[3], 0.0, 1.0) * 255.0 + 0.5));
+                return true;
+            }
+            return false;
+        }
+
+        // a colour is rgba(...)'s number or a string above; the current ImGui alpha scales it, so a scene's dissolve fades it
+        ImU32 colour(JSContext* c, int argc, JSValueConst* argv, int i) {
+            uint32_t value = 0xffffffffu;
+            if (i < argc && JS_IsString(argv[i])) {
+                const std::string s = str(c, argv[i]);
+                if (!parseColour(s, value)) {
+                    JS_ThrowTypeError(c, "not a colour: '%s' (use '#rrggbb', '#rrggbbaa', 'rgb(r, g, b)', 'rgba(r, g, b, a)' or rgba(r, g, b, a))", s.c_str());
+                    fail(c);
                 }
             } else if (i < argc) {
                 value = static_cast<uint32_t>(num(c, argc, argv, i));
@@ -352,9 +389,9 @@ namespace imshell::video {
             "\n"
             "a scene calls video({...}) once:\n"
             "  video({ width: 1920, height: 1080, fps: 30, frames: 120,\n"
-            "          draw(f) { ... },                       // f: index, frames, fps, width, height, time (s), position (frame number for the helpers), progress (0..1)\n"
-            "          scenes: [{ name, frames, overlap, draw(f) }],   // instead of frames/draw: scenes dissolve into each other over `overlap` frames; f.index counts from the scene's start\n"
-            "          audio: [{ path, start, offset, duration, volume, fadeIn, fadeOut }],\n"
+            "          draw(f) { ... },                       // f: index, frames, fps, width, height, time (s), position (the frame number the motion helpers take; inside a scene it counts from the scene's own start, like index), progress (0..1)\n"
+            "          scenes: [{ name, frames, overlap, crossfade, draw(f) }],   // instead of frames/draw: scenes crossfade over `overlap` frames (crossfade: false fades both, for scenes with no background); f.index and f.position count from the scene's start\n"
+            "          audio: [{ path, start, offset, duration, volume, fadeIn, fadeOut }],   // silentAudio: true writes a silent track when there is none (App Store previews need one)\n"
             "          post: [{ effect: 'glow', threshold, radius, intensity }, 'grade' brightness contrast saturation gamma, 'vignette' strength radius,\n"
             "                 'grain' amount, 'blur' radius, 'chromatic' shift, 'pixelate' cell],   // sizes are fractions of the height\n"
             "          font: 'path/to/font.ttf' })             // the default is JetBrains Mono\n"
@@ -447,6 +484,7 @@ namespace imshell::video {
         comp.height = static_cast<int>(number(g.config, "height", 1080));
         comp.fps = static_cast<int>(number(g.config, "fps", 30));
         comp.frames = static_cast<int>(number(g.config, "frames", 90));
+        comp.silentAudio = number(g.config, "silentAudio", 0) != 0;
         g.fps = comp.fps;
 
         JSValue scenes = JS_GetPropertyStr(g.ctx, g.config, "scenes");
@@ -467,6 +505,7 @@ namespace imshell::video {
                 scene.name = string(s, "name");
                 scene.frames = static_cast<int>(number(s, "frames", 60));
                 scene.overlap = static_cast<int>(number(s, "overlap", 0));
+                scene.crossfade = number(s, "crossfade", 1) != 0; // scripts crossfade by default; crossfade: false fades both scenes
                 scene.draw = [sceneDraw](const Frame& f) { callDraw(sceneDraw, f); };
                 list.push_back(std::move(scene));
                 JS_FreeValue(g.ctx, s);

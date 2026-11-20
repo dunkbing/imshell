@@ -3,7 +3,7 @@ video({
   width: 320, height: 180, fps: 30,
   scenes: [
     { name: 'a', frames: 20, draw(f) {
-        layer('back'); rect(0, 0, 320, 180, '#102030');
+        layer('back'); rect(0, 0, 320, 180, '#102030'); rect(0, 0, 40, 40, 'rgba(255, 255, 255, 0.3)'); rect(40, 0, 40, 40, '#f80');
         for (let i = 0; i < 8; i++) circle(20 + i * 35, 40 + 30 * Math.random(), 8, rgba(90, 160, 255, 0.8));
         ring(160, 90, 30, '#fff', 2); line(0, 0, 320, 180, '#ff08', 2); strokeRect(10, 10, 100, 40, '#fff', 1, 4);
         const [w] = measure('hello', 20); text('hello', 160 - w / 2, 120, 20, '#fff');

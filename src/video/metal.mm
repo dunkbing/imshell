@@ -332,7 +332,7 @@ namespace {
     // every clip mixed for frames [from, to); empty when the composition has no sound
     bool mixAudio(const Composition& comp, int from, int to, Pcm& mix, std::string* error) {
         mix.clear();
-        if (comp.audio.empty()) {
+        if (comp.audio.empty() && !comp.silentAudio) {
             return true;
         }
         const double windowStart = static_cast<double>(from) / comp.fps;
@@ -653,13 +653,10 @@ bool Verify(const Composition& comp, std::span<const int> frames, std::string* r
         std::string text;
         for (int f : wanted) {
             const Image seeked = RenderFrame(comp, f); // a fresh context, as a jump would give
-            if (seeked.rgba != played[f].rgba) {
+            const PixelDiff diff = ComparePixels(seeked.rgba.data(), played[f].rgba.data(), seeked.rgba.size());
+            if (diff.pixels > 0) {
                 same = false;
-                size_t differing = 0;
-                for (size_t i = 0; i + 3 < seeked.rgba.size(); i += 4) {
-                    differing += std::memcmp(&seeked.rgba[i], &played[f].rgba[i], 4) != 0;
-                }
-                text += "frame " + std::to_string(f) + ": " + std::to_string(differing) + " pixels differ between playing and seeking\n";
+                text += "frame " + std::to_string(f) + ": " + std::to_string(diff.pixels) + " pixels differ between playing and seeking (largest difference " + std::to_string(diff.largest) + " of 255)\n";
             }
         }
         if (report) {
