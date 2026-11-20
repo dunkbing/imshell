@@ -503,6 +503,7 @@ if(IMSHELL_BUILD_TESTS)
     add_test(NAME imshell_video_js_no_video COMMAND imshell-video ${JS_TESTS}/none.js timeline)
     set_tests_properties(imshell_video_js_throws PROPERTIES PASS_REGULAR_EXPRESSION "boom at frame 2")
     set_tests_properties(imshell_video_js_no_video PROPERTIES WILL_FAIL TRUE)
+    add_test(NAME imshell_video_js_onion COMMAND imshell-video ${JS_TESTS}/ok.js onion -n 4 -o ${CMAKE_CURRENT_BINARY_DIR}/onion_test.png)
     # an unknown colour string is an error naming it, not an opaque white rectangle
     add_test(NAME imshell_video_js_bad_colour COMMAND imshell-video ${JS_TESTS}/badcolour.js verify)
     set_tests_properties(imshell_video_js_bad_colour PROPERTIES PASS_REGULAR_EXPRESSION "not a colour: .chartreuse.")

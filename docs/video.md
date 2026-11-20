@@ -232,6 +232,8 @@ Rendering runs at the same speed as the C++ path (the same 120-frame 720p scene 
 Not in the script front end: custom ImGui calls beyond the widgets above.
 Colours are `rgba(r, g, b, a)`, `'#rrggbb'` (also `#rgb`, `#rrggbbaa`) or CSS-style `'rgba(255, 255, 255, 0.3)'`; any other string is an error naming it.
 Scenes crossfade (the one leaving stays opaque while the next fades in over it); `crossfade: false` on a scene fades both, which dips dark at the middle.
+`gradientRect`, `shadow` (soft, from stacked rounded rects) and `clip` (cuts what a callback draws, e.g. an image panning in a frame) cover the common looks; `--set key=value` on any command becomes `args.key`, so one script renders many videos (`render --set name=Ada -o ada.mp4`).
+`onion -n 8` lays frames of a range over each other on their median background, so a movement's path and easing show in one picture.
 `silentAudio: true` (or `render --silent-audio`) writes a silent stereo AAC track when a scene has no sound: an App Store preview is refused without one.
 `verify` ignores a one level (1/255) difference per channel, which is the GPU rounding a few edge pixels between a long-running context and a fresh one, and reports the largest difference of any pixels beyond that.
 Known: on a 768-frame portrait scene the last frame differed by up to 28/255 in about 26 pixels between playing and seeking; smaller scenes do not reproduce it and the cause is not found.

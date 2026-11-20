@@ -8,6 +8,7 @@ video({
         ring(160, 90, 30, '#fff', 2); line(0, 0, 320, 180, '#ff08', 2); strokeRect(10, 10, 100, 40, '#fff', 1, 4);
         const [w] = measure('hello', 20); text('hello', 160 - w / 2, 120, 20, '#fff');
         window('p', 200, 20, 100, 70, () => { label('x'); progress(interpolate(f.position, [0, 20], [0, 1], 'inOut')); button('b'); separator(); checkbox('c', false); });
+        gradientRect(0, 100, 320, 40, '#102030', '#304050', 'h'); shadow(200, 100, 60, 30, 6, 12, '#000'); clip(0, 0, 100, 100, () => { circle(50, 50, 80, '#f00'); });
         rect(0, 150, spring(f.position, f.fps, 0, 200, 0) + springIn(f.position, f.fps, 0, 1, 0, 10), 10, '#0f0'); } },
     { name: 'b', frames: 20, overlap: 5, draw(f) { layer('back'); rect(0, 0, 320, 180, '#203010'); } },
   ],
