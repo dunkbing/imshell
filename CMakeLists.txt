@@ -3,8 +3,11 @@ project(imshell LANGUAGES CXX)
 
 # glfw is the window layer on macOS and Windows: use an installed one (vcpkg, brew), else fetch it,
 # so a render-only project needs no package manager
+option(IMSHELL_FETCH_GLFW "always build glfw from source (static), ignoring an installed one: for a binary that is handed to other machines" OFF)
 macro(imshell_find_glfw)
-    find_package(glfw3 CONFIG QUIET)
+    if(NOT IMSHELL_FETCH_GLFW)
+        find_package(glfw3 CONFIG QUIET)
+    endif()
     if(NOT TARGET glfw AND NOT TARGET glfw3::glfw)
         include(FetchContent)
         set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)

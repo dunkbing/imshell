@@ -1,0 +1,77 @@
+# builds imshell-video (a scene.js through the video command line) for each platform.
+# a tag video-v* publishes a release; a manual run only uploads the archives as artifacts
+name: video-release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["video-v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macos-arm64, os: macos-14, archive: tar.gz, experimental: false }
+          - { name: windows-x64, os: windows-2022, archive: zip, experimental: false }
+          # needs gtk4 and epoxy at run time and an EGL context: untested, so it never blocks a release
+          - { name: linux-x64, os: ubuntu-22.04, archive: tar.gz, experimental: true }
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libepoxy-dev libegl-dev libgl-dev pkg-config
+      - name: Configure
+        shell: bash
+        run: |
+          extra=""
+          # the Windows runtime is linked in, so the exe needs no redistributable
+          if [ "$RUNNER_OS" = "Windows" ]; then extra="-DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"; fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DIMSHELL_VIDEO_JS=ON -DIMSHELL_FETCH_GLFW=ON -DIMSHELL_FILE_DIALOGS=OFF -DIMSHELL_BUILD_TESTS=ON $extra
+      - name: Build
+        run: cmake --build build --config Release --target imshell-video
+      - name: Test
+        run: ctest --test-dir build -C Release -R imshell_video_js --output-on-failure
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist/imshell-video
+          exe=$(find build -name 'imshell-video' -o -name 'imshell-video.exe' | grep -v CMakeFiles | head -1)
+          cp "$exe" dist/imshell-video/
+          cp examples/video/script/scene.js dist/imshell-video/
+          cd dist
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            7z a imshell-video-${{ matrix.name }}.zip imshell-video
+          else
+            tar czf imshell-video-${{ matrix.name }}.tar.gz imshell-video
+          fi
+          rm -rf imshell-video
+      - uses: actions/upload-artifact@v4
+        with:
+          name: imshell-video-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/video-v') && !cancelled()
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum imshell-video-* > SHA256SUMS && cat SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

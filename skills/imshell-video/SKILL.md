@@ -40,7 +40,7 @@ Easy to get wrong:
 
 ## Without a compiler: scene.js
 
-If `imshell-video` is on the machine (or `-DIMSHELL_VIDEO_JS=ON` builds it), write a script instead of C++: `examples/video/script/scene.js` is the starter and `imshell-video api` lists every call.
+If `imshell-video` is on the machine (install: `curl -fsSL https://raw.githubusercontent.com/dunkbing/imshell/main/scripts/install-video.sh | sh`, see docs/video.md), write a script instead of C++: `examples/video/script/scene.js` is the starter and `imshell-video api` lists every call.
 `imshell-video scene.js strip all -n 12 -o strip.png`, `inspect all`, `verify` and `render -o out.mp4` are the same loop as below, with no build step.
 Keep every frame a pure function of its number (no state in globals between frames); a thrown error exits 1 with the stack.
 
