@@ -1,0 +1,32 @@
+#!/bin/sh
+# scripts/new-video NAME [DIR]: a video project from examples/video/starter, configured and built
+# checks the tools first and says what to install when one is missing
+set -e
+name=${1:?usage: scripts/new-video NAME [DIR]}
+here=$(cd "$(dirname "$0")/.." && pwd)
+dir=${2:-$PWD/$name}
+os=$(uname -s)
+
+missing=0
+need() { # tool, install hint
+    command -v "$1" >/dev/null 2>&1 || { echo "missing $1: $2" >&2; missing=1; }
+}
+case $os in
+    Darwin) need cmake "brew install cmake"; command -v cc >/dev/null 2>&1 || { echo "missing a C++ compiler: xcode-select --install" >&2; missing=1; } ;;
+    Linux)  need cmake "apt install cmake (or your package manager)"; need c++ "apt install g++"; need ffmpeg "apt install ffmpeg (the Linux encoder)" ;;
+    *)      need cmake "winget install Kitware.CMake; also Visual Studio Build Tools with the C++ workload" ;;
+esac
+[ "$missing" = 0 ] || exit 1
+cmake --version | head -1
+
+# imgui comes from the submodules
+if [ ! -f "$here/external/imgui/imgui.h" ]; then
+    git -C "$here" submodule update --init --recursive
+fi
+
+mkdir -p "$dir"
+cp "$here/examples/video/starter/CMakeLists.txt" "$here/examples/video/starter/main.cpp" "$dir/"
+cmake -S "$dir" -B "$dir/build" -DCMAKE_BUILD_TYPE=Release -DIMSHELL_DIR="$here"
+cmake --build "$dir/build" --config Release
+echo
+echo "built $dir/build/starter: try  $dir/build/starter timeline   or   render -o out.mp4"

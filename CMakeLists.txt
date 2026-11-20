@@ -1,6 +1,21 @@
 cmake_minimum_required(VERSION 3.23)
 project(imshell LANGUAGES CXX)
 
+# glfw is the window layer on macOS and Windows: use an installed one (vcpkg, brew), else fetch it,
+# so a render-only project needs no package manager
+macro(imshell_find_glfw)
+    find_package(glfw3 CONFIG QUIET)
+    if(NOT TARGET glfw AND NOT TARGET glfw3::glfw)
+        include(FetchContent)
+        set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+        set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+        FetchContent_Declare(imshell_glfw GIT_REPOSITORY https://github.com/glfw/glfw.git GIT_TAG 3.4 GIT_SHALLOW TRUE)
+        FetchContent_MakeAvailable(imshell_glfw)
+    endif()
+endmacro()
+
 # dear imgui and the libraries on it are submodules in external/ (git submodule update --init
 # --recursive); a host may set these to its own copies. the host still compiles imgui core once,
 # from IMSHELL_IMGUI_DIR: a second copy of imgui's statics would silently split the context
@@ -239,7 +254,7 @@ elseif(IOS)
         "-framework QuartzCore" "-framework Foundation" "-framework UniformTypeIdentifiers"
         "-framework UserNotifications")
 elseif(APPLE)
-    find_package(glfw3 CONFIG REQUIRED)
+    imshell_find_glfw()
     target_sources(imshell PRIVATE
         src/macos/app.mm
         src/macos/metal_backend.mm
@@ -264,7 +279,7 @@ elseif(APPLE)
         "-framework ImageIO" "-framework CoreGraphics" "-framework UniformTypeIdentifiers"
         "-framework UserNotifications")
 elseif(WIN32)
-    find_package(glfw3 CONFIG REQUIRED)
+    imshell_find_glfw()
     target_sources(imshell PRIVATE
         src/windows/app.cpp
         src/windows/clipboard.cpp
