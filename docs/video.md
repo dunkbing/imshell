@@ -1,8 +1,30 @@
 # Video
 
 `imshell::video` renders Dear ImGui to a video file with no window: a composition says how big, how fast and how long it is, and a function draws frame N.
-It is optional, in its own target, `imshell::video`, and it is a design only for now: nothing here is built yet.
+It is optional, in its own target, `imshell::video`, and builds on macOS, Linux and Windows.
 The model is the one fframes and mygo's render plugin share: a frame is a pure function of its number, so a render is fast, repeatable and easy for an agent to write.
+
+## Quick start
+
+Copy `examples/video/starter/` (a `CMakeLists.txt` and a `main.cpp`, a 4 s title card), then:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DIMSHELL_DIR=/path/to/imshell   # needs glfw3 on macOS and Windows (brew install glfw); no file dialog library
+cmake --build build
+./build/starter timeline                      # the scenes and their times, no pixels
+./build/starter strip all -n 12 -o strip.png  # a contact sheet to look at
+./build/starter inspect all && ./build/starter verify
+./build/starter render -o out.mp4
+```
+
+The project's CMake is six lines: set `IMSHELL_FILE_DIALOGS` OFF, `add_subdirectory` imshell, glob `${IMSHELL_IMGUI_DIR}/imgui*.cpp`, link `imshell::video`.
+Load a font in `comp.setup` (`ImGui::GetIO().Fonts->AddFontFromFileTTF(path, 0.f)`) and draw with it; the built-in one is a pixel font.
+
+Easy to get wrong:
+
+- Never multiply `ImGui::GetStyle().Alpha` and divide it back: the drift survives in a playing context and not in a seek one, so `verify` fails. Use `PushStyleVar(ImGuiStyleVar_Alpha, ...)` / `PopStyleVar()`.
+- Draw-list colours ignore style alpha; apply it to the colour yourself.
+- `frame` renders one frame in a fresh context, so auto-sizing child windows come out clipped. `render --images` or the last frame of a `strip` lets the layout settle.
 
 ## The shape
 

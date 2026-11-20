@@ -11,6 +11,12 @@
 #include <filesystem>
 #include <map>
 #include <sstream>
+#if defined(_WIN32)
+#include <io.h>
+#define isatty _isatty
+#else
+#include <unistd.h>
+#endif
 
 namespace imshell::video {
     namespace {
@@ -457,7 +463,9 @@ namespace imshell::video {
                 std::string error;
                 int written = 0;
                 options.progress = [](int done, int total) {
-                    std::fprintf(stderr, "\r%d / %d", done, total);
+                    if (isatty(2)) { // a counter with no newlines floods captured output
+                        std::fprintf(stderr, "\r%d / %d", done, total);
+                    }
                     return true;
                 };
                 const bool played = Frames(comp, options, [&](int n, const Image& image) {
@@ -478,7 +486,9 @@ namespace imshell::video {
                 options.encoder = Encoder::Ffmpeg;
             }
             options.progress = [](int done, int total) {
-                std::fprintf(stderr, "\r%d / %d", done, total);
+                if (isatty(2)) {
+                    std::fprintf(stderr, "\r%d / %d", done, total);
+                }
                 return true;
             };
             const std::string path = args.get("-o", "out.mp4");
