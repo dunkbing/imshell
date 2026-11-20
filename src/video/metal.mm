@@ -504,69 +504,72 @@ bool RenderVideo(const Composition& comp, const std::string& path, const Options
             [writer addInput:audioInput];
         }
         const size_t mixFrames = mix.size() / 2;
-        size_t audioDone = 0;
+        __block size_t audioDone = 0;
         if (![writer startWriting]) {
             return fail(error, writer.error.localizedDescription.UTF8String);
         }
         [writer startSessionAtSourceTime:kCMTimeZero];
 
-        bool ok = true;
-        bool cancelled = false;
-        // sound up to `upTo` frames when the input will take it; the writer holds the pictures back until the sound catches up, so it is also fed while waiting
-        auto feedAudio = [&](size_t upTo) {
-            upTo = std::min(upTo, mixFrames);
-            if (ok && audioInput && audioInput.readyForMoreMediaData && upTo > audioDone) {
-                ok = appendAudio(audioInput, mix, audioDone, upTo);
-                audioDone = upTo;
+        // both inputs are driven by their own readiness on one serial queue: the writer interleaves picture and sound by time and holds
+        // either back until the other has caught up, so feeding one from a loop that waits on the other can leave both "not ready" for ever
+        __block bool ok = true;
+        __block bool cancelled = false;
+        __block int nextFrame = from;
+        __block int pending = audioInput ? 2 : 1; // inputs not yet marked finished
+        dispatch_queue_t pump = dispatch_queue_create("imshell.video.pump", DISPATCH_QUEUE_SERIAL);
+        dispatch_semaphore_t drained = dispatch_semaphore_create(0);
+        auto* exposurePtr = &exposure; // blocks copy what they capture: a pointer keeps the mutable object
+        auto* rendererPtr = &renderer;
+        void (^finishInput)(AVAssetWriterInput*) = ^(AVAssetWriterInput* in) {
+            [in markAsFinished];
+            if (--pending == 0) {
+                dispatch_semaphore_signal(drained);
             }
         };
-        for (int n = from; n < to && ok; ++n) {
-            // a second ahead of the picture: the writer holds a picture until sound past it is in, so sound only up to the picture can leave both inputs waiting
-            const size_t frameEnd = static_cast<size_t>(n - from + 1) * kAudioRate / comp.fps + kAudioRate;
-            while (ok && !input.readyForMoreMediaData) {
-                feedAudio(frameEnd);
-                usleep(1000);
+        [input requestMediaDataWhenReadyOnQueue:pump usingBlock:^{
+            while (input.readyForMoreMediaData) {
+                if (!ok || cancelled || nextFrame >= to) {
+                    finishInput(input);
+                    return;
+                }
+                CVPixelBufferRef buffer = nullptr;
+                if (CVPixelBufferPoolCreatePixelBuffer(nullptr, adaptor.pixelBufferPool, &buffer) != kCVReturnSuccess) {
+                    ok = fail(error, "no pixel buffer from the encoder's pool");
+                    continue;
+                }
+                const int n = nextFrame++;
+                ok = exposurePtr->draw(*rendererPtr, n, true, buffer) && [adaptor appendPixelBuffer:buffer withPresentationTime:CMTimeMake(n - from, comp.fps)];
+                CVPixelBufferRelease(buffer);
+                if (!ok) {
+                    fail(error, writer.error ? writer.error.localizedDescription.UTF8String : "drawing the frame failed");
+                } else if (options.progress && !options.progress(n - from + 1, to - from)) {
+                    cancelled = true;
+                }
             }
-            if (!ok) {
-                fail(error, "the audio did not encode");
-                break;
-            }
-            CVPixelBufferRef buffer = nullptr;
-            if (CVPixelBufferPoolCreatePixelBuffer(nullptr, adaptor.pixelBufferPool, &buffer) != kCVReturnSuccess) {
-                ok = fail(error, "no pixel buffer from the encoder's pool");
-                break;
-            }
-            ok = exposure.draw(renderer, n, true, buffer) && [adaptor appendPixelBuffer:buffer withPresentationTime:CMTimeMake(n - from, comp.fps)];
-            CVPixelBufferRelease(buffer);
-            feedAudio(frameEnd);
-            if (!ok) {
-                fail(error, writer.error ? writer.error.localizedDescription.UTF8String : "drawing the frame failed");
-            } else if (options.progress && !options.progress(n - from + 1, to - from)) {
-                cancelled = true;
-                break;
-            }
+        }];
+        if (audioInput) {
+            [audioInput requestMediaDataWhenReadyOnQueue:pump usingBlock:^{
+                while (audioInput.readyForMoreMediaData) {
+                    if (!ok || cancelled || audioDone >= mixFrames) {
+                        finishInput(audioInput);
+                        return;
+                    }
+                    const size_t upTo = std::min(mixFrames, audioDone + kAudioRate / 2); // half a second a time
+                    if (!appendAudio(audioInput, mix, audioDone, upTo)) {
+                        ok = fail(error, writer.error ? writer.error.localizedDescription.UTF8String : "the audio did not encode");
+                        continue;
+                    }
+                    audioDone = upTo;
+                }
+            }];
         }
+        dispatch_semaphore_wait(drained, DISPATCH_TIME_FOREVER);
 
         if (!ok || cancelled) {
             [writer cancelWriting];
             [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
             return cancelled ? fail(error, "cancelled") : false;
         }
-        while (audioInput && audioDone < mixFrames) { // the rest of the sound, in chunks of a second
-            if (!audioInput.readyForMoreMediaData) {
-                usleep(1000);
-                continue;
-            }
-            const size_t upTo = std::min(mixFrames, audioDone + kAudioRate);
-            if (!appendAudio(audioInput, mix, audioDone, upTo)) {
-                [writer cancelWriting];
-                [[NSFileManager defaultManager] removeItemAtURL:url error:nil];
-                return fail(error, writer.error ? writer.error.localizedDescription.UTF8String : "the audio did not encode");
-            }
-            audioDone = upTo;
-        }
-        [audioInput markAsFinished];
-        [input markAsFinished];
         dispatch_semaphore_t finished = dispatch_semaphore_create(0);
         [writer finishWritingWithCompletionHandler:^{
             dispatch_semaphore_signal(finished);
