@@ -38,6 +38,12 @@ Easy to get wrong:
 - Draw-list colours ignore style alpha; apply it to the colour yourself.
 - `frame` renders one frame in a fresh context, so auto-sizing child windows come out clipped. `render --images` or the last frame of a `strip` lets the layout settle.
 
+## Without a compiler: scene.js
+
+If `imshell-video` is on the machine (or `-DIMSHELL_VIDEO_JS=ON` builds it), write a script instead of C++: `examples/video/script/scene.js` is the starter and `imshell-video api` lists every call.
+`imshell-video scene.js strip all -n 12 -o strip.png`, `inspect all`, `verify` and `render -o out.mp4` are the same loop as below, with no build step.
+Keep every frame a pure function of its number (no state in globals between frames); a thrown error exits 1 with the stack.
+
 ## Rules before anything else
 
 ### Plan before you write code
