@@ -347,7 +347,7 @@ struct Gallery : imshell::Delegate {
             ui::EmptyState("No projects yet", "Projects you create show up here.", "New project");
         }
         ImGui::Spacing();
-        if (imshell::SmallButton(loading ? "Show the empty state" : "Show the skeleton"))
+        if (imshell::Button(loading ? "Show the empty state" : "Show the skeleton"))
             loading = !loading;
         ui::EndCard();
         ImGui::EndChild();

@@ -83,6 +83,10 @@ ctest --test-dir build --output-on-failure
 
 `imshell::markdown` and `imshell::node_editor` and their tests are built when their submodules are there ([Markdown](markdown.md), [Node editor](node-editor.md)).
 
+On Windows, `-DIMSHELL_WINUI=ON` builds imshell with WinUI 3 (the Windows 11 look): `imshell::NativeSwitch`, `NativeSegmented` and `NativePopUp` become WinUI controls ([Native views](native-views.md#native-controls-imshellnative_controlshpp)), and `imshell/winui.hpp` gives a host `WinUIAvailable()` and `WinUIIsland(element)` for views of its own (`NativeView` needs a window; the island is one). `cmake/ImShellWinUI.cmake` fetches the Windows App SDK packages from nuget.org at configure time and generates the C++/WinRT headers with the Windows SDK's `cppwinrt.exe`. A host that writes WinUI code of its own calls `imshell_winui(target)` for the headers, and `imshell_winui_runtime(exe)` puts `Microsoft.WindowsAppRuntime.Bootstrap.dll` next to an executable. At run time the Windows App Runtime of the same version (2.7) must be installed (`WindowsAppRuntimeInstall-x64.exe`); without it `WinUIAvailable()` is false and the example and the native controls fall back to Win32 controls and imshell's own widgets.
+
+Two things a host starting WinUI itself must know: WinUI's `Application` needs `XamlControlsXamlMetaDataProvider` as its metadata provider or the control styles do not load, and an island must be created only after its window sits in its final parent, because reparenting it destroys the site bridge. `WinUIIsland` does the second by starting the island on the window's first size change after `NativeView` attached it.
+
 On Linux, GTK 4 and libepoxy come from the system (`pkg-config`). Instead of the vcpkg toolchain, `-DCMAKE_PREFIX_PATH` can point at packages installed some other way, such as a host's `vcpkg_installed/<triplet>`.
 
 `ctest` runs two tests:

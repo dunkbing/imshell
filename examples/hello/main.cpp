@@ -24,6 +24,9 @@
 void* makeTextField();
 void* makeDatePicker();
 void describeNativeView(void* view, char* out, int size);
+#ifdef _WIN32
+float nativeViewScale(); // the window's dpi over 96
+#endif
 bool closeLikeUser(); // false where the platform cannot
 
 struct Hello : imshell::Delegate {
@@ -123,9 +126,17 @@ struct Hello : imshell::Delegate {
         ImGui::Spacing();
         ImGui::TextUnformatted("Native views, placed by the imgui layout:");
         const ImVec2 fieldsAt = ImGui::GetCursorScreenPos();
-        field = imshell::NativeView("##field", ImVec2(240, 22), makeTextField);
-        imshell::NativeView("##date", ImVec2(160, 22), makeDatePicker);
-        if (imshell::SmallButton("Open files..."))
+#ifdef _WIN32
+        const float scale = nativeViewScale(); // the sizes below are for 100%; imgui's are pixels
+        const float kNativeHeight = 32 * scale; // WinUI's text box and date picker are this tall
+        const float kNativeDateWidth = 300 * scale; // and the picker needs this much for month, day and year
+        const float kNativeFieldWidth = 240 * scale;
+#else
+        const float kNativeHeight = 22, kNativeDateWidth = 160, kNativeFieldWidth = 240;
+#endif
+        field = imshell::NativeView("##field", ImVec2(kNativeFieldWidth, kNativeHeight), makeTextField);
+        imshell::NativeView("##date", ImVec2(kNativeDateWidth, kNativeHeight), makeDatePicker);
+        if (imshell::Button("Open files..."))
             imshell::OpenDialog({.filters = {{"Text", "txt,md"}, {"All files", "*"}}, .multiple = true},
                                [this](const std::vector<std::string>& paths) {
                                    opened.clear();
@@ -134,7 +145,7 @@ struct Hello : imshell::Delegate {
                                });
         if (!opened.empty())
             ImGui::TextDisabled("%s", opened.c_str());
-        if (imshell::SmallButton("Notify me")) {
+        if (imshell::Button("Notify me")) {
             namespace n = imshell::notifications;
             n::RequestPermission([this](n::Permission p) {
                 notified = "permission " + std::to_string(static_cast<int>(p));
@@ -145,7 +156,7 @@ struct Hello : imshell::Delegate {
         }
         if (!notified.empty())
             ImGui::TextDisabled("%s", notified.c_str());
-        if (imshell::SmallButton("Open a popup over them") || std::exchange(wantPopup, false))
+        if (imshell::Button("Open a popup over them") || std::exchange(wantPopup, false))
             ImGui::OpenPopup("##over");
         ImGui::SetNextWindowPos(ImVec2(fieldsAt.x + 40, fieldsAt.y + 4), ImGuiCond_Appearing);
         if (ImGui::BeginPopup("##over")) {
@@ -249,8 +260,8 @@ int main() {
     imshell::Config config;
     config.title = "Hello imshell";
     config.appName = "imshell hello"; // imgui.ini in DataDir("imshell hello")
-    config.width = 480;
-    config.height = 300;
+    config.width = 560;
+    config.height = 560; // tall enough for the native views to show at launch
     config.titleBar = true;
     static Hello hello; // android: outlives a recreated activity
     // a click on the notification (set before the loop: one that launched the app waits for it)
