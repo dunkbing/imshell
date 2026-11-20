@@ -1,5 +1,5 @@
 # a render-only video project: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DIMSHELL_DIR=/path/to/imshell && cmake --build build
-# macOS and Windows need glfw3 installed (macOS: brew install glfw); no file dialog library is needed
+# glfw is fetched when it is not installed, and no file dialog library is needed; Linux renders through ffmpeg, so it needs ffmpeg on PATH
 cmake_minimum_required(VERSION 3.23)
 project(starter LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)

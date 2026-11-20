@@ -18,10 +18,10 @@ this file is the working method.
 
 ## Quick start (build and run a first video)
 
-Copy `examples/video/starter/` (a `CMakeLists.txt` and a `main.cpp`, a 4 s title card), then:
+`scripts/new-video NAME` checks the tools (and says what to install), copies `examples/video/starter/` (a `CMakeLists.txt` and a `main.cpp`, a 4 s title card) and builds it. By hand:
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DIMSHELL_DIR=/path/to/imshell   # needs glfw3 on macOS and Windows (brew install glfw); no file dialog library
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DIMSHELL_DIR=/path/to/imshell # a C++20 compiler and CMake; glfw is fetched, Linux also needs ffmpeg
 cmake --build build
 ./build/starter timeline                      # the scenes and their times, no pixels
 ./build/starter strip all -n 12 -o strip.png  # a contact sheet to look at
