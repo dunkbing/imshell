@@ -88,7 +88,7 @@ namespace imshell::video {
         // every clip mixed for frames [from, to); empty when there is no sound
         bool mixAudio(const Composition& comp, const Options& options, int from, int to, Pcm& mix, std::string* error) {
             mix.clear();
-            if (comp.audio.empty()) {
+            if (comp.audio.empty() && !comp.silentAudio) {
                 return true;
             }
             mix.assign(WindowFrames(static_cast<double>(to - from) / comp.fps) * 2, 0.f);
@@ -267,13 +267,10 @@ namespace imshell::video {
         std::string text;
         for (int f : wanted) {
             const Image seeked = RenderFrame(comp, f); // a fresh context, as a jump would give
-            if (seeked.rgba != played[f]) {
+            const PixelDiff diff = ComparePixels(seeked.rgba.data(), played[f].data(), seeked.rgba.size());
+            if (diff.pixels > 0) {
                 same = false;
-                size_t differing = 0;
-                for (size_t i = 0; i + 3 < seeked.rgba.size(); i += 4) {
-                    differing += std::memcmp(&seeked.rgba[i], &played[f][i], 4) != 0;
-                }
-                text += "frame " + std::to_string(f) + ": " + std::to_string(differing) + " pixels differ between playing and seeking\n";
+                text += "frame " + std::to_string(f) + ": " + std::to_string(diff.pixels) + " pixels differ between playing and seeking (largest difference " + std::to_string(diff.largest) + " of 255)\n";
             }
         }
         if (report) {
