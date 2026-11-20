@@ -187,7 +187,16 @@ The contact sheet labels are digits only (a 3x5 bitmap font): the frame number i
 
 `imshell-video scene.js <command>` runs a scene written in JavaScript through the same command line as a C++ composition (`timeline`, `frame`, `strip`, `inspect`, `verify`, `render`, `preview`).
 It is one binary with an embedded JavaScript engine (quickjs-ng) and a font (JetBrains Mono), so a video needs no compiler, CMake or package manager.
-Build it with `-DIMSHELL_VIDEO_JS=ON` (default off; quickjs-ng is fetched at a pinned tag); `imshell-video api` prints everything a scene can call, and `examples/video/script/scene.js` is the starter.
+Install it with one line, which downloads the release binary for your system and checks its SHA-256:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/dunkbing/imshell/main/scripts/install-video.sh | sh      # macOS arm64, Linux x64
+irm https://raw.githubusercontent.com/dunkbing/imshell/main/scripts/install-video.ps1 | iex             # Windows (PowerShell)
+```
+
+Or build it with `-DIMSHELL_VIDEO_JS=ON` (default off; quickjs-ng is fetched at a pinned tag; `-DIMSHELL_FETCH_GLFW=ON` links glfw statically so the binary runs on other machines).
+`imshell-video api` prints everything a scene can call, and `examples/video/script/scene.js` is the starter.
+A tag `video-vX.Y` runs `.github/workflows/video-release.yml`, which builds macOS arm64, Windows x64 and (experimental, untested) Linux x64 and publishes the archives with a `SHA256SUMS`.
 
 ```js
 video({
@@ -204,7 +213,7 @@ It has the drawing calls, motion helpers, ImGui windows with real widgets, scene
 A thrown error prints its message and `file:line:col` stack and exits 1; a frame never renders blank because a script failed.
 A frame must depend only on its number: `Math.random` is reseeded from the frame and `Date.now()` is 0, and a global that changes between frames is the script version of a `static`, which `verify` catches.
 Rendering runs at the same speed as the C++ path (the same 120-frame 720p scene renders in 0.38 s either way on an M4), because drawing and encoding are native; what a script removes is the toolchain.
-Not in the script front end: custom ImGui calls beyond the widgets above, and a prebuilt download (releases and an install script are a later step).
+Not in the script front end: custom ImGui calls beyond the widgets above.
 `verify` reports a few pixels differing at one frame when foreground text overlaps a window during a dissolve; the cause is not found yet.
 
 ## Order of work
