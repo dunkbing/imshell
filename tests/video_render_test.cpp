@@ -392,6 +392,46 @@ int main() {
         check(lit(tone, 240, 340) > 100, "the wave is drawn");
     }
 
+    // a picture is a one-frame footage with no ffmpeg; a crop shows part of it
+    {
+        using namespace imshell::video;
+        Image two; // left half red, right half blue
+        two.width = 8;
+        two.height = 4;
+        two.rgba.assign(8 * 4 * 4, 255);
+        for (int y = 0; y < 4; ++y) {
+            for (int x = 0; x < 8; ++x) {
+                unsigned char* px = &two.rgba[static_cast<size_t>(y * 8 + x) * 4];
+                px[0] = x < 4 ? 255 : 0;
+                px[1] = 0;
+                px[2] = x < 4 ? 0 : 255;
+            }
+        }
+        const std::string still = base + "_still.png";
+        check(SavePng(two, still), "the test picture is written");
+        Footage missingStill("/no/such/picture.png", 30, 0, "/no/such/ffmpeg");
+        check(!missingStill.ok() && !missingStill.error().empty(), "a missing picture is not ok");
+        Footage picture(still, 30, 0, "/no/such/ffmpeg"); // no ffmpeg needed
+        check(picture.ok() && picture.width() == 8 && picture.height() == 4, ("a picture is read without ffmpeg: " + picture.error()).c_str());
+        const unsigned char* p = picture.pixels(7.0); // any time is the picture
+        check(p && p[0] == 255 && p[2] == 0 && p[7 * 4] == 0 && p[7 * 4 + 2] == 255, "the picture's pixels are as written");
+        Composition c;
+        c.width = 64;
+        c.height = 32;
+        c.fps = 30;
+        c.frames = 2;
+        c.draw = [&](const Frame&) {
+            ImDrawList* dl = ImGui::GetForegroundDrawList();
+            picture.Draw(dl, 0.0, ImVec2(0.f, 0.f), ImVec2(32.f, 32.f), Fit::Stretch, IM_COL32_WHITE, 0.f, ImVec4(0.5f, 0.f, 1.f, 1.f)); // the blue half, all over the box
+            picture.Draw(dl, 0.0, ImVec2(32.f, 0.f), ImVec2(32.f, 32.f), Fit::Stretch);                                                   // everything: red then blue
+        };
+        const Image drawn = RenderFrame(c, 0, &error);
+        auto at = [&](int x, int y) { return &drawn.rgba[static_cast<size_t>(y * drawn.width + x) * 4]; };
+        check(drawn.width == 64 && at(4, 16)[0] < 40 && at(4, 16)[2] > 215 && at(28, 16)[2] > 215, "a crop fills the box with that part of the picture");
+        check(at(36, 16)[0] > 215 && at(60, 16)[2] > 215, "without a crop the whole picture is drawn");
+        std::remove(still.c_str());
+    }
+
     // footage: a clip made with ffmpeg's test pattern, read in order, by seeking and past its end
     if (videotest::hasTool("ffmpeg")) {
         using namespace imshell::video;

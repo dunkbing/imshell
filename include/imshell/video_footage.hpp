@@ -4,7 +4,8 @@
 // (a sequential render reads on, a seek restarts the decoder at that frame, and both give the same
 // pixels), drawn through a texture imgui keeps up to date. the decoder is the `ffmpeg` binary, so a
 // footage needs it on PATH (or `ffmpeg` set to its path); the clip's sound is added like any sound:
-// an AudioClip whose path is the same file
+// an AudioClip whose path is the same file. a png, jpeg, bmp or tga is a one-frame footage, decoded in
+// this process (no ffmpeg, any time gives the picture)
 #include "imgui.h"
 #include "imshell/video.hpp"
 
@@ -37,8 +38,10 @@ namespace imshell::video {
         // as rgba, rows top to bottom; width() * height() * 4 bytes, valid until the next call. null when it is not ok()
         const unsigned char* pixels(double t);
 
-        // draws the picture at `t` seconds into the clip into the box, on the draw list. the alpha of the style stack applies
-        void Draw(ImDrawList* dl, double t, ImVec2 pos, ImVec2 size, Fit fit = Fit::Cover, ImU32 tint = IM_COL32_WHITE, float rounding = 0.f);
+        // draws the picture at `t` seconds into the clip into the box, on the draw list. the alpha of the style stack applies.
+        // `crop` is the part of the picture to show as fractions (left, top, right, bottom; the default is all of it): the fit applies to that part
+        void Draw(ImDrawList* dl, double t, ImVec2 pos, ImVec2 size, Fit fit = Fit::Cover, ImU32 tint = IM_COL32_WHITE, float rounding = 0.f,
+                  ImVec4 crop = ImVec4(0.f, 0.f, 1.f, 1.f));
 
     private:
         struct Impl;
