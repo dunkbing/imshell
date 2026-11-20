@@ -39,7 +39,8 @@ It returns true on a real click (the `NSButton`'s action, which also wakes an id
 `NativeSwitch(id, &on)`, `NativeSegmented(id, {"List", "Grid"}, &current)` and `NativePopUp(id, {"Small", "Large"}, &current)` are the platform's own controls in the layout: an `NSSwitch`, an `NSSegmentedControl` and an `NSPopUpButton` on macOS, a `UISwitch`, a `UISegmentedControl` and a button that opens a `UIMenu` on iOS.
 Each returns true in the frame its value changed, and writes the new value, so an app uses them like imshell's `ToggleButton` and `SegmentedTabs`.
 On Linux they are a `GtkSwitch`, linked `GtkToggleButton`s and a `GtkDropDown` (GTK 4).
-Where a platform has no backend yet (Windows, Android) they are imshell's `ToggleButton`, `SegmentedTabs` and `Select`, so a caller writes one line and needs no `#ifdef`; `NativeControlsAvailable()` says which you get.
+On Windows, when imshell is built with `-DIMSHELL_WINUI=ON` (see [Getting started](getting-started.md)), they are WinUI 3 controls in XAML islands: a `ToggleSwitch`, a row of `ToggleButton`s (WinUI has no segmented control) and a `ComboBox`. They follow `CurrentTheme().dark` (light or dark) and the system accent. They need the Windows App Runtime installed; without it, or without the option, they are the fallback below.
+Where a platform has no backend (Android, and Windows without the option) they are imshell's `ToggleButton`, `SegmentedTabs` and `Select`, so a caller writes one line and needs no `#ifdef`; `NativeControlsAvailable()` says which you get.
 
 ```cpp
 if (imshell::NativeSwitch("##notify", &notify))
