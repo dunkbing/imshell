@@ -4,6 +4,9 @@
 It is optional, in its own target, `imshell::video`, and builds on macOS, Linux and Windows.
 The model is the one fframes and mygo's render plugin share: a frame is a pure function of its number, so a render is fast, repeatable and easy for an agent to write.
 
+Demos are in [`docs/video-demos`](video-demos), each with its script in `examples/video/script/`: `imshell-video-intro`, `imshell-video-widgets` (real ImGui windows), `imshell-video-neon` (post effects: glow, chromatic, grain, vignette), `dearsql-neon`, `dearsql-question` and `dearsql-screen` (a real recording of an app with an automatic zoom camera, a drawn cursor and click ripples: `image(..., u0, v0, u1, v1)` crops the footage, `dearsql-screen.track.js` is the recorded mouse, joined to the script with `cat`).
+Heavy frames with real music can hang the native writer; use `render --ffmpeg` for those.
+
 ## Quick start
 
 `scripts/new-video NAME` checks the tools (and says what to install), copies `examples/video/starter/` (a `CMakeLists.txt` and a `main.cpp`, a 4 s title card) and builds it. By hand:
