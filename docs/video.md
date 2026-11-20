@@ -89,7 +89,7 @@ The `Encoder` is a small interface (`begin(width, height, fps, audio)`, `frame(p
 
 Linux has no system encoder that is always there, and GStreamer would be a link dependency on every host, so Linux shells out to `ffmpeg` and says so clearly when it is missing.
 The tool is for desktops (macOS, Linux, Windows), where an agent drives it from a shell; there are no phone encoders or footage decoders, and none are planned.
-Nothing is linked for the video target unless the host links `imshell::video`; the Apple encoder needs `AVFoundation`, `CoreVideo` and `CoreMedia`, which the system provides.
+Nothing is linked for the video target unless the host links `imshell::video`; the Apple encoder needs `AVFoundation`, `CoreVideo` and `CoreMedia`, which the system provides. A host that only renders can configure imshell with `-DIMSHELL_FILE_DIALOGS=OFF`: the file dialogs (and the nativefiledialog-extended package) are left out, and a dialog never opens.
 
 ## Sound
 

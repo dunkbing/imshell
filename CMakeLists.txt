@@ -305,11 +305,17 @@ elseif(UNIX)
     target_link_libraries(imshell PUBLIC PkgConfig::IMSHELL_GTK4 PkgConfig::IMSHELL_EPOXY)
 endif()
 
-# desktop file dialogs: native file dialog extended (vcpkg nativefiledialog-extended)
+# desktop file dialogs: native file dialog extended (vcpkg nativefiledialog-extended). a host that only
+# renders (video tools) can turn them off and not need the package: dialogs then never open
+option(IMSHELL_FILE_DIALOGS "desktop file dialogs through nativefiledialog-extended" ON)
 if(NOT IOS AND NOT ANDROID AND NOT EMSCRIPTEN)
-    find_package(nfd CONFIG REQUIRED)
-    target_sources(imshell PRIVATE src/file_dialog_nfd.cpp)
-    target_link_libraries(imshell PUBLIC nfd::nfd)
+    if(IMSHELL_FILE_DIALOGS)
+        find_package(nfd CONFIG REQUIRED)
+        target_sources(imshell PRIVATE src/file_dialog_nfd.cpp)
+        target_link_libraries(imshell PUBLIC nfd::nfd)
+    else()
+        target_sources(imshell PRIVATE src/file_dialog_none.cpp)
+    endif()
 endif()
 
 # auto-update (imshell/updater.hpp). sparkle (macos) and winsparkle (windows) are downloaded at
