@@ -16,6 +16,28 @@ draws frame `f.index` with ImGui. Every frame is a pure function of the frame nu
 seeking and rendering give the same picture. Design notes for contributors are in `docs/video.md`;
 this file is the working method.
 
+## Quick start (build and run a first video)
+
+Copy `examples/video/starter/` (a `CMakeLists.txt` and a `main.cpp`, a 4 s title card), then:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DIMSHELL_DIR=/path/to/imshell   # needs glfw3 on macOS and Windows (brew install glfw); no file dialog library
+cmake --build build
+./build/starter timeline                      # the scenes and their times, no pixels
+./build/starter strip all -n 12 -o strip.png  # a contact sheet to look at
+./build/starter inspect all && ./build/starter verify
+./build/starter render -o out.mp4
+```
+
+The project's CMake is six lines: set `IMSHELL_FILE_DIALOGS` OFF, `add_subdirectory` imshell, glob `${IMSHELL_IMGUI_DIR}/imgui*.cpp`, link `imshell::video`.
+Load a font in `comp.setup` (`ImGui::GetIO().Fonts->AddFontFromFileTTF(path, 0.f)`) and draw with it; the built-in one is a pixel font.
+
+Easy to get wrong:
+
+- Never multiply `ImGui::GetStyle().Alpha` and divide it back: the drift survives in a playing context and not in a seek one, so `verify` fails. Use `PushStyleVar(ImGuiStyleVar_Alpha, ...)` / `PopStyleVar()`.
+- Draw-list colours ignore style alpha; apply it to the colour yourself.
+- `frame` renders one frame in a fresh context, so auto-sizing child windows come out clipped. `render --images` or the last frame of a `strip` lets the layout settle.
+
 ## Rules before anything else
 
 ### Plan before you write code
