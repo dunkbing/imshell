@@ -426,6 +426,10 @@ int main() {
         check(Cli(comp, 2, const_cast<char**>(verifyArgs)) == 0, "verify agrees on a deterministic composition");
         const char* timelineArgs[] = {"video", "timeline", "--json"};
         check(Cli(comp, 3, const_cast<char**>(timelineArgs)) == 0, "timeline prints");
+        if (haveFfmpeg) {
+            const char* benchArgs[] = {"video", "bench", "--runs", "1", "--json"};
+            check(Cli(comp, 5, const_cast<char**>(benchArgs)) == 0, "bench times a draw pass and a render");
+        }
         const char* badArgs[] = {"video", "frame", "soon"};
         check(Cli(comp, 3, const_cast<char**>(badArgs)) == 1, "a bad time is a usage error");
         if (haveProbe) {

@@ -161,6 +161,21 @@ GPU fragment shaders are not offered. `Verify` on Apple now plays through the sa
 The contact sheet labels are digits only (a 3x5 bitmap font): the frame number is the only text it needs.
 `skills/imshell-video/SKILL.md` is the working method for an agent (plan first, no template leftovers, the loop above, motion and sound rules).
 
+
+## Performance
+
+`<tool> bench [RANGE] [--runs 3] [--json]` times a draw-only pass (draw, rasterize, read back) and a full render to mp4, best of the runs, plus peak memory.
+`examples/video/bench.cpp` (`imshell_video_bench ui|table|effects bench`) holds three 1080p30, 10 s scenes drawn with ordinary widgets.
+
+Measured on an Apple M4 (macOS, Metal and AVAssetWriter, Release):
+
+| scene | draw only | render to mp4 | real time | peak memory |
+|---|---|---|---|---|
+| `ui`: 24 animated windows | 1.4 ms/frame (696 fps) | 4.5 ms/frame (221 fps) | 7.4x | 295 MB |
+| `table`: 12 x 34 live cells and a plot | 0.8 ms/frame (1206 fps) | 4.5 ms/frame (221 fps) | 7.4x | 68 MB |
+| `effects`: `ui` plus glow, grade, vignette, grain | 32 ms/frame (31 fps) | 32 ms/frame (31 fps) | 1.0x | 221 MB |
+
+The CPU effects run on all cores (rows and pixel ranges split across threads), which is exact: the output is byte-identical to the single-threaded pass.
 ## Order of work
 
 1. `video.hpp`, the composition, `Frame` and the closed-form helpers, with tests that need no GPU (easing, spring, sequence).

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -11,6 +12,9 @@
 #include <filesystem>
 #include <map>
 #include <sstream>
+#if !defined(_WIN32)
+#include <sys/resource.h>
+#endif
 
 namespace imshell::video {
     namespace {
@@ -279,6 +283,7 @@ namespace imshell::video {
                          "                                    --transparent: clear to transparent, for prores .mov, vp9 .webm or --images)\n"
                          "  preview [TIME] [--paused]         the real-time window\n"
                          "  verify [RANGE]                    playing in order and seeking must give the same pictures\n"
+                         "  bench [RANGE] [--runs 3]          frames per second of drawing alone and of a render to mp4, best of the runs, and peak memory\n"
                          "  inspect [RANGE] [--no-pops] [--fail-on warning]\n"
                          "                                    windows cut off by the canvas, blank frames, pops between frames (exit 2 on errors)\n"
                          "  audio analyze [RANGE]             loudness, peaks, clipping and silence of the mix (exit 2 on clipping)\n"
@@ -507,6 +512,72 @@ namespace imshell::video {
             }
             options.closeAfter = args.num("--close", 0.0);
             Preview(comp, options);
+            return 0;
+        }
+
+        // frames per second of drawing alone (Frames: draw, rasterize, read back) and of a whole render to a file, best of --runs
+        int bench(const Composition& comp, const Args& args) {
+            int from = 0, to = comp.frames;
+            if (args.positional.size() >= 2 && !parseRange(comp, args.positional[1], from, to)) {
+                std::fprintf(stderr, "not a range: %s\n", args.positional[1].c_str());
+                return 1;
+            }
+            const int runs = std::max(1, static_cast<int>(args.num("--runs", 3)));
+            Options options;
+            options.from = from;
+            options.to = to;
+            const int frames = to - from;
+            double drawBest = 1e30, encodeBest = 1e30;
+            long long bytes = 0;
+            const std::string path = (std::filesystem::temp_directory_path() / "imshell_bench.mp4").string();
+            std::string error;
+            auto seconds = [](std::chrono::steady_clock::time_point since) {
+                return std::chrono::duration<double>(std::chrono::steady_clock::now() - since).count();
+            };
+            Frames(comp, options, [](int, const Image&) { return true; }, &error); // warm up: fonts, the first texture uploads, the encoder's first start
+            for (int r = 0; r < runs; ++r) {
+                auto began = std::chrono::steady_clock::now();
+                if (!Frames(comp, options, [](int, const Image&) { return true; }, &error)) {
+                    std::fprintf(stderr, "failed: %s\n", error.c_str());
+                    return 1;
+                }
+                drawBest = std::min(drawBest, seconds(began));
+                began = std::chrono::steady_clock::now();
+                if (!RenderVideo(comp, path, options, &error)) {
+                    std::fprintf(stderr, "failed: %s\n", error.c_str());
+                    return 1;
+                }
+                encodeBest = std::min(encodeBest, seconds(began));
+                std::error_code ec;
+                bytes = static_cast<long long>(std::filesystem::file_size(path, ec));
+            }
+            std::error_code ec;
+            std::filesystem::remove(path, ec);
+            double peakMb = 0.0;
+#if !defined(_WIN32)
+            rusage usage{};
+            if (getrusage(RUSAGE_SELF, &usage) == 0) {
+#if defined(__APPLE__)
+                peakMb = static_cast<double>(usage.ru_maxrss) / (1024.0 * 1024.0);
+#else
+                peakMb = static_cast<double>(usage.ru_maxrss) / 1024.0;
+#endif
+            }
+#endif
+            const double video = static_cast<double>(frames) / comp.fps;
+            if (args.has("--json")) {
+                std::printf("{\"width\":%d,\"height\":%d,\"fps\":%d,\"frames\":%d,\"runs\":%d,\"draw_seconds\":%.4f,\"draw_fps\":%.2f,\"render_seconds\":%.4f,"
+                            "\"render_fps\":%.2f,\"realtime\":%.2f,\"file_bytes\":%lld,\"peak_rss_mb\":%.1f}\n",
+                            comp.width, comp.height, comp.fps, frames, runs, drawBest, frames / drawBest, encodeBest, frames / encodeBest, video / encodeBest, bytes, peakMb);
+            } else {
+                std::printf("%dx%d at %d fps, %d frames (%.1f s of video), best of %d\n", comp.width, comp.height, comp.fps, frames, video, runs);
+                std::printf("  draw only     %7.2f s  %8.1f frames/s  %6.2f ms/frame\n", drawBest, frames / drawBest, 1000.0 * drawBest / frames);
+                std::printf("  render to mp4 %7.2f s  %8.1f frames/s  %6.2f ms/frame  %.1fx real time, %.1f MB\n", encodeBest, frames / encodeBest, 1000.0 * encodeBest / frames,
+                            video / encodeBest, static_cast<double>(bytes) / 1e6);
+                if (peakMb > 0.0) {
+                    std::printf("  peak memory   %.0f MB\n", peakMb);
+                }
+            }
             return 0;
         }
 
@@ -759,6 +830,9 @@ namespace imshell::video {
         }
         if (command == "audio") {
             return audioCommand(sized, args);
+        }
+        if (command == "bench") {
+            return bench(sized, args);
         }
         if (command == "verify") {
             return verify(sized, args);
