@@ -229,7 +229,7 @@ namespace imshell::video {
             }
             clip->Draw(list(), num(c, argc, argv, 7), ImVec2(static_cast<float>(num(c, argc, argv, 1)), static_cast<float>(num(c, argc, argv, 2))),
                        ImVec2(static_cast<float>(num(c, argc, argv, 3)), static_cast<float>(num(c, argc, argv, 4))), fitNamed(text(c, argc, argv, 6, "cover")),
-                       IM_COL32(255, 255, 255, static_cast<int>(ImGui::GetStyle().Alpha * 255.f + 0.5f)), static_cast<float>(num(c, argc, argv, 5)));
+                       IM_COL32(255, 255, 255, static_cast<int>(ImGui::GetStyle().Alpha * static_cast<float>(std::clamp(num(c, argc, argv, 8, 1.0), 0.0, 1.0)) * 255.f + 0.5f)), static_cast<float>(num(c, argc, argv, 5)));
             return JS_UNDEFINED;
         }
 
@@ -447,7 +447,7 @@ namespace imshell::video {
             "  layer('back'|'front')  rect(x, y, w, h, color, rounding)  strokeRect(x, y, w, h, color, thickness, rounding)  circle(x, y, r, color)\n"
             "  ring(x, y, r, color, thickness)  line(x1, y1, x2, y2, color, thickness)  text(s, x, y, size, color)  measure(s, size) -> [w, h]\n"
             "  gradientRect(x, y, w, h, fromColor, toColor, 'v'|'h')  shadow(x, y, w, h, rounding, blur, color)  clip(x, y, w, h, () => { ... })   // clip cuts what the callback draws, e.g. an image panning in a frame\n"
-            "  image(path, x, y, w, h, rounding, 'cover'|'contain'|'stretch', videoSeconds)   png/jpeg or a frame of a video file (needs ffmpeg)\n"
+            "  image(path, x, y, w, h, rounding, mode, videoSeconds, alpha)   png/jpeg (decoded once, cached for the run) or a video frame; alpha 0..1 crossfades two shots\n"
             "widgets, drawn in the real ImGui theme: window(name, x, y, w, h, () => { label(s); button(s); checkbox(s, on); progress(0..1); separator(); sameLine(); })\n"
             "motion: interpolate(f.position, [inFrom, inTo], [outFrom, outTo], 'linear'|'in'|'out'|'inOut'|'back')\n"
             "        spring(f.position, f.fps, from, to, startFrame)  springIn(f.position, f.fps, from, to, startFrame, frames)\n"
@@ -592,6 +592,7 @@ namespace imshell::video {
         const std::string fontFile = string(g.config, "font");
         comp.setup = [fontFile] {
             ImGuiIO& io = ImGui::GetIO();
+            io.Fonts->TexGlyphPadding = 3; // glyphs packed in a different order sample their neighbours' edge pixels differently
             if (!fontFile.empty()) {
                 g.font = io.Fonts->AddFontFromFileTTF(fontFile.c_str(), 0.f);
             } else if (getEmbeddedFontCount() > 0) {
