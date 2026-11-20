@@ -253,6 +253,53 @@ namespace imshell::video {
                                              static_cast<int>(num(c, argc, argv, 4)), static_cast<int>(num(c, argc, argv, 5, 30.0))));
         }
 
+        // gradientRect(x, y, w, h, from, to, "v" | "h"): top to bottom (default) or left to right; square corners
+        FN(jsGradientRect) {
+            const ImVec2 a(static_cast<float>(num(c, argc, argv, 0)), static_cast<float>(num(c, argc, argv, 1)));
+            const ImVec2 b(static_cast<float>(num(c, argc, argv, 0) + num(c, argc, argv, 2)), static_cast<float>(num(c, argc, argv, 1) + num(c, argc, argv, 3)));
+            const ImU32 from = colour(c, argc, argv, 4), to = colour(c, argc, argv, 5);
+            if (text(c, argc, argv, 6, "v") == "h") {
+                list()->AddRectFilledMultiColor(a, b, from, to, to, from);
+            } else {
+                list()->AddRectFilledMultiColor(a, b, from, from, to, to);
+            }
+            return JS_UNDEFINED;
+        }
+
+        // shadow(x, y, w, h, rounding, blur, color): a soft shadow under a rounded rect, drawn as stacked rounded rects that fade outwards
+        FN(jsShadow) {
+            constexpr int steps = 14;
+            const float x = static_cast<float>(num(c, argc, argv, 0)), y = static_cast<float>(num(c, argc, argv, 1)), w = static_cast<float>(num(c, argc, argv, 2)), h = static_cast<float>(num(c, argc, argv, 3));
+            const float rounding = static_cast<float>(num(c, argc, argv, 4)), blur = static_cast<float>(num(c, argc, argv, 5, 20.0));
+            const ImU32 base = colour(c, argc, argv, 6);
+            const float peak = static_cast<float>(base >> IM_COL32_A_SHIFT) / 255.f;
+            for (int i = steps - 1; i >= 0; --i) {
+                const float t = static_cast<float>(i) / static_cast<float>(steps - 1); // 0 = the rect, 1 = the far edge of the blur
+                const float grow = blur * t;
+                const float a = peak * (1.f - t) * (1.f - t) * 0.45f;
+                list()->AddRectFilled(ImVec2(x - grow, y - grow), ImVec2(x + w + grow, y + h + grow), (base & ~IM_COL32_A_MASK) | (static_cast<uint32_t>(std::clamp(a, 0.f, 1.f) * 255.f + 0.5f) << IM_COL32_A_SHIFT),
+                                      rounding + grow);
+            }
+            return JS_UNDEFINED;
+        }
+
+        // clip(x, y, w, h, () => { ... }): what the callback draws is cut to the rectangle (an image panning inside a frame)
+        FN(jsClip) {
+            if (argc < 5 || !JS_IsFunction(c, argv[4])) {
+                return JS_ThrowTypeError(c, "clip(x, y, w, h, () => { ... })");
+            }
+            ImDrawList* dl = list();
+            dl->PushClipRect(ImVec2(static_cast<float>(num(c, argc, argv, 0)), static_cast<float>(num(c, argc, argv, 1))),
+                             ImVec2(static_cast<float>(num(c, argc, argv, 0) + num(c, argc, argv, 2)), static_cast<float>(num(c, argc, argv, 1) + num(c, argc, argv, 3))), true);
+            JSValue result = JS_Call(c, argv[4], JS_UNDEFINED, 0, nullptr);
+            dl->PopClipRect();
+            if (JS_IsException(result)) {
+                fail(c);
+            }
+            JS_FreeValue(c, result);
+            return JS_UNDEFINED;
+        }
+
         // window(name, x, y, w, h, () => { label(...); button(...); progress(...) }): a real ImGui window, drawn in the theme
         FN(jsWindow) {
             if (argc < 6 || !JS_IsFunction(c, argv[5])) {
@@ -399,10 +446,12 @@ namespace imshell::video {
             "drawing (colours: rgba(r, g, b, a 0..1) or '#rrggbb' / '#rrggbbaa'; the scene's fade scales them):\n"
             "  layer('back'|'front')  rect(x, y, w, h, color, rounding)  strokeRect(x, y, w, h, color, thickness, rounding)  circle(x, y, r, color)\n"
             "  ring(x, y, r, color, thickness)  line(x1, y1, x2, y2, color, thickness)  text(s, x, y, size, color)  measure(s, size) -> [w, h]\n"
+            "  gradientRect(x, y, w, h, fromColor, toColor, 'v'|'h')  shadow(x, y, w, h, rounding, blur, color)  clip(x, y, w, h, () => { ... })   // clip cuts what the callback draws, e.g. an image panning in a frame\n"
             "  image(path, x, y, w, h, rounding, 'cover'|'contain'|'stretch', videoSeconds)   png/jpeg or a frame of a video file (needs ffmpeg)\n"
             "widgets, drawn in the real ImGui theme: window(name, x, y, w, h, () => { label(s); button(s); checkbox(s, on); progress(0..1); separator(); sameLine(); })\n"
             "motion: interpolate(f.position, [inFrom, inTo], [outFrom, outTo], 'linear'|'in'|'out'|'inOut'|'back')\n"
             "        spring(f.position, f.fps, from, to, startFrame)  springIn(f.position, f.fps, from, to, startFrame, frames)\n"
+            "args: imshell-video scene.js render --set name=Ada --set plan=pro -o ada.mp4 gives the script args.name and args.plan (strings), so one script makes many videos\n"
             "determinism: a frame must depend only on its number. Math.random is reseeded from the frame and Date.now is 0; do not keep state in globals between frames (verify catches it).\n"
             "a thrown error prints its message and stack and exits 1.\n";
     } // namespace
@@ -439,6 +488,9 @@ namespace imshell::video {
         define("layer", jsLayer, 1);
         define("rect", jsRect, 6);
         define("strokeRect", jsStrokeRect, 7);
+        define("gradientRect", jsGradientRect, 7);
+        define("shadow", jsShadow, 7);
+        define("clip", jsClip, 5);
         define("circle", jsCircle, 4);
         define("ring", jsRing, 5);
         define("line", jsLine, 6);
@@ -468,6 +520,25 @@ namespace imshell::video {
                     return JS_UNDEFINED;
                 },
                 "video", 1));
+
+        // --set key=value (any number of them) becomes args.key, a string: one script, many videos
+        {
+            JSValue args = JS_NewObject(g.ctx);
+            for (int i = 2; i + 1 < argc; ++i) {
+                if (std::strcmp(argv[i], "--set") == 0) {
+                    const std::string pair = argv[i + 1];
+                    const size_t eq = pair.find('=');
+                    if (eq == std::string::npos || eq == 0) {
+                        std::fprintf(stderr, "--set wants key=value, not '%s'\n", pair.c_str());
+                        return 1;
+                    }
+                    JS_SetPropertyStr(g.ctx, args, pair.substr(0, eq).c_str(), JS_NewString(g.ctx, pair.c_str() + eq + 1));
+                }
+            }
+            JSValue global2 = JS_GetGlobalObject(g.ctx);
+            JS_SetPropertyStr(g.ctx, global2, "args", args);
+            JS_FreeValue(g.ctx, global2);
+        }
 
         JSValue ran = JS_Eval(g.ctx, source.str().c_str(), source.str().size(), g.script.c_str(), JS_EVAL_TYPE_GLOBAL);
         if (JS_IsException(ran)) {

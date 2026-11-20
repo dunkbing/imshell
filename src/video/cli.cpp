@@ -285,6 +285,7 @@ namespace imshell::video {
                          "                                    the extension picks the container: .mp4, .webm, .mov; --images: -o is a folder of frame_000000.png;\n"
                          "                                    --transparent: clear to transparent, for prores .mov, vp9 .webm or --images; --silent-audio: a silent stereo aac track\n"
                          "                                    when the scene has no sound, which an App Store preview needs)\n"
+                         "  onion [RANGE] -n N [-o onion.png] frames laid over each other, to see a movement's path and easing\n"
                          "  preview [TIME] [--paused]         the real-time window\n"
                          "  verify [RANGE]                    playing in order and seeking must give the same pictures\n"
                          "  inspect [RANGE] [--no-pops] [--fail-on warning]\n"
@@ -383,6 +384,65 @@ namespace imshell::video {
                     std::printf("%s\n", path.c_str());
                 }
             }
+            return 0;
+        }
+
+        // onion [RANGE] -n N [-o onion.png]: N frames of the range laid over each other, the last one strongest, so a movement's path and
+        // easing show in one picture (spacing between the ghosts is speed: close = slow, far = fast)
+        int onion(const Composition& comp, const Args& args) {
+            int from = 0, to = comp.frames;
+            if (args.positional.size() >= 2 && !parseRange(comp, args.positional[1], from, to)) {
+                std::fprintf(stderr, "not a range: %s\n", args.positional[1].c_str());
+                return 1;
+            }
+            const std::vector<int> frames = spread(from, to, std::max(2, static_cast<int>(args.num("-n", 8))));
+            std::vector<Image> shots;
+            for (int index : frames) {
+                std::string error;
+                shots.push_back(RenderFrame(comp, index, &error));
+                if (shots.back().width == 0) {
+                    std::fprintf(stderr, "frame %d failed: %s\n", index, error.c_str());
+                    return 1;
+                }
+            }
+            // the background is the per-channel median of the frames; every frame is laid over it where it differs, the last at full strength
+            Image last = shots[0];
+            Image bg;
+            std::vector<unsigned char> column(shots.size());
+            for (size_t k = 0; k < last.rgba.size(); ++k) {
+                if (k % 4 == 3) {
+                    continue;
+                }
+                for (size_t i = 0; i < shots.size(); ++i) {
+                    column[i] = shots[i].rgba[k];
+                }
+                std::nth_element(column.begin(), column.begin() + static_cast<long>(column.size() / 2), column.end());
+                last.rgba[k] = column[column.size() / 2];
+                if (bg.rgba.empty()) {
+                    bg = last;
+                }
+                bg.rgba[k] = last.rgba[k];
+            }
+            for (size_t i = 0; i < shots.size(); ++i) {
+                const float a = i + 1 == shots.size() ? 1.f : 0.6f;
+                for (size_t k = 0; k + 3 < last.rgba.size(); k += 4) {
+                    int away = 0;
+                    for (int c = 0; c < 3; ++c) {
+                        away = std::max(away, std::abs(static_cast<int>(shots[i].rgba[k + c]) - static_cast<int>(bg.rgba[k + c])));
+                    }
+                    if (away > 12) {
+                        for (int c = 0; c < 3; ++c) {
+                            last.rgba[k + c] = static_cast<unsigned char>(static_cast<float>(last.rgba[k + c]) * (1.f - a) + static_cast<float>(shots[i].rgba[k + c]) * a + 0.5f);
+                        }
+                    }
+                }
+            }
+            const std::string path = args.get("-o", "onion.png");
+            if (!SavePng(last, path)) {
+                std::fprintf(stderr, "could not write %s\n", path.c_str());
+                return 1;
+            }
+            std::printf("%s\n", path.c_str());
             return 0;
         }
 
@@ -756,6 +816,9 @@ namespace imshell::video {
         }
         if (command == "frame") {
             return frameCommand(sized, args);
+        }
+        if (command == "onion") {
+            return onion(sized, args);
         }
         if (command == "strip") {
             return strip(sized, args);
