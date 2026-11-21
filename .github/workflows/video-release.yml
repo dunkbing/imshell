@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: macos-arm64, os: macos-14, archive: tar.gz, experimental: false }
+          - { name: macos-arm64, os: macos-latest, archive: tar.gz, experimental: false }
           - { name: windows-x64, os: windows-2022, archive: zip, experimental: false }
           # needs gtk4 and epoxy at run time and an EGL context: untested, so it never blocks a release
           - { name: linux-x64, os: ubuntu-22.04, archive: tar.gz, experimental: true }

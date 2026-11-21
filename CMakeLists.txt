@@ -453,6 +453,8 @@ if(IMSHELL_BUILD_EXAMPLES AND NOT IOS)
         if(NOT ANDROID AND NOT EMSCRIPTEN) # the README's pictures: the gallery drawn offscreen
             add_executable(imshell_screenshots examples/screenshots/main.cpp ${IMSHELL_IMGUI_CORE})
             target_link_libraries(imshell_screenshots PRIVATE imshell_video imshell_components imshell_editor)
+            add_executable(imshell_intro examples/intro/main.cpp ${IMSHELL_IMGUI_CORE})
+            target_link_libraries(imshell_intro PRIVATE imshell_video imshell_components imshell_editor)
         endif()
     endif()
     # the components gallery; on the web it is the site's demo
