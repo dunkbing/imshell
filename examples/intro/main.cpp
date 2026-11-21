@@ -178,7 +178,7 @@ int main(int argc, char** argv) {
             draw(f);
             float dip = last ? 0.f : 1.f - float(f.frames - 1 - f.index) / 4.f;
             if (!first)
-                dip = std::max(dip, 1.f - float(f.index) / 9.f);
+                dip = std::max(dip, 1.f - float(f.index) / 4.f);
             if (dip > 0.f)
                 ImGui::GetForegroundDrawList()->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), IM_COL32(8, 8, 14, int(255 * std::min(dip, 1.f))));
         };
