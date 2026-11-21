@@ -105,7 +105,7 @@ int main(int argc, char** argv) {
         // dip through black at each switch so the change reads as a transition, not a glitch
         float dip = 0.f;
         for (int cut = 40; cut <= 160; cut += 40)
-            dip = std::max(dip, 1.f - std::abs(float(f.index - cut)) / 6.f);
+            dip = std::max(dip, 1.f - std::abs(float(f.index - cut)) / 3.f);
         if (dip > 0.f)
             ImGui::GetForegroundDrawList()->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), IM_COL32(8, 8, 14, int(255 * dip)));
     }});
@@ -176,7 +176,7 @@ int main(int argc, char** argv) {
         const bool first = i == 0, last = i + 1 == scenes.size();
         scenes[i].draw = [draw = scenes[i].draw, first, last](const Frame& f) {
             draw(f);
-            float dip = last ? 0.f : 1.f - float(f.frames - 1 - f.index) / 9.f;
+            float dip = last ? 0.f : 1.f - float(f.frames - 1 - f.index) / 4.f;
             if (!first)
                 dip = std::max(dip, 1.f - float(f.index) / 9.f);
             if (dip > 0.f)
