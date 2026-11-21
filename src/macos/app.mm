@@ -40,6 +40,13 @@ namespace imshell {
         float gBarHeight = 28;
         std::string gTheme, gSystemKey; // what the window was last given; the system look last read
 
+// the stuck-key logs are for debug builds; a release build compiles them out
+#ifdef NDEBUG
+#define STUCK_LOG(...) ((void)0)
+#else
+#define STUCK_LOG(...) std::fprintf(stderr, __VA_ARGS__)
+#endif
+
         // a key-up the window never got (cmd swallows them, screenshots and overlays eat them)
         // leaves imgui holding the key, and glfw too: its next press arrives as a repeat, which
         // imgui's backend drops. so each frame what imgui holds is checked against the os, and
@@ -73,7 +80,7 @@ namespace imshell {
             for (const auto& m : mods) {
                 if (ImGui::IsKeyDown(m.key) && !(flags & m.flag)) {
                     io.AddKeyEvent(m.key, false);
-                    std::fprintf(stderr, "imshell: released stuck %s\n", m.name);
+                    STUCK_LOG("imshell: released stuck %s\n", m.name);
                 }
             }
             static const struct {
@@ -93,7 +100,7 @@ namespace imshell {
                     return;
                 io.AddKeyEvent(key, false);
                 gForced[glfwKey] = true;
-                std::fprintf(stderr, "imshell: released stuck key %d\n", glfwKey);
+                STUCK_LOG("imshell: released stuck key %d\n", glfwKey);
             };
             for (const auto& n : named)
                 check(n.glfw, n.key);
