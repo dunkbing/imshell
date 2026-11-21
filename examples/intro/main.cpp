@@ -97,14 +97,20 @@ int main(int argc, char** argv) {
     }});
 
     // the same page in four palettes, switched like the picker would: the theme is global, so these are cuts inside one scene
-    scenes.push_back({"themes", 200, 10, [](const Frame& f) {
+    scenes.push_back({"themes", 200, 0, [](const Frame& f) {
         static const char* const ids[] = {"tokyo-night", "one-light", "catppuccin-mocha", "gruvbox-dark", "tokyo-night"};
-        backdrop(ids[std::min(4, f.index / 50)]);
+        backdrop(ids[std::min(4, f.index / 40)]);
         page(f, 0.f, 120.f, 120.f);
         caption("Eighteen themes, one line to switch", f);
-    }, true});
+        // dip through black at each switch so the change reads as a transition, not a glitch
+        float dip = 0.f;
+        for (int cut = 40; cut <= 160; cut += 40)
+            dip = std::max(dip, 1.f - std::abs(float(f.index - cut)) / 6.f);
+        if (dip > 0.f)
+            ImGui::GetForegroundDrawList()->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), IM_COL32(8, 8, 14, int(255 * dip)));
+    }});
 
-    scenes.push_back({"form", 140, 10, [](const Frame& f) {
+    scenes.push_back({"form", 140, 0, [](const Frame& f) {
         backdrop("tokyo-night");
         const std::string email = "ada@example.com";
         const int typed = static_cast<int>(Interpolate(f.position(), {10.f, 70.f}, {0.f, float(email.size())}, Ease::Linear));
@@ -114,18 +120,18 @@ int main(int argc, char** argv) {
         gallery.loading = f.index < 110;
         page(f, 0.f, 360.f, 120.f);
         caption("Cards, fields, chips, badges, progress", f);
-    }, true});
+    }});
 
-    scenes.push_back({"editor", 130, 10, [](const Frame& f) {
+    scenes.push_back({"editor", 130, 0, [](const Frame& f) {
         backdrop("catppuccin-mocha");
         const std::string code = kCode;
         const int typed = static_cast<int>(Interpolate(f.position(), {10.f, 100.f}, {0.f, float(code.size())}, Ease::Linear));
         gallery.editor.SetText(code.substr(0, static_cast<size_t>(std::max(0, typed))));
         page(f, 620.f, 620.f, 120.f, false);
         caption("A code editor with highlighting and completion hooks", f);
-    }, true});
+    }});
 
-    scenes.push_back({"everywhere", 90, 10, [](const Frame& f) {
+    scenes.push_back({"everywhere", 90, 0, [](const Frame& f) {
         backdrop("tokyo-night");
         const imshell::Theme& t = imshell::CurrentTheme();
         centered("One codebase", 150.f, 84.f, faded(t.foreground, ease(f, 0, 14, 0.f, 1.f)));
@@ -139,9 +145,9 @@ int main(int argc, char** argv) {
             text(names[i], x + 36.f, y + 52.f, 40.f, faded(t.foreground, a));
         }
         centered("native window, native title bar, one frame loop", 880.f, 38.f, faded(t.mutedForeground, ease(f, 60, 78, 0.f, 1.f)));
-    }, true});
+    }});
 
-    scenes.push_back({"video", 110, 10, [](const Frame& f) {
+    scenes.push_back({"video", 110, 0, [](const Frame& f) {
         backdrop("tokyo-night");
         const imshell::Theme& t = imshell::CurrentTheme();
         centered("This video is an imshell app", 150.f, 76.f, faded(t.foreground, ease(f, 0, 14, 0.f, 1.f)));
@@ -155,16 +161,28 @@ int main(int argc, char** argv) {
             const float la = ease(f, 36 + i * 12, 48 + i * 12, 0.f, 1.f);
             text(lines[i], 360.f, 450.f + i * 80.f, 42.f, faded(i % 2 ? t.mutedForeground : t.foreground, la));
         }
-    }, true});
+    }});
 
-    scenes.push_back({"end", 70, 10, [](const Frame& f) {
+    scenes.push_back({"end", 70, 0, [](const Frame& f) {
         backdrop("tokyo-night");
         const imshell::Theme& t = imshell::CurrentTheme();
         const float a = ease(f, 0, 14, 0.f, 1.f);
         centered("imshell", 340.f, 170.f, faded(t.foreground, a));
         centered("github.com/dunkbing/imshell", 580.f, 52.f, faded(t.primary, ease(f, 14, 30, 0.f, 1.f)));
-    }, true});
+    }});
 
+    // every scene edge dips through black (the theme is global, so a dissolve would repaint the outgoing scene)
+    for (size_t i = 0; i < scenes.size(); ++i) {
+        const bool first = i == 0, last = i + 1 == scenes.size();
+        scenes[i].draw = [draw = scenes[i].draw, first, last](const Frame& f) {
+            draw(f);
+            float dip = last ? 0.f : 1.f - float(f.frames - 1 - f.index) / 9.f;
+            if (!first)
+                dip = std::max(dip, 1.f - float(f.index) / 9.f);
+            if (dip > 0.f)
+                ImGui::GetForegroundDrawList()->AddRectFilled(ImVec2(0, 0), ImVec2(W, H), IM_COL32(8, 8, 14, int(255 * std::min(dip, 1.f))));
+        };
+    }
     Composition comp = MakeComposition(static_cast<int>(W), static_cast<int>(H), 30, scenes);
     comp.setup = [] { gallery.setup(); };
     if (const char* music = std::getenv("IMSHELL_INTRO_MUSIC")) // a track to lay under it
