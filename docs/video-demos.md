@@ -1,7 +1,13 @@
 # Video demos
 
-Each of these was made with `imshell-video`, a script and one command; the script is in [`examples/video/script/`](https://github.com/dunkbing/imshell/tree/main/examples/video/script) next to the name under the video.
+Each of these was made with imshell's video tool (the first from C++, the rest as `imshell-video` scripts); the source is in [`examples/video/script/`](https://github.com/dunkbing/imshell/tree/main/examples/video/script) next to the name under the video.
 How to make one is in [Video](video.md).
+
+## Introducing imshell
+
+The components gallery, drawn by imshell's own widgets in four themes, a typed form and the code editor, then the platforms and the video tool itself. It is a C++ composition, `examples/intro/main.cpp`, over the same gallery code the website demo runs.
+
+<video controls preload="metadata" width="100%" src="/video-demos/imshell-intro.mp4"></video>
 
 ## imshell-video intro
 
