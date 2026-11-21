@@ -5,7 +5,7 @@ How to make one is in [Video](video.md).
 
 ## Introducing imshell
 
-The components gallery, drawn by imshell's own widgets in four themes, a typed form and the code editor, then the platforms and the video tool itself. It is a C++ composition, `examples/intro/main.cpp`, over the same gallery code the website demo runs.
+The components gallery, drawn by imshell's own widgets in four themes, a typed form and the code editor, the native symbols and controls, measured speed, the platforms and the video tool itself. It is a C++ composition, `examples/intro/main.cpp`, over the same gallery code the website demo runs.
 
 <video controls preload="metadata" width="100%" src="/video-demos/imshell-intro.mp4"></video>
 

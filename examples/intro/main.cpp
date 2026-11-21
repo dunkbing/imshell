@@ -131,6 +131,52 @@ int main(int argc, char** argv) {
         caption("A code editor with highlighting and completion hooks", f);
     }});
 
+    scenes.push_back({"native", 120, 0, [](const Frame& f) {
+        backdrop("tokyo-night");
+        const imshell::Theme& t = imshell::CurrentTheme();
+        centered("Native where it counts", 110.f, 80.f, faded(t.foreground, ease(f, 0, 10, 0.f, 1.f)));
+        // the system's own symbols (SF Symbols here), drawn through imshell::Icon
+        static const char* const names[] = {"gearshape", "trash", "magnifyingglass", "plus", "folder", "doc.on.doc",
+                                            "arrow.clockwise", "square.and.arrow.up", "star", "heart", "lock", "bell"};
+        for (int i = 0; i < 12; ++i) {
+            const float a = ease(f, 8 + i * 2, 20 + i * 2, 0.f, 1.f);
+            const float x = 150.f + (i % 6) * 270.f, y = 270.f + (i / 6) * 150.f + (1.f - a) * 24.f;
+            ImDrawList* dl = ImGui::GetForegroundDrawList();
+            dl->AddRectFilled(ImVec2(x, y), ImVec2(x + 230.f, y + 120.f), faded(t.card, a), 20.f);
+            dl->AddRect(ImVec2(x, y), ImVec2(x + 230.f, y + 120.f), faded(t.border, a), 20.f, 0, 2.f);
+            const char* glyph = imshell::Icon(names[i], "?");
+            dl->AddText(ImGui::GetFont(), 56.f, ImVec2(x + (230.f - textWidth(glyph, 56.f)) * 0.5f, y + 16.f), faded(t.primary, a), glyph);
+            text(names[i], x + (230.f - textWidth(names[i], 18.f)) * 0.5f, y + 86.f, 18.f, faded(t.mutedForeground, a));
+        }
+        const char* lines[] = {"a real NSView, WinUI control or GtkWidget inside the layout",
+                               "native title bar buttons, menus, tray icon and notifications",
+                               "the system font and symbols, with your own theme on top"};
+        for (int i = 0; i < 3; ++i)
+            centered(lines[i], 620.f + i * 62.f, 38.f, faded(i == 0 ? t.foreground : t.mutedForeground, ease(f, 40 + i * 14, 56 + i * 14, 0.f, 1.f)));
+        centered("the symbols above are the real ones; this video draws ImGui stand-ins for the OS controls", 960.f, 24.f, faded(t.mutedForeground, 0.7f * ease(f, 70, 86, 0.f, 1.f)));
+    }});
+
+    // measured with `imshell_intro bench` on this video (1080p, full components gallery, Apple M4)
+    scenes.push_back({"speed", 110, 0, [](const Frame& f) {
+        backdrop("tokyo-night");
+        const imshell::Theme& t = imshell::CurrentTheme();
+        centered("Fast, and small", 110.f, 80.f, faded(t.foreground, ease(f, 0, 10, 0.f, 1.f)));
+        struct Stat { float value; const char* unit; const char* label; ImVec4 color; };
+        const Stat stats[] = {{1270.f, " fps", "drawing this page", t.primary}, {227.f, " fps", "rendering it to mp4", t.primary}, {145.f, " MB", "peak memory", t.mutedForeground}};
+        for (int i = 0; i < 3; ++i) {
+            const float start = 8.f + i * 10.f, p = ease(f, start, start + 36.f, 0.f, 1.f), a = ease(f, start, start + 10.f, 0.f, 1.f);
+            const float x = 120.f + i * 600.f, y = 330.f;
+            ImDrawList* dl = ImGui::GetForegroundDrawList();
+            dl->AddRectFilled(ImVec2(x, y), ImVec2(x + 560.f, y + 360.f), faded(t.card, a), 28.f);
+            dl->AddRect(ImVec2(x, y), ImVec2(x + 560.f, y + 360.f), faded(t.border, a), 28.f, 0, 2.f);
+            char num[32];
+            std::snprintf(num, sizeof num, "%d%s", int(stats[i].value * p + 0.5f), stats[i].unit);
+            text(num, x + 40.f, y + 70.f, 110.f, faded(stats[i].color, a));
+            text(stats[i].label, x + 44.f, y + 240.f, 38.f, faded(t.mutedForeground, a));
+        }
+        centered("7.6x real time. This 1080p video, Apple M4, measured by the tool itself.", 800.f, 32.f, faded(t.foreground, ease(f, 56, 72, 0.f, 1.f)));
+    }});
+
     scenes.push_back({"everywhere", 90, 0, [](const Frame& f) {
         backdrop("tokyo-night");
         const imshell::Theme& t = imshell::CurrentTheme();
@@ -186,6 +232,6 @@ int main(int argc, char** argv) {
     Composition comp = MakeComposition(static_cast<int>(W), static_cast<int>(H), 30, scenes);
     comp.setup = [] { gallery.setup(); };
     if (const char* music = std::getenv("IMSHELL_INTRO_MUSIC")) // a track to lay under it
-        comp.audio.push_back({.path = music, .duration = 27.3, .volume = 0.8f, .fadeIn = 1.0, .fadeOut = 2.5});
+        comp.audio.push_back({.path = music, .duration = comp.frames / 30.0, .volume = 0.8f, .fadeIn = 1.0, .fadeOut = 2.5});
     return Cli(comp, argc, argv, "imshell_intro");
 }
