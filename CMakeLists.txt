@@ -414,6 +414,8 @@ if(IMSHELL_BUILD_EXAMPLES AND NOT IOS)
     if(TARGET imshell_video)
         add_executable(imshell_video_demo examples/video/main.cpp ${IMSHELL_IMGUI_CORE})
         target_link_libraries(imshell_video_demo PRIVATE imshell_video)
+        add_executable(imshell_video_bench examples/video/bench.cpp ${IMSHELL_IMGUI_CORE})
+        target_link_libraries(imshell_video_bench PRIVATE imshell_video)
     endif()
     # the components gallery; on the web it is the site's demo
     if(NOT ANDROID)
