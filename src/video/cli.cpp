@@ -12,8 +12,12 @@
 #include <filesystem>
 #include <map>
 #include <sstream>
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#include <io.h>
+#define isatty _isatty
+#else
 #include <sys/resource.h>
+#include <unistd.h>
 #endif
 
 namespace imshell::video {
@@ -118,7 +122,7 @@ namespace imshell::video {
         };
 
         Args parse(int argc, char** argv, int from) {
-            static const char* const booleans[] = {"--json", "--draft", "--ffmpeg", "--paused", "--help", "--no-pops", "--images", "--transparent"};
+            static const char* const booleans[] = {"--json", "--draft", "--ffmpeg", "--paused", "--help", "--no-pops", "--images", "--transparent", "--silent-audio"};
             Args args;
             for (int i = from; i < argc; ++i) {
                 const std::string a = argv[i];
@@ -136,6 +140,7 @@ namespace imshell::video {
         Composition scaled(const Composition& comp, const Args& args) {
             Composition out = comp;
             out.transparent = out.transparent || args.has("--transparent");
+            out.silentAudio = out.silentAudio || args.has("--silent-audio");
             const double factor = args.has("--draft") ? 0.5 : args.num("--scale", 1.0);
             if (factor > 0.0 && factor != 1.0) {
                 out.width = std::max(2, static_cast<int>(std::lround(comp.width * factor / 2.0)) * 2);
@@ -277,10 +282,12 @@ namespace imshell::video {
                          "                                    full size pngs (frame_<n>.png); a crop is shown zoomed\n"
                          "  strip [RANGE | TIMES] [-n 12] [--columns 4] [--width 480] [-o strip.png]\n"
                          "                                    a contact sheet, each cell labelled with its frame\n"
-                         "  render [RANGE] [-o out.mp4] [--draft] [--scale F] [--ffmpeg] [--codec h264|hevc|vp9|prores] [--bitrate KBPS] [--crf N] [--images] [--transparent]\n"
+                         "  render [RANGE] [-o out.mp4] [--draft] [--scale F] [--ffmpeg] [--codec h264|hevc|vp9|prores] [--bitrate KBPS] [--crf N] [--images] [--transparent] [--silent-audio]\n"
                          "                                    encode (--draft: half size; a codec, bitrate or crf other than the default, or --ffmpeg, uses the ffmpeg binary;\n"
                          "                                    the extension picks the container: .mp4, .webm, .mov; --images: -o is a folder of frame_000000.png;\n"
-                         "                                    --transparent: clear to transparent, for prores .mov, vp9 .webm or --images)\n"
+                         "                                    --transparent: clear to transparent, for prores .mov, vp9 .webm or --images; --silent-audio: a silent stereo aac track\n"
+                         "                                    when the scene has no sound, which an App Store preview needs)\n"
+                         "  onion [RANGE] -n N [-o onion.png] frames laid over each other, to see a movement's path and easing\n"
                          "  preview [TIME] [--paused]         the real-time window\n"
                          "  verify [RANGE]                    playing in order and seeking must give the same pictures\n"
                          "  bench [RANGE] [--runs 3]          frames per second of drawing alone and of a render to mp4, best of the runs, and peak memory\n"
@@ -383,6 +390,65 @@ namespace imshell::video {
             return 0;
         }
 
+        // onion [RANGE] -n N [-o onion.png]: N frames of the range laid over each other, the last one strongest, so a movement's path and
+        // easing show in one picture (spacing between the ghosts is speed: close = slow, far = fast)
+        int onion(const Composition& comp, const Args& args) {
+            int from = 0, to = comp.frames;
+            if (args.positional.size() >= 2 && !parseRange(comp, args.positional[1], from, to)) {
+                std::fprintf(stderr, "not a range: %s\n", args.positional[1].c_str());
+                return 1;
+            }
+            const std::vector<int> frames = spread(from, to, std::max(2, static_cast<int>(args.num("-n", 8))));
+            std::vector<Image> shots;
+            for (int index : frames) {
+                std::string error;
+                shots.push_back(RenderFrame(comp, index, &error));
+                if (shots.back().width == 0) {
+                    std::fprintf(stderr, "frame %d failed: %s\n", index, error.c_str());
+                    return 1;
+                }
+            }
+            // the background is the per-channel median of the frames; every frame is laid over it where it differs, the last at full strength
+            Image last = shots[0];
+            Image bg;
+            std::vector<unsigned char> column(shots.size());
+            for (size_t k = 0; k < last.rgba.size(); ++k) {
+                if (k % 4 == 3) {
+                    continue;
+                }
+                for (size_t i = 0; i < shots.size(); ++i) {
+                    column[i] = shots[i].rgba[k];
+                }
+                std::nth_element(column.begin(), column.begin() + static_cast<long>(column.size() / 2), column.end());
+                last.rgba[k] = column[column.size() / 2];
+                if (bg.rgba.empty()) {
+                    bg = last;
+                }
+                bg.rgba[k] = last.rgba[k];
+            }
+            for (size_t i = 0; i < shots.size(); ++i) {
+                const float a = i + 1 == shots.size() ? 1.f : 0.6f;
+                for (size_t k = 0; k + 3 < last.rgba.size(); k += 4) {
+                    int away = 0;
+                    for (int c = 0; c < 3; ++c) {
+                        away = std::max(away, std::abs(static_cast<int>(shots[i].rgba[k + c]) - static_cast<int>(bg.rgba[k + c])));
+                    }
+                    if (away > 12) {
+                        for (int c = 0; c < 3; ++c) {
+                            last.rgba[k + c] = static_cast<unsigned char>(static_cast<float>(last.rgba[k + c]) * (1.f - a) + static_cast<float>(shots[i].rgba[k + c]) * a + 0.5f);
+                        }
+                    }
+                }
+            }
+            const std::string path = args.get("-o", "onion.png");
+            if (!SavePng(last, path)) {
+                std::fprintf(stderr, "could not write %s\n", path.c_str());
+                return 1;
+            }
+            std::printf("%s\n", path.c_str());
+            return 0;
+        }
+
         int strip(const Composition& comp, const Args& args) {
             std::vector<int> frames;
             int from = 0, to = comp.frames;
@@ -462,7 +528,9 @@ namespace imshell::video {
                 std::string error;
                 int written = 0;
                 options.progress = [](int done, int total) {
-                    std::fprintf(stderr, "\r%d / %d", done, total);
+                    if (isatty(2)) { // a counter with no newlines floods captured output
+                        std::fprintf(stderr, "\r%d / %d", done, total);
+                    }
                     return true;
                 };
                 const bool played = Frames(comp, options, [&](int n, const Image& image) {
@@ -483,7 +551,9 @@ namespace imshell::video {
                 options.encoder = Encoder::Ffmpeg;
             }
             options.progress = [](int done, int total) {
-                std::fprintf(stderr, "\r%d / %d", done, total);
+                if (isatty(2)) {
+                    std::fprintf(stderr, "\r%d / %d", done, total);
+                }
                 return true;
             };
             const std::string path = args.get("-o", "out.mp4");
@@ -815,6 +885,9 @@ namespace imshell::video {
         }
         if (command == "frame") {
             return frameCommand(sized, args);
+        }
+        if (command == "onion") {
+            return onion(sized, args);
         }
         if (command == "strip") {
             return strip(sized, args);

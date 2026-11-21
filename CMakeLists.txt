@@ -1,6 +1,24 @@
 cmake_minimum_required(VERSION 3.23)
 project(imshell LANGUAGES CXX)
 
+# glfw is the window layer on macOS and Windows: use an installed one (vcpkg, brew), else fetch it,
+# so a render-only project needs no package manager
+option(IMSHELL_FETCH_GLFW "always build glfw from source (static), ignoring an installed one: for a binary that is handed to other machines" OFF)
+macro(imshell_find_glfw)
+    if(NOT IMSHELL_FETCH_GLFW)
+        find_package(glfw3 CONFIG QUIET)
+    endif()
+    if(NOT TARGET glfw AND NOT TARGET glfw3::glfw)
+        include(FetchContent)
+        set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+        set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+        set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+        set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+        FetchContent_Declare(imshell_glfw GIT_REPOSITORY https://github.com/glfw/glfw.git GIT_TAG 3.4 GIT_SHALLOW TRUE)
+        FetchContent_MakeAvailable(imshell_glfw)
+    endif()
+endmacro()
+
 # dear imgui and the libraries on it are submodules in external/ (git submodule update --init
 # --recursive); a host may set these to its own copies. the host still compiles imgui core once,
 # from IMSHELL_IMGUI_DIR: a second copy of imgui's statics would silently split the context
@@ -200,6 +218,22 @@ elseif(WIN32) # direct3d 11 offscreen (warp with no gpu), ffmpeg encodes
 endif()
 if(TARGET imshell_video)
     target_sources(imshell_video PRIVATE src/video/cli.cpp src/video/check.cpp src/video/footage.cpp) # the command line and the checks, over the public api only
+    # imshell-video: the command line over a scene written in JavaScript (quickjs-ng, fetched at a pinned tag), so a video needs no compiler
+    option(IMSHELL_VIDEO_JS "build imshell-video, which runs a scene.js through the video command line" OFF)
+    if(IMSHELL_VIDEO_JS)
+        include(FetchContent)
+        include(cmake/ImShellEmbed.cmake)
+        FetchContent_Declare(imshell_quickjs GIT_REPOSITORY https://github.com/quickjs-ng/quickjs.git GIT_TAG v0.9.0 GIT_SHALLOW TRUE)
+        FetchContent_GetProperties(imshell_quickjs)
+        if(NOT imshell_quickjs_POPULATED)
+            FetchContent_Populate(imshell_quickjs)
+            add_subdirectory(${imshell_quickjs_SOURCE_DIR} ${imshell_quickjs_BINARY_DIR} EXCLUDE_FROM_ALL)
+        endif()
+        imshell_embed_fonts(${CMAKE_CURRENT_SOURCE_DIR}/assets/video-fonts)
+        file(GLOB IMSHELL_VIDEO_IMGUI ${IMSHELL_IMGUI_DIR}/imgui*.cpp)
+        add_executable(imshell-video src/video/js_main.cpp src/video/js.cpp ${EMBEDDED_FONTS_FILE} ${IMSHELL_VIDEO_IMGUI})
+        target_link_libraries(imshell-video PRIVATE imshell_video qjs)
+    endif()
 endif()
 
 # optional node editor (imshell/node_editor.hpp): imgui-node-editor, themed
@@ -239,7 +273,7 @@ elseif(IOS)
         "-framework QuartzCore" "-framework Foundation" "-framework UniformTypeIdentifiers"
         "-framework UserNotifications")
 elseif(APPLE)
-    find_package(glfw3 CONFIG REQUIRED)
+    imshell_find_glfw()
     target_sources(imshell PRIVATE
         src/macos/app.mm
         src/macos/metal_backend.mm
@@ -264,7 +298,7 @@ elseif(APPLE)
         "-framework ImageIO" "-framework CoreGraphics" "-framework UniformTypeIdentifiers"
         "-framework UserNotifications")
 elseif(WIN32)
-    find_package(glfw3 CONFIG REQUIRED)
+    imshell_find_glfw()
     target_sources(imshell PRIVATE
         src/windows/app.cpp
         src/windows/clipboard.cpp
@@ -464,6 +498,20 @@ if(IMSHELL_BUILD_TESTS)
         target_link_libraries(imshell_video_generic_test PRIVATE mfplat mfreadwrite mfuuid ole32)
     endif()
     add_test(NAME imshell_video_generic_test COMMAND imshell_video_generic_test)
+    if(TARGET imshell-video)
+    set(JS_TESTS ${CMAKE_CURRENT_SOURCE_DIR}/tests/video_js)
+    add_test(NAME imshell_video_js_inspect COMMAND imshell-video ${JS_TESTS}/ok.js inspect all)
+    add_test(NAME imshell_video_js_deterministic COMMAND imshell-video ${JS_TESTS}/ok.js verify)
+    # a script that throws, or never calls video(), must fail loudly (exit 1), not render a blank frame
+    add_test(NAME imshell_video_js_throws COMMAND imshell-video ${JS_TESTS}/throws.js verify)
+    add_test(NAME imshell_video_js_no_video COMMAND imshell-video ${JS_TESTS}/none.js timeline)
+    set_tests_properties(imshell_video_js_throws PROPERTIES PASS_REGULAR_EXPRESSION "boom at frame 2")
+    set_tests_properties(imshell_video_js_no_video PROPERTIES WILL_FAIL TRUE)
+    add_test(NAME imshell_video_js_onion COMMAND imshell-video ${JS_TESTS}/ok.js onion -n 4 -o ${CMAKE_CURRENT_BINARY_DIR}/onion_test.png)
+    # an unknown colour string is an error naming it, not an opaque white rectangle
+    add_test(NAME imshell_video_js_bad_colour COMMAND imshell-video ${JS_TESTS}/badcolour.js verify)
+    set_tests_properties(imshell_video_js_bad_colour PROPERTIES PASS_REGULAR_EXPRESSION "not a colour: .chartreuse.")
+    endif()
     if(TARGET imshell_video)
         add_executable(imshell_video_render_test tests/video_render_test.cpp ${IMSHELL_TEST_IMGUI})
         target_include_directories(imshell_video_render_test PRIVATE include ${IMSHELL_IMGUI_DIR})

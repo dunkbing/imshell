@@ -1,8 +1,33 @@
 # Video
 
 `imshell::video` renders Dear ImGui to a video file with no window: a composition says how big, how fast and how long it is, and a function draws frame N.
-It is optional, in its own target, `imshell::video`, and it is a design only for now: nothing here is built yet.
+It is optional, in its own target, `imshell::video`, and builds on macOS, Linux and Windows.
 The model is the one fframes and mygo's render plugin share: a frame is a pure function of its number, so a render is fast, repeatable and easy for an agent to write.
+
+Demos are in [`docs/video-demos`](video-demos), each with its script in `examples/video/script/`: `imshell-video-intro`, `imshell-video-widgets` (real ImGui windows), `imshell-video-neon` (post effects: glow, chromatic, grain, vignette), `dearsql-neon`, `dearsql-question` and `dearsql-screen` (a real recording of an app with an automatic zoom camera, a drawn cursor and click ripples: `image(..., u0, v0, u1, v1)` crops the footage, `dearsql-screen.track.js` is the recorded mouse, joined to the script with `cat`).
+
+
+## Quick start
+
+`scripts/new-video NAME` checks the tools (and says what to install), copies `examples/video/starter/` (a `CMakeLists.txt` and a `main.cpp`, a 4 s title card) and builds it. By hand:
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DIMSHELL_DIR=/path/to/imshell # a C++20 compiler and CMake; glfw is fetched, Linux also needs ffmpeg
+cmake --build build
+./build/starter timeline                      # the scenes and their times, no pixels
+./build/starter strip all -n 12 -o strip.png  # a contact sheet to look at
+./build/starter inspect all && ./build/starter verify
+./build/starter render -o out.mp4
+```
+
+The project's CMake is six lines: set `IMSHELL_FILE_DIALOGS` OFF, `add_subdirectory` imshell, glob `${IMSHELL_IMGUI_DIR}/imgui*.cpp`, link `imshell::video`.
+Load a font in `comp.setup` (`ImGui::GetIO().Fonts->AddFontFromFileTTF(path, 0.f)`) and draw with it; the built-in one is a pixel font.
+
+Easy to get wrong:
+
+- Never multiply `ImGui::GetStyle().Alpha` and divide it back: the drift survives in a playing context and not in a seek one, so `verify` fails. Use `PushStyleVar(ImGuiStyleVar_Alpha, ...)` / `PopStyleVar()`.
+- Draw-list colours ignore style alpha; apply it to the colour yourself.
+- `frame` renders one frame in a fresh context, so auto-sizing child windows come out clipped. `render --images` or the last frame of a `strip` lets the layout settle.
 
 ## The shape
 
@@ -176,6 +201,46 @@ Measured on an Apple M4 (macOS, Metal and AVAssetWriter, Release):
 | `effects`: `ui` plus glow, grade, vignette, grain | 32 ms/frame (31 fps) | 32 ms/frame (31 fps) | 1.0x | 221 MB |
 
 The CPU effects run on all cores (rows and pixel ranges split across threads), which is exact: the output is byte-identical to the single-threaded pass.
+
+## Scripts (no compiler)
+
+`imshell-video scene.js <command>` runs a scene written in JavaScript through the same command line as a C++ composition (`timeline`, `frame`, `strip`, `inspect`, `verify`, `render`, `preview`).
+It is one binary with an embedded JavaScript engine (quickjs-ng) and a font (JetBrains Mono), so a video needs no compiler, CMake or package manager.
+Install it with one line, which downloads the release binary for your system and checks its SHA-256:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/dunkbing/imshell/main/scripts/install-video.sh | sh      # macOS arm64, Linux x64
+irm https://raw.githubusercontent.com/dunkbing/imshell/main/scripts/install-video.ps1 | iex             # Windows (PowerShell)
+```
+
+Or build it with `-DIMSHELL_VIDEO_JS=ON` (default off; quickjs-ng is fetched at a pinned tag; `-DIMSHELL_FETCH_GLFW=ON` links glfw statically so the binary runs on other machines).
+`imshell-video api` prints everything a scene can call, and `examples/video/script/scene.js` is the starter.
+A tag `video-vX.Y` runs `.github/workflows/video-release.yml`, which builds macOS arm64, Windows x64 and (experimental, untested) Linux x64 and publishes the archives with a `SHA256SUMS`.
+
+```js
+video({
+  width: 1280, height: 720, fps: 30, frames: 120,
+  draw(f) {
+    layer('back');
+    rect(0, 0, f.width, f.height, '#0e1220');
+    text('Hello', 100, 100 + springIn(f.position, f.fps, 40, 0, 6, 30), 96, rgba(255, 255, 255, interpolate(f.position, [6, 20], [0, 1], 'out')));
+  },
+});
+```
+
+It has the drawing calls, motion helpers, ImGui windows with real widgets, scenes with dissolves, audio and post effects (as data: the filters run natively, never per pixel in the script).
+A thrown error prints its message and `file:line:col` stack and exits 1; a frame never renders blank because a script failed.
+A frame must depend only on its number: `Math.random` is reseeded from the frame and `Date.now()` is 0, and a global that changes between frames is the script version of a `static`, which `verify` catches.
+Rendering runs at the same speed as the C++ path (the same 120-frame 720p scene renders in 0.38 s either way on an M4), because drawing and encoding are native; what a script removes is the toolchain.
+Not in the script front end: custom ImGui calls beyond the widgets above.
+Colours are `rgba(r, g, b, a)`, `'#rrggbb'` (also `#rgb`, `#rrggbbaa`) or CSS-style `'rgba(255, 255, 255, 0.3)'`; any other string is an error naming it.
+Scenes crossfade (the one leaving stays opaque while the next fades in over it); `crossfade: false` on a scene fades both, which dips dark at the middle.
+`gradientRect`, `shadow` (soft, from stacked rounded rects) and `clip` (cuts what a callback draws, e.g. an image panning in a frame) cover the common looks; `--set key=value` on any command becomes `args.key`, so one script renders many videos (`render --set name=Ada -o ada.mp4`).
+`onion -n 8` lays frames of a range over each other on their median background, so a movement's path and easing show in one picture.
+`silentAudio: true` (or `render --silent-audio`) writes a silent stereo AAC track when a scene has no sound: an App Store preview is refused without one.
+`verify` ignores a one level (1/255) difference per channel, which is the GPU rounding a few edge pixels between a long-running context and a fresh one, and reports the largest difference of any pixels beyond that.
+Known: on a 768-frame portrait scene the last frame differed by up to 28/255 in about 26 pixels between playing and seeking; smaller scenes do not reproduce it and the cause is not found.
+
 ## Order of work
 
 1. `video.hpp`, the composition, `Frame` and the closed-form helpers, with tests that need no GPU (easing, spring, sequence).

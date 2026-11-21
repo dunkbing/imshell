@@ -4,6 +4,7 @@
 // frame and the closed-form helpers, pure functions of the frame number (no clock, no state), so
 // a frame is the same picture whether it is played to or jumped to. see docs/video.md
 #include <algorithm>
+#include <cstdlib>
 #include <cmath>
 #include <functional>
 #include <span>
@@ -59,7 +60,8 @@ namespace imshell::video {
         int frames = 60;
         std::function<void()> setup;           // once, on the video's own ImGui context: fonts, theme
         std::function<void(const Frame&)> draw;
-        std::vector<AudioClip> audio;          // no clips, no audio track
+        std::vector<AudioClip> audio;          // no clips, no audio track (unless silentAudio)
+        bool silentAudio = false;              // write a silent stereo aac track when there are no clips: App Store previews and some platforms refuse an mp4 without one
         std::vector<Mark> marks;               // optional: the scenes, for the command line
         bool transparent = false;              // clear to transparent instead of black; Image and the png/ffmpeg output carry straight alpha (h264 and hevc cannot hold it: prores, vp9 or png images)
         // runs on every finished frame (render, frame, preview, inspect): imshell/video_effects.hpp has the filters. straight rgba, any size change is ignored
@@ -151,6 +153,26 @@ namespace imshell::video {
     // and compares the pixels. false when any differ, `report` names them: the composition keeps
     // state between frames, which a scrubber or a range render would show as a different picture
     bool Verify(const Composition& comp, std::span<const int> frames, std::string* report = nullptr);
+
+    // pixels of two rgba buffers that differ by more than one level in a channel, and the largest difference of all.
+    // one level (1/255) is what the gpu's rounding gives for a few edge pixels between a long-running context and
+    // a fresh one; nothing a viewer can see, so Verify does not count it as state kept between frames
+    struct PixelDiff {
+        size_t pixels = 0;
+        int largest = 0;
+    };
+    inline PixelDiff ComparePixels(const unsigned char* a, const unsigned char* b, size_t bytes) {
+        PixelDiff d;
+        for (size_t i = 0; i + 3 < bytes; i += 4) {
+            int worst = 0;
+            for (int c = 0; c < 4; ++c) {
+                worst = std::max(worst, std::abs(static_cast<int>(a[i + c]) - static_cast<int>(b[i + c])));
+            }
+            d.largest = std::max(d.largest, worst);
+            d.pixels += worst > 1;
+        }
+        return d;
+    }
 
     // plays frames [options.from, options.to) in order, as a render does (with options.blur), and
     // hands each as rgba; fn returns false to stop. the building block for checks and image sequences
