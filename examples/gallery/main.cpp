@@ -33,6 +33,7 @@ struct Gallery : imshell::Delegate {
     int theme = 0;
     bool sidebar = std::getenv("IMSHELL_GALLERY_VIBRANCY") != nullptr;
     bool sideOpen = true;
+    bool shot = false; // the screenshots tool: no native controls (there is no window), no theme picker
     float sideBase = 200.0f;
     int sideRow = 0;
     imshell::TextEditor editor;
@@ -127,6 +128,7 @@ struct Gallery : imshell::Delegate {
     void nativeControls() {
         static bool nativeOn = true, ownOn = true;
         static int nativeView = 0, ownView = 0, nativeSize = 1, ownSize = 1;
+        if (!shot) {
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(imshell::NativeControlsAvailable() ? "Native" : "Fallback");
         ImGui::SameLine();
@@ -135,8 +137,9 @@ struct Gallery : imshell::Delegate {
         imshell::NativeSegmented("##nativeSegments", {"List", "Grid", "Cards"}, &nativeView);
         ImGui::SameLine();
         imshell::NativePopUp("##nativePopUp", {"Small", "Medium", "Large"}, &nativeSize);
+        }
         ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted("imshell ");
+        ImGui::TextUnformatted(shot ? "Controls" : "imshell ");
         ImGui::SameLine();
         imshell::ToggleButton("##ownSwitch", &ownOn);
         ImGui::SameLine();
@@ -237,7 +240,14 @@ struct Gallery : imshell::Delegate {
         ImGui::SetNextWindowPos(ImVec2(content.pos.x + sideWidth, content.pos.y));
         ImGui::SetNextWindowSize(ImVec2(content.size.x - sideWidth, content.size.y));
         ImGui::Begin("gallery", nullptr, ImGuiWindowFlags_NoDecoration);
-        themePicker();
+        body();
+        ImGui::End();
+        ui::RenderToasts();
+    }
+    // the page itself, without the shell (the screenshots tool draws it offscreen)
+    void body() {
+        if (!shot)
+            themePicker();
         nativeIcons();
         nativeControls();
         ImGui::Spacing();
@@ -382,10 +392,7 @@ struct Gallery : imshell::Delegate {
         }
         ui::EndCard();
 
-        ImGui::End();
-        ui::RenderToasts();
     }
-
     void themePicker() {
         static std::vector<const char*> names = [] {
             std::vector<const char*> v;
@@ -406,6 +413,7 @@ struct Gallery : imshell::Delegate {
 
 static Gallery gallery; // android: outlives a recreated activity
 
+#ifndef IMSHELL_GALLERY_NO_MAIN
 int main() {
     const char* pick = std::getenv("IMSHELL_GALLERY_THEME"); // screenshots open one theme
     const std::string_view want = pick ? pick : "tokyo-night";
@@ -425,3 +433,4 @@ int main() {
     config.titleBar = true;
     return imshell::Run(config, gallery);
 }
+#endif

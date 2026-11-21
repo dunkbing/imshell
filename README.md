@@ -2,6 +2,13 @@
 
 A small toolkit for building cross-platform applications with [Dear ImGui](https://github.com/ocornut/imgui), extracted from [DearSQL](https://dearsql.dev) and grown alongside it.
 
+<p align="center">
+  <img src="docs/images/gallery-tokyo-night.webp" width="49%" alt="the components gallery in the Tokyo Night theme">
+  <img src="docs/images/gallery-one-light.webp" width="49%" alt="the same page in the One Light theme">
+</p>
+
+The components gallery (`examples/gallery`) in two of the eighteen themes, here drawn offscreen by `imshell_screenshots` (`-DIMSHELL_BUILD_EXAMPLES=ON`: `imshell_screenshots render <theme> --images -o dir`, the last frame is the picture). The same page with Catppuccin Mocha is [`docs/images/gallery-catppuccin-mocha.webp`](docs/images/gallery-catppuccin-mocha.webp).
+
 ## What it has
 
 - **[Platform shell](docs/platform-shell.md)** (`app.hpp`): the native window, graphics backend and frame loop on macOS (Metal), Windows (Direct3D 11), Linux (GTK4 + OpenGL), iOS (UIKit + Metal), Android (OpenGL ES) and the web (WebGL 2). The app implements `imshell::Delegate` and calls `imshell::Run(config, delegate)`.
