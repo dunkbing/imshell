@@ -32,6 +32,8 @@ namespace imshell::touch {
     void press(ImVec2 from, ImVec2 to);
     // the cursor follows a pressed finger
     void follow(ImVec2 p);
+    // a new drag picks its axis again (down() does it for a finger; a trackpad pan has no down)
+    void scrollStart();
     // 2 font sizes sideways, 5 down per wheel step: the content stays under the finger
     void scrollBy(ImVec2 d);
     void fling(ImVec2 velocity);

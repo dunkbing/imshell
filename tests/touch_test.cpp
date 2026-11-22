@@ -21,7 +21,7 @@ namespace {
     }
 
     bool clicked = false;
-    float wheel = 0;
+    float wheel = 0, wheelH = 0;
 
     // a button at the top left, an input field below it, empty space under both
     void frame() {
@@ -29,6 +29,7 @@ namespace {
         io.DeltaTime = 1.0f / 60.0f;
         ImGui::NewFrame();
         wheel += io.MouseWheel;
+        wheelH += io.MouseWheelH;
         ImGui::SetNextWindowPos(ImVec2(0, 0));
         ImGui::SetNextWindowSize(ImVec2(400, 400));
         ImGui::Begin("w", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove);
@@ -175,6 +176,21 @@ int main() {
     check(!touch::longPressDue(3.2), "not a long press yet");
     check(touch::longPressDue(3.6), "a long press");
     check(touch::state() == touch::State::None, "a long press ends the touch");
+
+    // a mostly vertical drag scrolls only vertically; a diagonal one moves both
+    touch::cancel();
+    touch::scrollStart();
+    wheel = wheelH = 0;
+    for (int i = 0; i < 6; ++i) {
+        touch::scrollBy(ImVec2(4, 12));
+        frame();
+    }
+    check(wheel != 0 && wheelH == 0, "a vertical drag locks to its axis");
+    touch::scrollStart();
+    wheel = wheelH = 0;
+    touch::scrollBy(ImVec2(12, 12));
+    frame();
+    check(wheel != 0 && wheelH != 0, "a diagonal drag scrolls both axes");
 
     ImGui::DestroyContext();
     std::printf(failures ? "touch_test: %d failed\n" : "touch_test: ok\n", failures);
