@@ -559,6 +559,8 @@ static imshell::TextKind gKind = imshell::TextKind::Code;
     [g setTranslation:CGPointZero inView:gView];
     // once, where the drag starts: a new mouse position with every step would hold each step's wheel
     // event back a frame (imgui trickles its input queue), and the scroll would stutter
+    if (g.state == UIGestureRecognizerStateBegan)
+        touch::scrollStart();
     if (g.state == UIGestureRecognizerStateBegan && g.numberOfTouches > 0)
         touch::hover(vec([g locationInView:gView])); // scroll the window under the finger
     touch::scrollBy(vec(d));

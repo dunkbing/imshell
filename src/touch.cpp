@@ -15,6 +15,11 @@ namespace imshell::touch {
         bool gMoved = false; // past the slop, though maybe not decided yet
         ImVec2 gVelocity, gFling;
         ImVec2 gScrollRest; // the part of a scroll under a whole point, carried to the next
+        // a drag mostly along one axis scrolls only that one, like a UIScrollView: imgui scrolls
+        // one axis a frame when both move, so a vertical swipe that drifts would jump sideways
+        enum class Lock { Undecided, X, Y, Free };
+        Lock gLock = Lock::Undecided;
+        ImVec2 gLockMove;
         bool gLift = false;
 
         // selection handles, as drawn last frame: where each end's character is (its line's
@@ -88,6 +93,7 @@ namespace imshell::touch {
 
     void down(ImVec2 p, double now) {
         gFling = gVelocity = gScrollRest = ImVec2(0, 0);
+        scrollStart();
         gLift = false;
         letGo();
         if (grabHandle(p))
@@ -117,7 +123,23 @@ namespace imshell::touch {
             hover(ImVec2(p.x + gGrabOffset.x, p.y + gGrabOffset.y));
     }
 
+    void scrollStart() {
+        gLock = Lock::Undecided;
+        gLockMove = ImVec2(0, 0);
+    }
+
     void scrollBy(ImVec2 d) {
+        if (gLock == Lock::Undecided) {
+            gLockMove = ImVec2(gLockMove.x + std::abs(d.x), gLockMove.y + std::abs(d.y));
+            if (length(gLockMove) > kSlop / 2)
+                gLock = gLockMove.x > 2 * gLockMove.y   ? Lock::X
+                        : gLockMove.y > 2 * gLockMove.x ? Lock::Y
+                                                        : Lock::Free;
+        }
+        if (gLock == Lock::X)
+            d.y = 0;
+        else if (gLock == Lock::Y)
+            d.x = 0;
         // imgui rounds a scroll position to whole points, so a step under half a point (a slow
         // drag, the tail of a flick) would be lost each time: send whole points, carry the rest.
         // its wheel steps are truncated (2 and 5 lines), so divide by the same
